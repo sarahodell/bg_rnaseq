@@ -1,0 +1,6 @@
+Scripts for running RNASeq Analysis Pipeline
+
+FASTQ file
+1) Trimmomatic
+2) fastqc
+3) STAR

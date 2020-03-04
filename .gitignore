@@ -1,0 +1,15 @@
+*.sh~
+*.py~
+*.R~
+*.fastq*
+*.out
+*.zip
+*.qz
+.gitignore~
+*.sam
+*.bam
+*.txt
+raw_reads
+trimmed
+*tmp
+README~
