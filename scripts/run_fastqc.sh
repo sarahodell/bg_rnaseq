@@ -11,7 +11,7 @@ qc_path=/home/sodell/projects/biogemma/expression/qc/
 for s in ${samples[@]};	do
     R1=${fastq_path}${samples}_R1_001.fastq.gz
     R2=${fastq_path}${samples}_R2_001.fastq.gz
-    java -jar $trimmomatic.jar PE $R1 $R2 ${trim_path}${s}_R1_001.qc.fastq.qz ${trim_path}orphans_1 ${trim_path}${s}_R2_001.qc.fastq.gz ${trim_path}orphans_2 ILLUMINACLIP:$trimmomatic/adapters/TruSeq2-PE.fa:2:40:14
+    java -jar $trimmomatic.jar PE $R1 $R2 ${trim_path}${s}_R1_001.qc.fastq.gz ${trim_path}orphans_1 ${trim_path}${s}_R2_001.qc.fastq.gz ${trim_path}orphans_2 ILLUMINACLIP:$trimmomatic/adapters/TruSeq2-PE.fa:2:40:14
 
 done
 ### Step 2: Run FastQC

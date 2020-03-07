@@ -13,3 +13,14 @@ raw_reads
 trimmed
 *tmp
 README~
+.RData
+.RHistory
+DS_Store
+Snakefile~
+*.tab
+.snakemake/
+test/
+multiqc_data/
+*.html
+star/genome_index
+star/qc/
