@@ -1,0 +1,80 @@
+{
+    "__default__" :
+    {
+	"p" : "med2",
+	"time" : "14-00:00",
+	"name" : "{rule}.{wildcards}",
+	"o" : "slurm-logs/{rule}_{wildcards}.%j.out",
+	"e" : "slurm-logs/{rule}_{wildcards}.%j.error"
+    },
+    "get_ref" :
+    {
+	"mem" : "18G",
+	"p" : "med2"
+    },
+    "run_fastqc" :
+    {
+	"mem" : "12G",
+	"p" : "med2"
+    },
+    "run_multiqc" :
+    {
+	"mem" : "20G",
+	"p" : "med2"
+    },
+    "genome_index1" :
+    {
+	"time" : "24:00:00",
+	"p" : "bigmemh",
+	"mem" : "125G"
+    },
+    "genome_index2" :
+    {
+	"time" : "24:00:00",
+	"p" : "bigmemh",
+	"mem" : "125G"
+    },
+    "pass1" :
+    {
+	"mem" : "125G",
+	"time" : "24:00:00",
+	"p" : "bigmemh"
+    },
+    "pass2":
+    {
+	"mem" : "125G",
+	"p" : "bigmemh",
+	"t" : "24:00:00"
+    },
+    "mark_duplicates" :
+    {
+      "mem" : "20G",
+    	"p" : "med2"
+    },
+    "index_bam" :
+    {
+      "mem" : "20G",
+    	"p" : "med2"
+    },
+    "rnaseqc" :
+    {
+      "mem" : "63G",
+      "p" : "bigmemh"
+    },
+    "bamqc" :
+    {
+      "mem" : "63G",
+      "p" : "bigmemh"
+    },
+    "multibamqc" :
+    {
+      "mem" : "20G",
+      "p" : "med2"
+    },
+    "htseq" :
+    {
+      "mem" : "7G",
+      "t" : "24:00:00",
+      "p" : "med2"
+    }
+ }

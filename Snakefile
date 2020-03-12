@@ -1,57 +1,40 @@
+import csv
+import os
+import pandas as pd
 import glob, sys
-fastqc_input = glob.glob('test/*_L001_R?_001.fastq.gz')
 
-fastqc_output = []
-for filename in fastqc_input:
-  filesplit=filename.split('/')[1]
-  filesplit2=filesplit.split('.')[0]
-  head=filesplit2.split('_')[0]+'_'+filesplit2.split('_')[1]
-  rg=filesplit2.split('_')[3]
-  new_filename = 'test/' + head + '_L001_' + rg + '_001' + '_fastqc.html'
-  fastqc_output.append(new_filename)
-  new_filename = 'test/' + head + '_L001_' + rg + '_001' + '.pe.qc_fastqc.html'
-  fastqc_output.append(new_filename)
-  
-print('from these input files', fastqc_input, file=sys.stderr)
-print('I constructed these output filenames', fastqc_output, file=sys.stderr)
+configfile: "config.yaml"
+
+DATA_PATH="raw_reads/batch_1"
+
+SAMPLES=["18048FL-06-01-01_S1_L001","18048FL-06-01-01_S1_L001","18048FL-06-01-02_S2_L001","18048FL-06-01-02_S2_L001"]
+LANES = [1]
+
+ALIGNMENT_TOOL="STAR"
+
+if ALIGNMENT_TOOL=="STAR":
+    outs=expand("final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam",sample=SAMPLES)
+else if ALIGNMENT_TOOL="salmon":
+    outs=expand("{sample}_transcripts_quant/quant.sf")
 
 rule all:
   input:
-    "multiqc_report.html"
-    
-rule clean:
-  shell:
-    "rm -f {fastqc_output} multiqc_report.html"
+    expand("qc/bg_batch_1_L00{lane}_multiqc.html",lane=LANES),
+    'pass1/sjdbList.out.tab',
+    expand('{sample}_pass1/SJ.out.tab', sample=SAMPLES),
+    expand('{sample}_pass2/Aligned.sortedByCoord.out.bam',sample=SAMPLES),
+    expand("final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam.bai",sample=SAMPLES),
+#    expand("qc/rnaseqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
+#    expand("qc/bamqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
+#    "qc/multisampleBamQcReport.html"
+#    expand('{sample}_HTSeq_union_gff3_no_gene_ID.log', sample=SAMPLES),
+#    expand('{sample}_HTSeq.csv', sample=SAMPLES),
 
-rule fastqc_a_file:
-  input:
-    "test/{arglebarf}.fastq.gz"
-  output:
-    "test/{arglebarf}_fastqc.html",
-    "test/{arglebarf}_fastqc.zip"
-  shell:
-    "fastqc {input}"
 
-rule run_multiqc:
-  input:
-    fastqc_output
-  output:
-    "multiqc_report.html",
-    directory("multiqc_data")
-  shell:
-    "multiqc test/"
+include: "rules/trimmomatic.smk"
+include: "rules/fastqc.smk"
+include: "rules/star.smk"
+#include: "rules/salmon.smk"
+#include: "rules/qualimap.smk"
 
-rule trim_reads:
-  input:
-    "test/{filename}_L001_R1_001.fastq.gz",
-    "test/{filename}_L001_R2_001.fastq.gz"
-  output:
-    "test/{filename}_L001_R1_001.pe.qc.fastq.gz",
-    "test/{filename}_L001_R1_001.se.qc.fastq.gz",
-    "test/{filename}_L001_R2_001.pe.qc.fastq.gz",
-    "test/{filename}_L001_R2_001.se.qc.fastq.gz"
-  shell:
-    """java -jar /home/sodell/bin/trimmomatic.jar PE {input} {output} LEADING:2 TRAILING:2 \
-      SLIDINGWINDOW:4:15 \
-      MINLEN:25 \
-      ILLUMINACLIP:/home/sodell/bin/trimmomatic/adapters/TruSeq2-PE.fa:2:40:14"""
+#include: "rules/htseq.smk"

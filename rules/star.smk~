@@ -1,0 +1,86 @@
+rule genome_index:
+    input:
+        fa = "/group/jrigrp/Share/assemblies/Zea_mays.AGPv4.dna.chr.fa",
+        gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.chr.gtf"
+    output:
+        "pass1/sjdbList.out.tab"
+    params:
+        pasdir = "pass1"
+    threads: 16
+    run:
+        shell("rm -rf {params.pasdir}")
+        shell("rm -rf _STARtmp")
+        shell("mkdir {params.pasdir}")
+        shell("STAR \
+        --runThreadN {threads} \
+        --runMode genomeGenerate \
+        --genomeDir {params.pasdir} \
+        --genomeFastaFiles {input.fa} \
+        --sjdbGTFfile {input.gtf} \
+        --sjdbOverhang 100")
+        shell("rm -rf _STARtmp")
+
+
+rule pass1:
+    input:
+        R1L1 = 'trimmed/{sample}_R1_001.pe.qc.fastq.gz',
+        R2L1 = 'trimmed/{sample}_R2_001.pe.qc.fastq.gz',
+        sjdb = 'pass1/sjdbList.out.tab'
+    output:
+        '{sample}_pass1/SJ.out.tab'
+    params:
+        sampdir = '{sample}_pass1',
+        rmbam = '{sample}_pass1/Aligned.out.bam',
+        passdir = 'pass1'
+    threads: 16
+    run:
+        shell("rm -rf {params.sampdir}")
+        shell("mkdir {params.sampdir}")
+        shell("cd {params.sampdir}")
+        shell("STAR --runThreadN {threads} \
+        --genomeDir {params.passdir} \
+        --readFilesIn {input.R1L1} {input.R2L1} \
+        --sjdbOverhang 100 \
+        --outFilterMultimapScoreRange 1 \
+        --outFilterMultimapNmax 20 \
+        --outFilterMismatchNmax 10 \
+        --alignIntronMax 500000 \
+        --alignMatesGapMax 1000000 \
+        --sjdbScore 2 \
+        --alignSJDBoverhangMin 1 \
+        --outFilterMatchNminOverLread 0.33 \
+        --outFilterScoreMinOverLread 0.33 \
+        --readFilesCommand zcat \
+        --outSAMtype BAM Unsorted")
+        shell("rm {params.rmbam}")
+        shell("rm -rf _STARtmp")
+        shell("cd ..")
+
+
+rule pass2:
+    input:
+        R1L1 = 'trimmed/{sample}_R1_001.pe.qc.fastq.gz',
+        R2L1 = 'trimmed/{sample}_R2_001.pe.qc.fastq.gz',
+        SJfiles = '{sample}_pass1/SJ.out.tab'
+    params:
+        outdir = '{sample}_pass2',
+        id = '{sample}',
+        refdir = 'pass1',
+        gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.chr.gtf"
+    output:
+        '{sample}_pass2/{sample}.Aligned.sortedByCoord.out.bam'
+    threads: 16
+    run:
+        shell("rm -rf {params.outdir}")
+        shell("mkdir {params.outdir}")
+        shell("cd {params.outdir}")
+        shell("STAR --runThreadN {threads} \
+        --genomeDir {params.refdir} \
+        --readFilesIn {input.R1L1} {input.R2L1} \
+        --readFilesCommand zcat \
+        --outSAMtype BAM SortedByCoordinate \
+        --sjdbFileChrStartEnd {input.SJfiles} \
+        --sjdbGTFfile {params.gtf} \
+        --outSAMattrRGline ID:{params.id} \
+        --quantMode TranscriptomeSAM GeneCounts")
+        shell("rm -rf _STARtmp")

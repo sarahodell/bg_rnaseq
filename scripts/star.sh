@@ -2,17 +2,18 @@
 
 #Set Paths
 threads=16
-sample="18048FL-06-01-01_S1_L001"
-
+sample1="18048FL-06-01-01_S1_L001"
+sample2="18048FL-06-01-02_S2_L001"
 reference=/group/jrigrp/Share/assemblies/Zea_mays.AGPv4.dna.chr.fa
 annotation=/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.chr.gtf
-fastq_left=trimmed/${sample}_R1_001.qc.fastq.gz
-fastq_right=trimmed/${sample}_R2_001.qc.fastq.gz
-
-tmp_dir=star/tmp
-output_path=star/genome_index/pass1
-output_path2=star/genome_index/pass2
-output_path3=star/results
+fastq_left1=/home/sodell/projects/biogemma/expression/trimmed/${sample1}_R1_001.pe.qc.fastq.gz
+fastq_right1=/home/sodell/projects/biogemma/expression/trimmed/${sample1}_R2_001.pe.qc.fastq.gz
+fastq_left2=/home/sodell/projects/biogemma/expression/trimmed/${sample2}_R1_001.pe.qc.fastq.gz
+fastq_right2=/home/sodell/projects/biogemma/expression/trimmed/${sample2}_R2_001.pe.qc.fastq.gz
+tmp_dir=/home/sodell/projects/biogemma/expression/star/tmp
+output_path=/home/sodell/projects/biogemma/expression/star/results/pass1
+output_path2=/home/sodell/projects/biogemma/expression/star/results/pass2
+output_path3=/home/sodell/projects/biogemma/expression/star/results/bamfiles
 
 if [ -d $tmp_dir ]
 then
@@ -39,7 +40,7 @@ fi
 
 STAR \
     --genomeDir $output_path \
-    --readFilesIn $fastq_left $fastq_right \
+    --readFilesIn $fastq_left1,$fastq_left2 $fastq_right1,$fastq_right2 \
     --outFilterMultimapScoreRange 1 \
     --outFilterMultimapNmax 20 \
     --outFilterMismatchNmax 20 \
@@ -70,6 +71,7 @@ fi
 STAR \
     --runMode genomeGenerate \
     --genomeDir $output_path2 \
+    --sjdbGTFfile $annotation \
     --genomeFastaFiles $reference \
     --sjdbOverhang 100 \
     --runThreadN $threads \
@@ -85,8 +87,7 @@ fi
 
 STAR \
     --genomeDir $output_path2 \
-    --quantMode TranscriptomeSAM GeneCounts \
-    --readFilesIn $fastq_left $fastq_right \
+    --readFilesIn $fastq_left1,$fastq_left2 $fastq_right1,$fastq_right2 \
     --runThreadN $threads \
     --outFilterMultimapScoreRange 1 \
     --outFilterMultimapNmax 20 \
@@ -106,11 +107,34 @@ STAR \
     --readFilesCommand zcat \
     --outSAMtype BAM SortedByCoordinate \
     --outSAMheaderHD @HD VN:1.4 \
-    --outSAMattrRGline ID:$sample
-    --outTmpDir $tmp_dir \
-    --outFileNamePrefix $output_path3/${sample}
+    --outSAMattrRGline ID:$sample \
+    --outFileNamePrefix $output_path3/${sample1}. $output_path3/${sample2}.
+
+echo "Step 5: Mark Duplicates"
+
+STAR \
+    --runMode inputAlignmentsFromBAM \
+    --bamRemoveDuplicatesType UniqueIdentical \
+    --readFilesCommand samtools view \
+    --readFilesType SAM PE \
+    --inputBAMfile $output_path3/${sample1}.Aligned.sortedByCoord.out.bam $output_path3/${sample2}.Aligned.sortedByCoord.out.bam \
+    --outFileNamePrefix $output_path3/${sample1}.sortedByCoord.MkDup. $output_path3/${sample1}.sortedByCoord.MkDup.
 
 
+## Clear out tmp directories
+echo "Step 6: Cleaning Up..."
+if [ -d $tmp_dir ]
+then
+    rm -r $tmp_dir
+fi
+
+
+rm -r $output_path3/*STAR_tmp
+if [ -d STAR_tmp ]
+then
+    rm -r STAR_tmp
+
+fi
 
 
 
