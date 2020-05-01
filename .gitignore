@@ -8,6 +8,7 @@
 .gitignore~
 *.sam
 *.bam
+*.bai
 *.txt
 raw_reads
 trimmed
@@ -24,3 +25,7 @@ multiqc_data/
 *.html
 star/genome_index
 star/qc/
+*.html
+pass1/
+pass2/
+qc/

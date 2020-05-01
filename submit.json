@@ -2,10 +2,15 @@
     "__default__" :
     {
 	"p" : "med2",
-	"time" : "14-00:00",
+	"time" : "24-00:00",
 	"name" : "{rule}.{wildcards}",
 	"o" : "slurm-logs/{rule}_{wildcards}.%j.out",
 	"e" : "slurm-logs/{rule}_{wildcards}.%j.error"
+    },
+    "trim_reads":
+    {
+      "mem" : "12G",
+      "p" : "bigmemm"
     },
     "get_ref" :
     {

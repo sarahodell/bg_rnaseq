@@ -7,12 +7,12 @@ echo $date
 
 module load conda3
 module load fastqc
-module load trimmomatic
 module load R
 module load star
 module load samtools
 module load multiqc
 module load java
+module load jdk
 module load bcftools
 module load qualimap/2.1.1
 module load python

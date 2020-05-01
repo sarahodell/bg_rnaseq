@@ -9,4 +9,5 @@
 
 module load star
 
-scripts/./star.sh
+#scripts/./star.sh
+scripts/./second_run.sh
