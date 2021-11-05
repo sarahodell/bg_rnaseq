@@ -1,6 +1,8 @@
 *.sh~
 *.py~
 *.R~
+*.smk~
+rules/*.smk~
 *.fastq*
 *.out
 *.zip
