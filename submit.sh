@@ -18,7 +18,7 @@ module load qualimap/2.1.1
 module load python
 module load HTSeq/0.9.1
 
-
+#--unlock \
 snakemake --jobs 200 --use-conda \
 --rerun-incomplete \
 --latency-wait 60 \

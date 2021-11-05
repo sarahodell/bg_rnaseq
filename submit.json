@@ -27,6 +27,18 @@
 	"mem" : "20G",
 	"p" : "med2"
     },
+    "salmon_index" :
+    {
+  "time" : "24:00:00",
+  "p" : "bigmemh",
+  "mem" : "125G"
+    },
+    "salmon_quant" :
+    {
+  "time" : "24:00:00",
+  "p" : "bigmemh",
+  "mem" : "125G"
+    },
     "genome_index1" :
     {
 	"time" : "24:00:00",
