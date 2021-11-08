@@ -28,7 +28,8 @@ ln -s /group/runciegrp/Data/Illumina/reads/bg/ .
 ```
 
 To run the snakemake pipeline, adjust the file, `Snakefile` so that it includes the sample files you'd like to run.
-The path to the fastq files on farm and their associated sample information can be found in ` raw_reads/BG_sequencing_sample_conversion_table.txt`
+The path to the fastq files on farm and their associated sample information can be found in ` metadata/BG_sequencing_sample_conversion_table.txt`
+Some of these files are from a different experiment, so the shortened list of files that we want to use for this project are found in `metadata/BG_completed_sample_list.txt`
 
 To change which programs you'd like to run, edit the bottom of the file to only `include` the rules you wish to run (comment out the rest), and also in the lines after `run all:`,
 comment out the output files that correspond to the programs you don't wish to run.

@@ -1,12 +1,16 @@
+
 rule trim_reads:
   input:
-    "raw_reads/batch_1/{filename}_R1_001.fastq.gz",
-    "raw_reads/batch_1/{filename}_R2_001.fastq.gz"
+    lambda wc: "raw_reads/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R1_001.fastq.gz",
+    lambda wc: "raw_reads/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R2_001.fastq.gz"
+
+    #"raw_reads/{dir}/{sample}_R1_001.fastq.gz",
+    #"raw_reads/{dir}/{sample}_R2_001.fastq.gz"
   output:
-    "trimmed/{filename}_R1_001.pe.qc.fastq.gz",
-    "trimmed/{filename}_R1_001.se.qc.fastq.gz",
-    "trimmed/{filename}_R2_001.pe.qc.fastq.gz",
-    "trimmed/{filename}_R2_001.se.qc.fastq.gz"
+    "trimmed/{sample}_R1_001.pe.qc.fastq.gz",
+    "trimmed/{sample}_R1_001.se.qc.fastq.gz",
+    "trimmed/{sample}_R2_001.pe.qc.fastq.gz",
+    "trimmed/{sample}_R2_001.se.qc.fastq.gz"
   params:
     trimmomatic="/home/sodell/bin/Trimmomatic-0.39/trimmomatic-0.39.jar",
     adapters="/home/sodell/bin/Trimmomatic-0.39/adapters/TruSeq2-PE.fa"
