@@ -1,12 +1,12 @@
 rule rnaseqc:
     input:
-        bam = "final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam",
+        bam = "final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam",
         gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.gtf"
     output:
-        "qc/rnaseqc/{sample}_stats/qualimapReport.html"
+        "qc/rnaseqc/{batch}/{sample}_stats/qualimapReport.html"
     params:
-        pdir = "qc/rnaseqc",
-        sampdir = "qc/rnaseqc/{sample}_stats",
+        pdir = "qc/rnaseqc/{batch}",
+        sampdir = "qc/rnaseqc/{batch}/{sample}_stats",
         mem = "63G",
         qualimap = "/share/apps/qualimap-2.1.1/qualimap.jar"
     run:
@@ -22,13 +22,13 @@ rule rnaseqc:
 
 rule bamqc:
     input:
-        bam = "final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam",
+        bam = "final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam",
         gff = '/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.gff3'
     output:
-        "qc/bamqc/{sample}_stats/qualimapReport.html"
+        "qc/bamqc/{batch}/{sample}_stats/qualimapReport.html"
     params:
-        pdir = "qc/bamqc",
-        sampdir = "qc/bamqc/{sample}_stats",
+        pdir = "qc/bamqc/{batch}",
+        sampdir = "qc/bamqc/{batch}/{sample}_stats",
         mem = "63G",
         qualimap = "/share/apps/qualimap-2.1.1/qualimap.jar"
     threads: 8

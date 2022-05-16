@@ -3,9 +3,9 @@ rule genome_index1:
         fa = "/group/jrigrp/Share/assemblies/Zea_mays.B73_RefGen_v4.dna.toplevel.fa",
         gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.gtf"
     output:
-        "pass1/sjdbList.out.tab"
+        "star/pass1/sjdbList.out.tab"
     params:
-        pasdir = "pass1"
+        pasdir = "star/pass1"
     threads: 16
     run:
         shell("if [ -d {params.pasdir} ]; then rm -rf {params.pasdir}; fi")
@@ -23,17 +23,20 @@ rule genome_index1:
 
 rule pass1:
     input:
-        R1L1 = 'trimmed/{sample}_R1_001.pe.qc.fastq.gz',
-        R2L1 = 'trimmed/{sample}_R2_001.pe.qc.fastq.gz',
-        sjdb = 'pass1/sjdbList.out.tab'
+        #lambda wc: "trimmed/"+R1_TABLE[R1_TABLE.batch == wc.batch].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R1_001.pe.qc.fastq.gz",
+        #lambda wc: "trimmed/"+R1_TABLE[R1_TABLE.batch == wc.batch].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R2_001.pe.qc.fastq.gz"
+        '/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz',
+        '/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz'
+        #R2L1 = 'trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz',
     output:
-        '{sample}_pass1/SJ.out.tab'
+        '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab'
     params:
-        sampdir = '{sample}_pass1/',
-        rmbam = '{sample}_pass1/Aligned.out.bam',
-        passdir = 'pass1',
-        tmpdir = '{sample}_tmp'
-    threads: 16
+        sampdir = '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/',
+        rmbam = '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/Aligned.out.bam',
+        passdir = 'star/pass1',
+        tmpdir = '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_tmp',
+        sjdb = 'star/pass1/sjdbList.out.tab',
+    threads: 5
     run:
         shell("if [ -d {params.sampdir} ]; then rm -rf {params.sampdir}; fi")
         shell("mkdir {params.sampdir}")
@@ -41,7 +44,7 @@ rule pass1:
         shell("if [ -d {params.tmpdir} ]; then rm -rf {params.tmpdir}; fi")
         shell("STAR --runThreadN {threads} \
         --genomeDir {params.passdir} \
-        --readFilesIn {input.R1L1} {input.R2L1} \
+        --readFilesIn {input} \
         --sjdbOverhang 100 \
         --outFilterMultimapScoreRange 1 \
         --outFilterMultimapNmax 20 \
@@ -66,11 +69,11 @@ rule genome_index2:
     input:
         fa = "/group/jrigrp/Share/assemblies/Zea_mays.B73_RefGen_v4.dna.toplevel.fa",
         gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.gtf",
-        SJfiles = expand('{sample}_pass1/SJ.out.tab',sample=SAMPLES)
+        SJfiles = expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',zip,batch=DIRECTORIES,sample=SAMPLES)
     output:
-        "pass2/sjdbList.out.tab"
+        "star/pass2/sjdbList.out.tab"
     params:
-        pasdir = "pass2"
+        pasdir = "star/pass2"
     threads: 16
     run:
         shell("if [ -d {params.pasdir} ]; then rm -rf {params.pasdir}; fi")
@@ -89,19 +92,23 @@ rule genome_index2:
 
 rule pass2:
     input:
-        R1L1 = 'trimmed/{sample}_R1_001.pe.qc.fastq.gz',
-        R2L1 = 'trimmed/{sample}_R2_001.pe.qc.fastq.gz',
-        sjdb = 'pass2/sjdbList.out.tab',
-        SJfiles = '{sample}_pass1/SJ.out.tab'
+        #lambda wc: "trimmed/"+R1_TABLE[R1_TABLE.batch == wc.batch].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R1_001.pe.qc.fastq.gz",
+        #lambda wc: "trimmed/"+R1_TABLE[R1_TABLE.batch == wc.batch].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R2_001.pe.qc.fastq.gz"
+        #'trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz',
+        #'trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz'
+        R1L1 = '/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz',
+        R2L1 = '/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz',
+        SJfiles = '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',
+        pass2="star/pass2/sjdbList.out.tab"
     params:
-        outdir = '{sample}_pass2/',
+        outdir = '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/',
         id = '{sample}',
-        refdir = 'pass2',
+        refdir = 'star/pass2',
         gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.chr.gtf",
-        tmpdir = '{sample}_tmp'
+        tmpdir = '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_tmp'
     output:
-        '{sample}_pass2/Aligned.sortedByCoord.out.bam'
-    threads: 16
+        '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam'
+    threads: 5
     run:
         shell("if [ -d {params.outdir} ]; then rm -rf {params.outdir}; fi")
         shell("mkdir {params.outdir}")
@@ -140,36 +147,44 @@ rule pass2:
 
 rule mark_duplicates:
     output:
-        "final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam",
+        "/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam"
     input:
-        "{sample}_pass2/Aligned.sortedByCoord.out.bam"
+        '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam'
     params:
-        prefix="{sample}_pass2/MkDup.",
-        tmp="{sample}_pass2/MkDup.Processed.out.bam",
-	    bamdir="final_bams/",
-        id='{sample}'
+        prefix="/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.",
+        tmp="/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}_tmp",
+	    bamdir="/group/runciegrp/Data/Illumina/bg/final_bams",
+        batchdir="/group/runciegrp/Data/Illumina/bg/final_bams/{batch}",
+        id="{sample}"
+    threads: 5
     run:
-        shell("if [ ! -d {params.bamdir}; then mkdir {params.bamdir}; fi")
+        #shell("if [ ! -d {params.bamdir}; then mkdir {params.bamdir}; fi")
+        #shell("cd {params.bamdir}")
+        shell("if [ ! -d {params.batchdir} ]; then mkdir {params.batchdir}; fi")
+        #shell("cd {params.batchdir}")
         shell("if [ -d -STARtmp ]; then rm -rf _STARtmp; fi")
-        shell("STAR \
+        shell("STAR --runThreadN {threads} \
 	    --runMode inputAlignmentsFromBAM \
         --bamRemoveDuplicatesType UniqueIdentical \
+        --limitBAMsortRAM 32000000000 \
         --readFilesCommand samtools view \
         --readFilesType SAM PE \
         --outSAMattrRGline ID:{params.id}\tSM:{params.id}\tLB:None\tPL:Illumina \
         --outSAMstrandField intronMotif \
         --outSAMattributes Standard \
         --outSAMunmapped Within \
+        --outTmpDir {params.tmp} \
         --inputBAMfile {input} \
         --outFileNamePrefix {params.prefix}")
-        shell("mv {params.tmp} {output}")
-        shell("rm -rf _STARtmp")
+        #shell("cd ..")
+        #shell("mv {params.tmp} {output}")
+        #shell("rm -rf _STARtmp")
 
 
 rule index_bam:
     output:
-        "final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam.bai"
+        "/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai"
     input:
-        "final_bams/{sample}.Aligned.sortedByCoord.MKDup.bam"
+        "/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam"
     run:
         shell("samtools index {input}")
