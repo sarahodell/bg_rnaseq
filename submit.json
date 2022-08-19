@@ -9,23 +9,23 @@
     },
     "trim_reads":
     {
-      "mem" : "12G",
-      "p" : "bigmemm"
+  "mem" : "23G",
+  "p" : "bigmemm"
     },
     "get_ref" :
     {
-	"mem" : "18G",
-	"p" : "med2"
+  "mem" : "15G",
+	"p" : "bigmemm"
     },
     "run_fastqc" :
     {
-	"mem" : "12G",
-	"p" : "med2"
+	"mem" : "15G",
+	"p" : "bigmemm"
     },
     "run_multiqc" :
     {
-	"mem" : "20G",
-	"p" : "med2"
+	"mem" : "7G",
+	"p" : "bigmemm"
     },
     "salmon_index" :
     {
@@ -49,29 +49,29 @@
     {
 	"time" : "24:00:00",
 	"p" : "bigmemh",
-	"mem" : "125G"
+	"mem" : "123G"
     },
     "pass1" :
     {
-	"mem" : "125G",
+	"mem" : "38G",
 	"time" : "24:00:00",
 	"p" : "bigmemh"
     },
     "pass2":
     {
-	"mem" : "125G",
+	"mem" : "38G",
 	"p" : "bigmemh",
 	"t" : "24:00:00"
     },
     "mark_duplicates" :
     {
-      "mem" : "20G",
-    	"p" : "med2"
+      "mem" : "38G",
+    	"p" : "bigmemm"
     },
     "index_bam" :
     {
-      "mem" : "20G",
-    	"p" : "med2"
+      "mem" : "7G",
+    	"p" : "high2"
     },
     "rnaseqc" :
     {
@@ -80,18 +80,18 @@
     },
     "bamqc" :
     {
-      "mem" : "63G",
+      "mem" : "38G",
       "p" : "bigmemh"
     },
     "multibamqc" :
     {
-      "mem" : "20G",
-      "p" : "med2"
+      "mem" : "13G",
+      "p" : "bigmemm"
     },
     "htseq" :
     {
       "mem" : "7G",
       "t" : "24:00:00",
-      "p" : "med2"
+      "p" : "bigmemm"
     }
  }

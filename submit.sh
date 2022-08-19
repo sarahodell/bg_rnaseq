@@ -19,8 +19,8 @@ module load python
 module load HTSeq/0.9.1
 
 #--unlock \
-snakemake --jobs 200 --use-conda \
+snakemake --jobs 50 --use-conda \
 --rerun-incomplete \
---latency-wait 60 \
+--latency-wait 120 \
 --cluster-config submit.json \
 --cluster "sbatch -A jrigrp -p {cluster.p} -o {cluster.o} --mem {cluster.mem} --time {cluster.time} --job-name {cluster.name}" # -p &>> $file

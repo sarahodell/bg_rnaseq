@@ -1,6 +1,6 @@
 args=commandArgs(trailingOnly=T)
 time=as.character(args[[1]])
-
+f=as.numeric(args[[2]])
 
 library('ggplot2')
 library('data.table')
@@ -25,18 +25,18 @@ greypalette=gray.colors(5)
 
 df=c()
 for(c in 1:10){
-  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_results.txt',time,c))
+  d=fread(sprintf('eqtl/trans/results/vst_%s_c%s_factor_trans_eQTL.txt',time,c))
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
   d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
   df=rbind(df,d)
 }
-
-png(sprintf('eqtl/cis/images/%s_vst_qqplot.png',time))
-qqman::qq(df$p_value_ML)
-dev.off()
-
+factors=unique(df$Trait)
+factor=factors[f]
+#factor=paste0('Factor',factors[f])
+df=df[df$Trait==factor,]
 df=df[!is.na(df$p_value_ML),]
+df=df[!is.infinite(df$ML_logLik),]
 
 #order=match(df[order(df$p_value_ML),]$Gene,df$Gene)
 df=df[order(df$p_value_ML),]
@@ -45,16 +45,16 @@ p_adjusted=p.adjust(df$p_value_ML,method='fdr')
 #df$value=-log10(df$p_value_ML)
 df$value=-log10(p_adjusted)
 
-png(sprintf('eqtl/cis/images/%s_q_value_vst_qqplot.png',time))
+png(sprintf('eqtl/trans/images/%s_%s_q_value_trans_vst_qqplot.png',time,factor))
 qqman::qq(p_adjusted)
 dev.off()
 
 df=df[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
-names(df)=c('Gene','SNP','p_value_ML','CHR','BP','value')
+names(df)=c('Factor','SNP','p_value_ML','CHR','BP','value')
 
-df=df[,c('Gene','CHR','BP','SNP','value')]
+subdf=df[,c('Factor','CHR','BP','SNP','value')]
 #qq=qqPlot(df$p_value_ML)
-df=df[order(df$CHR,df$BP),]
+subdf=subdf[order(subdf$CHR,subdf$BP),]
 
 gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
   # format df
@@ -74,7 +74,7 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
     # Add a cumulative position of each SNP
     arrange(CHR, BP) %>%
     mutate( BPcum=as.numeric(BP+tot)) %>%
-    gather(key, value, -BP,-SNP,-CHR,-BPcum,-tot,-Gene)
+    gather(key, value, -BP,-SNP,-CHR,-BPcum,-tot,-Factor)
 
     # Add highlight and annotation information
     #mutate( is_highlight=ifelse(SNP %in% hlight, "yes", "no")) #%>%
@@ -124,19 +124,49 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
     ) + guides(color="none")
 }
 
-ymax=round(max(df$value))+1
+ymax=round(max(subdf$value))+1
 threshold=-log10(0.05)
 #threshold=-log10(0.05/nrow(df))
-title=sprintf("cis-eQTL at timepoint %s",time)
-a2<-gg.manhattan2(df,threshold,
+title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
+a2<-gg.manhattan2(subdf,threshold,
              col=greypalette,
              ylims=c(0,ymax)) + labs(caption = title)
 
 
+sigs1=subdf[subdf$value>=threshold,]
 
-png(sprintf('eqtl/images/ciseQTL_manhattan_vst_fdr_%s.png',time),width=2000,height=1500)
-print(a2)
+if(dim(sigs1)[1]!=0){
+  png(sprintf('eqtl/trans/images/%s_trans_eQTL_manhattan_fdr_vst_%s.png',factor,time),width=2000,height=1500)
+  print(a2)
+  dev.off()
+  fwrite(sigs1,sprintf('eqtl/results/%s_trans_%s_eQTL_vst_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+}
+
+# Using Bonferroni instead of 5% FDR
+df$value=-log10(df$p_value_ML)
+
+png(sprintf('eqtl/trans/images/%s_%s_trans_vst_qqplot.png',time,factor))
+qqman::qq(df$p_value_ML)
 dev.off()
 
-sigs=df[df$value>=threshold,]
-fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),row.names=F,quote=F,sep='\t')
+subdf=df[,c('Factor','CHR','BP','SNP','value')]
+#qq=qqPlot(df$p_value_ML)
+subdf=subdf[order(subdf$CHR,subdf$BP),]
+
+ymax=round(max(subdf$value))+1
+#threshold=-log10(0.05)
+threshold=-log10(0.05/nrow(subdf))
+title=sprintf("trans-eQTL for Factor %s at timepoint %s",f,time)
+a2<-gg.manhattan2(subdf,threshold,
+             col=greypalette,
+             ylims=c(0,ymax)) + labs(caption = title)
+
+
+sigs2=subdf[subdf$value>=threshold,]
+
+if(dim(sigs2)[1]!=0){
+  png(sprintf('eqtl/images/%s_trans_eQTL_manhattan_vst_%s.png',factor,time),width=2000,height=1500)
+  print(a2)
+  dev.off()
+  fwrite(sigs2,sprintf('eqtl/results/%s_trans_%s_eQTL_vst_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+}

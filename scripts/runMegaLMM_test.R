@@ -48,8 +48,8 @@ Y = exp[,-1]
 
 #test_samples=data.frame(sub,stringsAsFactors=F)
 #fwrite(test_samples,'test_samples.txt',row.names=F,quote=F,)
-#sub=fread('test_samples.txt',data.table=F)
-#Y=Y[,sub$sub]
+sub=fread(sprintf('%s_test_samples.txt',time),data.table=F)
+Y=Y[,sub$sub]
 #Y=as.matrix(Y)
 #Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
 data = key

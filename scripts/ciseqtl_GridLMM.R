@@ -16,7 +16,7 @@ library('lme4qtl')
 #library('GenomicFeatures') # write a script to get a table of start and stop sites of genes from the gtf file
 
 
-options(warn=2)
+#options(warn=2)
 # Read in Kinship Matrix
 K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
 rownames(K)=K[,1]
@@ -29,16 +29,18 @@ genetable=genetable[genetable$TXCHROM==chr,]
 genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
-phenotypes=fread(sprintf('star/vst_%s_gene_counts_results2.csv',time),data.table=F)
+phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts.txt',time),data.table=F)
 metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
 samples=colnames(phenotypes)[-1]
 genos=metadata[match(samples,metadata$sample_name),]$genotype
-testsnps=readRDS(sprintf('eqtl/gene_focal_snps_c%s.rds',chr))
+testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
 founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
 
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
 genes=intersect(genes,phenotypes$V1)
-#genes=genes[1:10]
+#genes=genes[1:20]
 #ID      BGA_ID  CODE_HYBRIDE
 #linenames=fread('metadata/Lines_Names_BALANCE.txt',data.table=F)
 #dh_genotype=linenames[match(metadata$genotype,linenames$CODE_HYBRIDE),]$BGA_ID
@@ -47,8 +49,18 @@ genes=intersect(genes,phenotypes$V1)
 # "9DK440"        "9P9400"        "9DKC4117"      "9LG30500"
 # "9PR38N86"      "9LG30444"      "9DKC4490"      "9ESGALLERY"
 #metadata$dh_genotype=dh_genotype
-all_gwas=c()
-all_res=c()
+X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+inds=rownames(X_list[[1]])
+dhs=metadata[match(samples,metadata$sample_name),]$dh_genotype
+i=intersect(dhs,inds)
+
+nob73=c()
+
+all_gwas=data.frame(matrix(ncol=29,nrow=length(genes)))
+names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","PC1","PC2","PC3",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
+
+all_res=data.frame(matrix(ncol=length(genes),nrow=length(i)))
+names(all_res)=genes
 for(g in 1:length(genes)){
   gene=genes[g]
   snp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
@@ -58,23 +70,22 @@ for(g in 1:length(genes)){
     data$ID=metadata[match(data$sample,metadata$sample_name),]$dh_genotype
     rownames(data)=seq(1,nrow(data))
     data=data[!is.na(data$ID),]
-    X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
-    inds=rownames(X_list[[1]])
-
-    i=intersect(data$ID,inds)
-
-    founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+    data$PC1=pcs[match(pcs$sample,data$sample),]$PC1
+    data$PC2=pcs[match(pcs$sample,data$sample),]$PC2
+    data$PC3=pcs[match(pcs$sample,data$sample),]$PC3
     K=K[i,i]
     if(length(unique(data$ID))<nrow(data)){
-      data=data%>%group_by(ID)%>%summarize(y=mean(y))
+      data=data%>%group_by(ID)%>%summarize(y=mean(y),PC1=mean(PC1),PC2=mean(PC2),PC3=mean(PC3))
     }
     data=as.data.frame(data,stringsAsFactors=F)
     rownames(data)=data$ID
     data=data[i,]
     data$ID2=data$ID
-    data=data[,c('ID','ID2','y')]
+    # variance stabilize
+    data$y=(data$y-mean(data$y))/sd(data$y)
+    data=data[,c('ID','ID2','y','PC1','PC2','PC3')]
       #rownames(data)=data$ID
-    null_model = GridLMM_ML(y~1+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
+    null_model = GridLMM_ML(y~1+PC1+PC2+PC3+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
 
     h2_start=null_model$results[,grepl('.ML',colnames(null_model$results),fixed=T),drop=FALSE]
     names(h2_start) = sapply(names(h2_start),function(x) strsplit(x,'.',fixed=T)[[1]][1])
@@ -82,36 +93,93 @@ for(g in 1:length(genes)){
     V_setup=null_model$setup
     Y=as.matrix(data$y)
     X_cov=null_model$lmod$X
-    X_list_ordered=lapply(X_list,function(x) x[i,snp,drop=F])
-
-    X_list_null=NULL
-
-    gwas=run_GridLMM_GWAS(Y,X_cov,X_list_ordered[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
-    gwas$Trait=gene
-
     if(length(snp)>1){
-        betas=unlist(unname(gwas[2,6:21]))
+        #betas=unlist(unname(gwas[2,6:21]))
         X = do.call(cbind,lapply(X_list,function(x) x[,snp[2]]))
         colnames(X) = founders
         rownames(X) = dimnames(X_list[[1]])[[1]]
         snp=snp[2]
         X=X[i,]
     }else{
-      betas=unlist(unname(gwas[6:21]))
+      #betas=unlist(unname(gwas[6:21]))
       X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
       colnames(X) = founders
       rownames(X) = dimnames(X_list[[1]])[[1]]
       X=X[i,]
     }
-    #frep2=apply(X,MARGIN=2,function(x) sum(x[x>0.8]))
-    #fkeep=founders[frep2>2]
-    #X=X[,fkeep]
+    X_list_ordered=lapply(X_list,function(x) x[i,snp,drop=F])
+    frep2=apply(X,MARGIN=2,function(x) sum(x[x>0.8]))
+    fkeep=founders[frep2>2]
+    X_list_ordered=X_list_ordered[c(fkeep)]
+    X=X[,fkeep]
+
+    X_list_null=NULL
+
+    gwas=run_GridLMM_GWAS(Y,X_cov,X_list_ordered[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
+    gwas$Trait=gene
+
+    if(!("B73_inra" %in% fkeep)){
+      nob73=c(nob73,gene)
+      end=10+length(fkeep)-2
+      betas=gwas[,c(6,10:end)]
+      betas=unlist(unname(betas))
+      betas[-1]=betas[1]+betas[-1]
+      #names(gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',fkeep,'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
+      names(betas)=fkeep
+      new_gwas=gwas[,1:5]
+      #new_gwas=cbind(new_gwas,betas[1,"B73_inra"])
+      ncol1=data.frame(matrix(ncol=1,nrow=1))
+      names(ncol1)='B73_inra'
+      new_gwas=cbind(new_gwas,ncol1)
+      new_gwas=cbind(new_gwas,gwas[,7:9])
+      new_gwas=cbind(new_gwas,gwas[,c(6,10:end)])
+      names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra',"PC1","PC2","PC3",fkeep)
+      fdrop=founders[!(founders %in% fkeep)]
+      fdrop=fdrop[fdrop!="B73_inra"]
+      nacol=data.frame(matrix(ncol=length(fdrop),nrow=1))
+      names(nacol)=fdrop
+      new_gwas=cbind(new_gwas,nacol)
+      new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
+      new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","PC1","PC2","PC3",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+      #new_X=cbind(X,data[,c('PC1','PC2','PC3')])
+      #new_X=new_X[,c(fkeep[1],'PC1','PC2','PC3',fkeep[-1])]
+    }else{
+      end=10+length(fkeep)-2
+      betas=gwas[,c(6,10:end)]
+      betas=unlist(unname(betas))
+      betas[-1]=betas[1]+betas[-1]
+      #names(gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',fkeep,'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
+      names(betas)=fkeep
+      new_gwas=gwas[,1:5]
+      new_gwas=cbind(new_gwas,betas[1])
+      new_gwas=cbind(new_gwas,gwas[,7:9])
+      new_gwas=cbind(new_gwas,gwas[,10:end])
+      names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra',"PC1","PC2","PC3",fkeep[-1])
+      fdrop=founders[!(founders %in% fkeep)]
+      nacol=data.frame(matrix(ncol=length(fdrop),nrow=1))
+      names(nacol)=fdrop
+      new_gwas=cbind(new_gwas,nacol)
+      new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
+      new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","PC1","PC2","PC3",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+      #new_X=cbind(X,data[,c('PC1','PC2','PC3')])
+      #new_X=new_X[,c('B73_inra','PC1','PC2','PC3',fkeep[-1])]
+    }
+
     # drop one of them to test
     # to get residuals, get difference of fitted values
+    #betas=unlist(unname(betas))
+    #betas[-1]=betas[1]+betas[-1]
+    #all_betas=gwas[,c(6:end)]
+    #all_betas=unlist(unname(all_betas))
+    #all_betas[-1]=all_betas[1]+all_betas[-1]
 
-    betas[-1]=betas[1]+betas[-1]
     X_r=X %*% betas
+    #pc_betas=gwas[,7:9]
+    #pc_betas=unlist(unname(pc_betas))
+    #pc_betas[-1]=pc_betas[1]+pc_betas[-1]
+    #pc_X = as.matrix(data[,c('PC1','PC2','PC3')]) %*% pc_betas
     residuals=data$y - X_r
+    #residuals=residuals - pc_X
     residuals=as.data.frame(residuals,stringsAsFactors=F)
     names(residuals)=gene
     #saveRDS(gwas,sprintf('results/eqtl_gridlmm_chr%s_%s_x_%s_results.rds',chr,time,env))
@@ -126,15 +194,10 @@ for(g in 1:length(genes)){
       #se4$founder=rownames(se4)
 
       #se4$variable_f=factor(se4$founder,levels=se4$founder)
-    if(is.null(all_res)){
-      all_res=residuals
-      all_gwas=gwas
-      #all_betas=c(gene,snp,betas)
-    }else{
-      all_res=cbind(all_res,residuals)
-      all_gwas=rbind(all_gwas,gwas)
+
+    all_res[,gene]=residuals[,gene]
+    all_gwas[g,]=new_gwas
       #all_betas=rbind(all_betas,c(gene,snp,betas))
-    }
   }
 }
 
@@ -149,8 +212,8 @@ all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
 #all_betas=as.data.frame(all_betas,stringsAsFactors=F)
 #names(all_betas)=c('Gene_ID','SNP',paste0('beta.',seq(1,16)))
 
-fwrite(all_res,sprintf('eqtl/results/eQTL_%s_c%s_residuals.txt',time,chr),row.names=F,quote=F,sep='\t')
-fwrite(all_gwas,sprintf('eqtl/results/eQTL_%s_c%s_results.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%s_vst_residuals.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_vst_results.txt',time,chr),row.names=F,quote=F,sep='\t')
 
 
     # Run GridLMM

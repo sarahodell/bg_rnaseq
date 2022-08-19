@@ -1,0 +1,4 @@
+star:
+  fn: '*_pass2/*Log.final.out'
+star/genecounts:
+  fn: '*_pass2/*ReadsPerGene.out.tab'

@@ -17,7 +17,7 @@ module load R/4.1.0
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 #echo $time
 #echo $chr
-time="WD_0720"
+time="WD_0712"
 #run=$SLURM_ARRAY_TASK_ID
-run=1
-Rscript scripts/runMegaLMM.R $time $run 59
+run=7
+Rscript scripts/runMegaLMM_test.R $time $run 59

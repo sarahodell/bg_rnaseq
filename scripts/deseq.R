@@ -32,6 +32,24 @@ normalized_counts <- counts(dds, normalized=TRUE)
 
 vsd <- vst(dds, blind=TRUE)
 
+cts = fread(sprintf('star/vst_%s_gene_counts_results2.csv',timep),data.table=F)
+rownames(cts)=cts$V1
+cts=cts[,-1]
+cts=t(cts)
+pca <- prcomp(cts, center = TRUE)
+pcs=as.data.frame(pca$x,stringsAsFactors=F)
+snames=rownames(cts)
+gnames=meta[match(snames,meta$sample_name),]$genotype
+#mat=as.matrix(mat)
+coldata=data.frame(sample=snames,genotype=gnames,stringsAsFactors=F)
+coldata$pc1=pcs[match(coldata$sample,rownames(pcs)),]$PC1
+coldata$pc2=pcs[match(coldata$sample,rownames(pcs)),]$PC2
+
+cts=t(cts)
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ pc1 + pc2)
+
 #normalized_counts <- counts(vsd, normalized=TRUE)
 #write.csv(as.data.frame(normalized_counts),
 #          file=sprintf("star/vst_%s_gene_counts_results2.csv",timep))

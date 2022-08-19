@@ -8,50 +8,69 @@ cores=as.numeric(args[[3]])
 #installed in R/4.1.0
 #devtools::install_github('deruncie/MegaLMM',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
 library('generics',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('rlang',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('vctrs',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('glue',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('tibble',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('tidyselect',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('pillar',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-
 library('MegaLMM')
 library('data.table')
-#options(warn=s2)
+#options(warn=2)
 #Read in data
-exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
+run_id=sprintf('pheno_MegaLMM_vst_residuals_%s_%s',time,run)
+
+phenos=c("female_flowering_d6","male_flowering_d6","total_plant_height","harvest_grain_moisture",
+"grain_yield_15","tkw_15",'asi')
+envs=c("BLOIS_2014_OPT","BLOIS_2017_OPT","GRANEROS_2015_OPT","NERAC_2016_WD",
+"STPAUL_2017_WD","SZEGED_2017_OPT")
+
+exp=fread(sprintf('eqtl/results/%s_vst_residuals_x_phenotypes.txt',time),data.table=F)
+#residuals
+#exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_residuals.txt',time),data.table=F)
+# full gene counts
+#exp=fread(sprintf('eqtl/%s_voom_normalized_gene_counts.txt',time),data.table=F)
+# need to t() and add genotype codes for this to work
+#meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+#snames=colnames(exp)[-1]
+#gnames=meta[match(snames,meta$sample_name),]$dh_genotype
+#znames=exp$V1
+#colnames(exp)=c('ID',gnames)
+#rownames(exp)=exp$ID
+#exp=exp[,-1]
+#exp=as.matrix(exp)
+#exp=t(exp)
+#exp=as.data.frame(exp,stringsAsFactors=F)
+#exp$ID=rownames(exp)
+#exp=exp[,c('ID',znames)]
+
+
+#phenotypes=fread('../GridLMM/phenotypes_asi.csv',data.table=F)
+#phenotypes$Genotype_code=gsub('-','.',phenotypes$Genotype_code)
+#phenotypes2=phenotypes[phenotypes$Genotype_code %in% exp$ID,]
+#phenotypes2=phenotypes2[,c('Genotype_code',"Loc.Year.Treat",phenos)]
+#newpheno=data.frame(ID=exp$ID,stringsAsFactors=F)
+#for(e in envs){
+#  df=phenotypes2[phenotypes2$Loc.Year.Treat==e,]
+#  names(df)=c('ID','Loc.Year.Treat',paste0(e,'-',phenos))
+#  df=df[match(newpheno$ID,df$ID),]
+#  rownames(df)=seq(1,nrow(df))
+#  newpheno=cbind(newpheno,df[3:9])
+#}
+#newpheno_scaled=as.data.frame(sapply(seq(2,ncol(newpheno)),function(x) (newpheno[,x]-mean(newpheno[,x],na.rm=T))/sd(newpheno[,x],na.rm=T)),stringsAsFactors=F)
+#names(newpheno_scaled)=names(newpheno)[-1]
+
+#exp=cbind(exp,newpheno_scaled)
+#residuals
+#fwrite(exp,sprintf('eqtl/results/%s_residuals_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
+#gene counts
+#fwrite(exp,sprintf('eqtl/results/%s_genecounts_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
+
 #testing
 #exp=exp[,1:100]
 
-run_id=sprintf('MegaLMM_%s_test_%s',time,run)
-iterations=40000
-n_iter = 10000 # how many samples to collect at once?
-runs=4
-#burn_drop=0.5
-burn=20000
-burnin=2
-k=5
-#Increase thinning?
-thin=100
-
-
-
-start_time <- Sys.time()
 key=exp[,c('ID'),drop=F]
 rownames(exp)=exp$ID
 #roots=read.table('/home/sodell/projects/BSFG/RootTraitMatrix.txt',sep='\t',header=TRUE)
 #key=read.table('/home/sodell/projects/BSFG/RootTraitPlantKey.txt',sep='\t',header=TRUE)
 
 Y = exp[,-1]
-#sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
-#sub=c(sub,sample(colnames(Y),95))
-
-#test_samples=data.frame(sub,stringsAsFactors=F)
-#fwrite(test_samples,'test_samples.txt',row.names=F,quote=F,)
-#sub=fread('test_samples.txt',data.table=F)
-#Y=Y[,sub$sub]
 #Y=as.matrix(Y)
-#Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
+Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)))
 data = key
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
@@ -75,12 +94,12 @@ K=K[inter,inter]
 
 run_parameters = MegaLMM_control(
   max_NA_groups = 3,
-  scale_Y = TRUE,   # should the columns of Y be re-scaled to have mean=0 and sd=1?
+  scale_Y = FALSE,   # should the columns of Y be re-scaled to have mean=0 and sd=1?
   h2_divisions = 20, # Each variance component is allowed to explain between 0% and 100% of the total variation. How many segments should the range [0,100) be divided into for each random effect?
   h2_step_size = NULL, # if NULL, all possible values of random effects are tried each iteration. If in (0,1), a new candidate set of random effect proportional variances is drawn uniformily with a range of this size
-  burn = burn,  # number of burn in samples before saving posterior samples
-  thin = thin,
-  K = k # number of factors
+  burn = 10000,  # number of burn in samples before saving posterior samples
+  thin = 40,
+  K = 100 # number of factors
 )
 
 #Set the prior hyperparameters of the BSFG model
@@ -151,13 +170,11 @@ MegaLMM_state = clear_Posterior(MegaLMM_state) # prepare the output directories
 # The following code is optional, but tries to guess for your system how many CPUs to use for fastest processing
 #n_threads = optimize_n_threads(MegaLMM_state,seq(1,RcppParallel::defaultNumThreads(),by=1),times=2)
 #set_MegaLMM_nthreads(n_threads$optim)
-
-#set_MegaLMM_nthreads(cores)
-
-set_omp_nthreads(RcppParallel::defaultNumThreads()/2)
-set_MegaLMM_nthreads(RcppParallel::defaultNumThreads()/2)
+set_MegaLMM_nthreads(cores)
 # now do sampling is smallish chunks
-
+n_iter = 1000;  # how many samples to collect at once?
+burnin=10
+runs=20
 for(i  in 1:runs) {
   print(sprintf('Run %d',i))
   MegaLMM_state = sample_MegaLMM(MegaLMM_state,n_iter)  # run MCMC chain n_samples iterations. grainSize is a paramter for parallelization (smaller = more parallelization)
@@ -173,45 +190,20 @@ for(i  in 1:runs) {
   }
 }
 
-end_time <- Sys.time()
 
 # MegaLMM_state$Posterior = reload_Posterior(MegaLMM_state)
 # U_hat = get_posterior_mean(MegaLMM_state,U_R + U_F %*% Lambda)
 # all parameter names in Posterior
-MegaLMM_state$Posterior$posteriorSample_params
-MegaLMM_state$Posterior$posteriorMean_params  # these ones only have the posterior mean saved, not individual posterior samples
+#MegaLMM_state$Posterior$posteriorSample_params
+#MegaLMM_state$Posterior$posteriorMean_params  # these ones only have the posterior mean saved, not individual posterior samples
 # instead, load only a specific parameter
 # Lambda = load_posterior_param(MegaLMM_state,'Lambda')
 # boxplots are good ways to visualize Posterior distributions on sets of related parameters
 
-MegaLMM_state$Posterior$F_h2 = load_posterior_param(MegaLMM_state,'F_h2')
-png(paste0(run_id,'/',sprintf('%s_posterior_F_h2_boxplot.png',time)))
-print(boxplot(MegaLMM_state$Posterior$F_h2[,1,]))
-dev.off()
-
-# Run info file
-run_time=end_time-start_time
-
-
-line0=paste0(run_id,'\n')
-line1="100 genes: 5 top genes, and 95 random (listed in test_samples.txt)"
-line2=paste0(time,' Timepoint\n')
-line3=paste0(cores,' CPU')
-line4="60G"
-line5=paste0(run_time,' minute run time\n')
-line6="Parameters\n"
-line7=paste0("burn: ",burn)
-line7=paste0("iterations: ",iterations)
-line8=paste0("n_iter: ",n_iter)
-line9=paste0("runs: ",runs,'\n')
-line10=paste0("thin: ",thin)
-line11=paste0("K: ",k)
-
-
-fileConn<-file(paste0(run_id,"/about.txt"))
-writeLines(c(line0,line1,line2,line3,line4,line5,line6,line7,line8,line9,line10,line11), fileConn)
-close(fileConn)
-
+#MegaLMM_state$Posterior$F_h2 = load_posterior_param(MegaLMM_state,'F_h2')
+#png(sprintf('%s_posterior_F_h2_boxplot.png',time))
+#print(boxplot(MegaLMM_state$Posterior$F_h2[,1,]))
+#dev.off()
 
 # get posterior distribution on a function of parameters
 # This is how to calculate the G-matrix for random effect #1 (ie animal above.)
