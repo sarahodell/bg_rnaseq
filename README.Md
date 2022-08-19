@@ -1,4 +1,15 @@
-Scripts for running RNASeq Analysis Pipeline
+# MAGIC RNASeq Analysis
+
+## Directory Contents
+
+- `scripts` : R scripts
+- `slurm-script`: bash scripts, mostly for running R scripts in `scripts` on slurm
+- `rules`: Snakemake rules for processing of raw RNASeq reads into gene counts
+- `metadata`: data files on samples and converting between sample and read names
+
+
+## Scripts for running RNASeq Analysis Pipeline
+
 
 FASTQ file
 1) Trimmomatic
