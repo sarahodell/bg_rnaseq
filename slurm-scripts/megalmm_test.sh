@@ -4,7 +4,7 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 200:00:00
-#SBATCH --array=1
+#SBATCH --array=1-3
 #SBATCH --ntasks=60
 #SBATCH --mem=60G
 
@@ -17,7 +17,10 @@ module load R/4.1.0
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 #echo $time
 #echo $chr
-time="WD_0712"
-#run=$SLURM_ARRAY_TASK_ID
-run=7
-Rscript scripts/runMegaLMM_test.R $time $run 59
+time="WD_0720"
+run=$SLURM_ARRAY_TASK_ID
+#samplesize=(100 500 1000 5000 10000)
+#run=1
+#n=${samplesize[$SLURM_ARRAY_TASK_ID]}
+n=5000
+Rscript scripts/runMegaLMM_test.R $time $run $n 59

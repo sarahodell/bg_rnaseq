@@ -24,8 +24,8 @@ rownames(K)=gsub("-",".",rownames(K))
 K=as.matrix(K[,-1])
 colnames(K)=rownames(K)
 
-genetable=fread('eqtl/data/Zea_mays.B73_v4_generanges.txt',data.table=F)
-genetable=genetable[genetable$TXCHROM==chr,]
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+genetable=genetable[genetable$CHROM==chr,]
 genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
@@ -294,7 +294,7 @@ fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_vst_results.txt',time,chr)
 #      founder_blocks=rbind(founder_blocks,c(chr,snp,left_bound,right_bound))
 #    }
 #  }
-#  founder_blocks=as.data.frame(founder_blocks,stringsAsFactors=F)
+# founder_blocks=as.data.frame(founder_blocks,stringsAsFactors=F)
 #  names(founder_blocks)=c("chr","focal_snp","start","end")
 #  founder_blocks$chr=as.numeric(founder_blocks$chr)
 #  founder_blocks$start=as.numeric(founder_blocks$start)
@@ -304,21 +304,30 @@ fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_vst_results.txt',time,chr)
 
 # grab founder recombination block that encompasses the gene - overlap so may include more than one...
 #for(chr in chroms){
-#  genetable=fread('eqtl/data/Zea_mays.B73_v4_generanges.txt',data.table=F)#
+#  genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)#
 #  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
-#  genetable=genetable[genetable$TXCHROM==chr,]
+#  genetable=genetable[genetable$CHROM==chr,]
 #  genes=unique(genetable$Gene_ID)
 #  testsnps=vector("list",length=length(genes))
 #  for(i in 1:length(genes)){
 #    gene=genes[i]
 #    subtable=as.data.table(genetable[genetable$Gene_ID==gene,])
 #    env2=as.data.table(founder_blocks)
-#    setkey(subtable,TXSTART,TXEND)
-#    comparison=foverlaps(env2,subtable,by.y=c('TXSTART','TXEND'),by.x=c('start','end'),nomatch=NA)
+#    setkey(env2,start,end)
+    #setkey(subtable,TXSTART,TXEND)
+#    comparison=foverlaps(subtable,env2,by.x=c('START','END'),by.y=c('start','end'),nomatch=NA)
 #    comparison=comparison[!is.na(comparison$Gene_ID),]
 #    snps=unique(comparison$focal_snp)
-#    testsnps[[i]]=list(gene=gene,focal_snps=snps)
-#  }
+#    snps=snps[!is.na(snps)]
+#    if(length(snps)==0){
+#      s_dist=which.min(abs(subtable$START-founder_blocks$end))
+#      e_dist=which.min(abs(founder_blocks$start-subtable$END))
+#      choose=which.min(c(subtable$START-founder_blocks$end[s_dist],founder_blocks$start[e_dist]-subtable$END))
+#      snps=c(founder_blocks$focal_snp[s_dist],founder_blocks$focal_snp[e_dist])
+#    }
+#  testsnps[[i]]=list(gene=gene,focal_snps=snps)
+
+# }
 #  saveRDS(testsnps,sprintf('eqtl/gene_focal_snps_c%s.rds',chr))
 #}
 

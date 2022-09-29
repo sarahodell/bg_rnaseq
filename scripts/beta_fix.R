@@ -24,13 +24,15 @@ for(chr in 1:10){
   res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_residuals.txt',time,chr),data.table=F)
   res_var=apply(res[,-1],MARGIN=2,function(x) var(x))
   k=which(is.na(res_var))
-  k=k+1
-  k=unname(k)
-  res=res[,-c(k)]
+  if(length(k)!=0){
+    k=k+1
+    k=unname(k)
+    res=res[,-c(k)]
+  }
   if(chr==1){
     all_res=res
   }else{
-    all_res=cbind(all_res,res[,2:ncol(res)])
+    all_res=cbind(all_res,res[,-1])
   }
 }
 fwrite(all_res,sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),row.names=F,quote=F,sep='\t')

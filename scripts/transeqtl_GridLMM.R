@@ -10,7 +10,7 @@ library('data.table')
 library('dplyr')
 #library('lme4')
 
-phenotype=fread(sprintf('vst_%s_all_F_means.txt',time),data.table=F)
+phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means.txt',time),data.table=F)
 
 factor_results=c()
 
@@ -49,4 +49,4 @@ for(k in 2:ncol(phenotype)){
   factor_results=rbind(factor_results,gwas)
 }
 
-fwrite(factor_results,sprintf('eqtl/trans/results/vst_%s_c%s_factor_trans_eQTL.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(factor_results,sprintf('eqtl/trans/results/%s_c%s_factor_trans_eQTL.txt',time,chr),row.names=F,quote=F,sep='\t')

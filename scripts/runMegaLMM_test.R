@@ -2,7 +2,8 @@
 args=commandArgs(trailingOnly=T)
 time=as.character(args[[1]])
 run=as.character(args[[2]])
-cores=as.numeric(args[[3]])
+n=as.character(args[[3]])
+cores=as.numeric(args[[4]])
 
 #Running MegaLMM
 #installed in R/4.1.0
@@ -23,16 +24,16 @@ exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.ta
 #testing
 #exp=exp[,1:100]
 
-run_id=sprintf('MegaLMM_%s_test_%s',time,run)
-iterations=40000
-n_iter = 10000 # how many samples to collect at once?
-runs=4
+run_id=sprintf('MegaLMM/MegaLMM_%s_test_%s_%s',time,n,run)
+iterations=50000
+n_iter = 1000 # how many samples to collect at once?
+runs=50
 #burn_drop=0.5
-burn=20000
-burnin=2
-k=5
+burn=0
+burnin=30
+k=100
 #Increase thinning?
-thin=100
+thin=40
 
 
 
@@ -43,15 +44,21 @@ rownames(exp)=exp$ID
 #key=read.table('/home/sodell/projects/BSFG/RootTraitPlantKey.txt',sep='\t',header=TRUE)
 
 Y = exp[,-1]
-#sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
-#sub=c(sub,sample(colnames(Y),95))
 
+# make sample subset
+#sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
+#sub=c(sub,sample(colnames(Y),as.numeric(n)-5))
+#print(length(sub)==length(unique(sub)))
 #test_samples=data.frame(sub,stringsAsFactors=F)
-#fwrite(test_samples,'test_samples.txt',row.names=F,quote=F,)
-sub=fread(sprintf('%s_test_samples.txt',time),data.table=F)
+#fwrite(test_samples,sprintf('%s_test_%ssamples.txt',time,n),row.names=F,quote=F,)
+
+# read in subset of samples
+sub=fread(sprintf('test_samples/%s_test_%ssamples.txt',time,n),data.table=F)
 Y=Y[,sub$sub]
-#Y=as.matrix(Y)
-#Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
+
+
+Y=as.matrix(Y)
+Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
 data = key
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
@@ -75,7 +82,7 @@ K=K[inter,inter]
 
 run_parameters = MegaLMM_control(
   max_NA_groups = 3,
-  scale_Y = TRUE,   # should the columns of Y be re-scaled to have mean=0 and sd=1?
+  scale_Y = FALSE,   # should the columns of Y be re-scaled to have mean=0 and sd=1?
   h2_divisions = 20, # Each variance component is allowed to explain between 0% and 100% of the total variation. How many segments should the range [0,100) be divided into for each random effect?
   h2_step_size = NULL, # if NULL, all possible values of random effects are tried each iteration. If in (0,1), a new candidate set of random effect proportional variances is drawn uniformily with a range of this size
   burn = burn,  # number of burn in samples before saving posterior samples
@@ -86,13 +93,22 @@ run_parameters = MegaLMM_control(
 #Set the prior hyperparameters of the BSFG model
 priors = MegaLMM_priors(
   tot_Y_var = list(V = 0.5,   nu = 5),      # Prior variance of trait residuals after accounting for fixed effects and factors
-  tot_F_var = list(V = 18/20, nu = 20),     # Prior variance of factor traits. This is included to improve MCMC mixing, but can be turned off by setting nu very large
+  tot_F_var = list(V = 1, nu = 100000),
+  #tot_F_var = list(V = 18/20, nu = 20),
   Lambda_prior = list(
-    sampler = sample_Lambda_prec_horseshoe, # function that implements the horseshoe-based Lambda prior described in Runcie et al 2020. See code to see requirements for this function.
-    prop_0 = 0.1,    # prior guess at the number of non-zero loadings in the first and most important factor
-    delta = list(shape = 3, scale = 1),    # parameters of the gamma distribution giving the expected change in proportion of non-zero loadings in each consecutive factor
-    delta_iterations_factor = 100   # parameter that affects mixing of the MCMC sampler. This value is generally fine.
-  ),
+      sampler = sample_Lambda_prec_ARD,
+      Lambda_df = 3,
+      delta_1 = list(shape = 20, rate = 1/2),
+      delta_2 = list(shape = 3, rate = 1)
+    ),
+    # Prior variance of factor traits. This is included to improve MCMC mixing, but can be turned off by setting nu very large
+  #Lambda_prior = list(
+  #  sampler = sample_Lambda_prec_horseshoe, # function that implements the horseshoe-based Lambda prior described in Runcie et al 2020. See code to see requirements for this function.
+  #  prop_0 = 0.1,    # prior guess at the number of non-zero loadings in the first and most important factor
+    #delta = list(shape = 3, scale = 1),    # parameters of the gamma distribution giving the expected change in proportion of non-zero loadings in each consecutive factor
+  #  delta = list(shape = 30, scale = 1/10),
+  #  delta_iterations_factor = 100   # parameter that affects mixing of the MCMC sampler. This value is generally fine.
+  #),
   h2_priors_resids_fun = function(h2s,n)  1,  # Function that returns the prior density for any value of the h2s vector (ie the vector of random effect proportional variances across all random effects. 1 means constant prior. Alternative: pmax(pmin(ddirichlet(c(h2s,1-sum(h2s)),rep(2,length(h2s)+1)),10),1e-10),
   h2_priors_factors_fun = function(h2s,n) 1 # See above. Another choice is one that gives 50% weight to h2==0: ifelse(h2s == 0,n,n/(n-1))
 )
@@ -136,6 +152,8 @@ MegaLMM_state = setup_model_MegaLMM(Y,            # n x p data matrix
 maps = make_Missing_data_map(MegaLMM_state)
 MegaLMM_state = set_Missing_data_map(MegaLMM_state,maps$Missing_data_map)
 MegaLMM_state = set_priors_MegaLMM(MegaLMM_state,priors)  # apply the priors
+saveRDS(MegaLMM_state,sprintf('%s/MegaLMM_state_base.rds',run_id))
+
 MegaLMM_state = initialize_variables_MegaLMM(MegaLMM_state) # initialize the model
 MegaLMM_state = initialize_MegaLMM(MegaLMM_state) # run the initial calculations
 MegaLMM_state = clear_Posterior(MegaLMM_state) # prepare the output directories
@@ -158,19 +176,37 @@ set_omp_nthreads(RcppParallel::defaultNumThreads()/2)
 set_MegaLMM_nthreads(RcppParallel::defaultNumThreads()/2)
 # now do sampling is smallish chunks
 
-for(i  in 1:runs) {
-  print(sprintf('Run %d',i))
-  MegaLMM_state = sample_MegaLMM(MegaLMM_state,n_iter)  # run MCMC chain n_samples iterations. grainSize is a paramter for parallelization (smaller = more parallelization)
-
-  MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
-  print(MegaLMM_state) # print status of current chain
-  plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
-  # set of commands to run during burn-in period to help chain converge
-  if(MegaLMM_state$current_state$nrun < MegaLMM_state$run_parameters$burn || i < burnin) {
+#Burnin
+for(i  in 1:burnin) {
+  if(i %% 2==0){
+    print(sprintf('Run %d',i))
+    MegaLMM_state = sample_MegaLMM(MegaLMM_state,n_iter)  # run MCMC chain n_samples iterations. grainSize is a paramter for parallelization (smaller = more parallelization)
+    MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
+    print(MegaLMM_state) # print status of current chain
+    plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
     MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
+    #MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
+    MegaLMM_state = clear_Posterior(MegaLMM_state)
+    print(MegaLMM_state$run_parameters$burn)
+  }else{
+    print(sprintf('Run %d',i))
+    MegaLMM_state = sample_MegaLMM(MegaLMM_state,n_iter)  # run MCMC chain n_samples iterations. grainSize is a paramter for parallelization (smaller = more parallelization)
+    MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
+    print(MegaLMM_state) # print status of current chain
+    plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
+    #MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
+    MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
     MegaLMM_state = clear_Posterior(MegaLMM_state)
     print(MegaLMM_state$run_parameters$burn)
   }
+}
+#Start sampling from posterior
+for(i  in (burnin+1):runs) {
+  print(sprintf('Run %d',i))
+  MegaLMM_state = sample_MegaLMM(MegaLMM_state,n_iter)  # run MCMC chain n_samples iterations. grainSize is a paramter for parallelization (smaller = more parallelization)
+  MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
+  print(MegaLMM_state) # print status of current chain
+  plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
 }
 
 end_time <- Sys.time()
@@ -180,36 +216,45 @@ end_time <- Sys.time()
 # all parameter names in Posterior
 MegaLMM_state$Posterior$posteriorSample_params
 MegaLMM_state$Posterior$posteriorMean_params  # these ones only have the posterior mean saved, not individual posterior samples
+print("F_var")
+print(apply(MegaLMM_state$current_state$F,2,var))
+print("delta")
+print(MegaLMM_state$current_state$delta)
+print("Lambda_tau2")
+print(MegaLMM_state$current_state$Lambda_tau2)
+
+print("Cumprod(delta[1:20])")
+print(cumprod(MegaLMM_state$current_state$delta[1:20]))
 # instead, load only a specific parameter
 # Lambda = load_posterior_param(MegaLMM_state,'Lambda')
 # boxplots are good ways to visualize Posterior distributions on sets of related parameters
 
-MegaLMM_state$Posterior$F_h2 = load_posterior_param(MegaLMM_state,'F_h2')
-png(paste0(run_id,'/',sprintf('%s_posterior_F_h2_boxplot.png',time)))
-print(boxplot(MegaLMM_state$Posterior$F_h2[,1,]))
-dev.off()
+#MegaLMM_state$Posterior$F_h2 = load_posterior_param(MegaLMM_state,'F_h2')
+#png(paste0(run_id,'/',sprintf('%s_posterior_F_h2_boxplot.png',time)))
+#print(boxplot(MegaLMM_state$Posterior$F_h2[,1,]))
+#dev.off()
 
 # Run info file
 run_time=end_time-start_time
 
 
 line0=paste0(run_id,'\n')
-line1="100 genes: 5 top genes, and 95 random (listed in test_samples.txt)"
+line1=sprintf("%s genes: 5 top genes, and %s random (listed in test_samples.txt)",n,as.character(as.numeric(n)-5))
 line2=paste0(time,' Timepoint\n')
 line3=paste0(cores,' CPU')
 line4="60G"
 line5=paste0(run_time,' minute run time\n')
 line6="Parameters\n"
 line7=paste0("burn: ",burn)
-line7=paste0("iterations: ",iterations)
-line8=paste0("n_iter: ",n_iter)
-line9=paste0("runs: ",runs,'\n')
-line10=paste0("thin: ",thin)
-line11=paste0("K: ",k)
+line8=paste0("iterations: ",iterations)
+line9=paste0("n_iter: ",n_iter)
+line10=paste0("runs: ",runs,'\n')
+line11=paste0("thin: ",thin)
+line12=paste0("K: ",k)
 
 
 fileConn<-file(paste0(run_id,"/about.txt"))
-writeLines(c(line0,line1,line2,line3,line4,line5,line6,line7,line8,line9,line10,line11), fileConn)
+writeLines(c(line0,line1,line2,line3,line4,line5,line6,line7,line8,line9,line10,line11,line12), fileConn)
 close(fileConn)
 
 

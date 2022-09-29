@@ -2,18 +2,12 @@ library('abind')
 library('data.table')
 
 time="WD_0712"
-
-ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),data.table=F)
+ciseqtl=fread('eqtl/results/all_cis_eQTL_vst_hits.txt',data.table=F)
+#ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),data.table=F)
 qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
 qtl=qtl[qtl$Method=="Founder_probs",]
 genetable=fread('eqtl/data/Zea_mays.B73_v4_generanges.txt',data.table=F)
 
-eqtl_betas=c()
-for(chr in 1:10){
-  eqtl_beta=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_results.txt',time,chr),data.table=F)
-  eqtl_betas=rbind(eqtl_betas,eqtl_beta)
-}
-eqtl_betas$snp_gene=paste0(eqtl_betas$X_ID,'_',eqtl_betas$Trait)
 
 
 
@@ -56,12 +50,25 @@ comparison2=foverlaps(env1,env2,by.x=c('TXCHROM','TXSTART','TXEND'),by.y=c('Chro
 pvalue=c()
 es_cor=c()
 
+# Change betas based on time point of eQTL
+#eqtl_betas=c()
+#for(chr in 1:10){
+#  eqtl_beta=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_results.txt',time,chr),data.table=F)
+#  eqtl_betas=rbind(eqtl_betas,eqtl_beta)
+#}
+#eqtl_betas$snp_gene=paste0(eqtl_betas$X_ID,'_',eqtl_betas$Trait)
+
+
 for(q in 1:nrow(comparison)){
   row=comparison[q,]
   id=row$pheno_env_id
   chr=row$CHR
   pheno=row$Phenotype
   env=row$Environment
+  time=row$time
+  eqtl_betas=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_results.txt',time,chr),data.table=F)
+  eqtl_betas$snp_gene=paste0(eqtl_betas$X_ID,'_',eqtl_betas$Trait)
+
   effect_sizes=readRDS(sprintf('../GridLMM/GridLMM_founderprobs/models/Biogemma_chr%.0f_%s_x_%s_vst_founderprobs.rds',chr,pheno,env))
   effect_sizes=unlist(unname(effect_sizes[effect_sizes$X_ID==row$highest_SNP,6:21]))
   effect_sizes[-1]=effect_sizes[1] + effect_sizes[-1]
@@ -80,7 +87,7 @@ comparion=as.data.frame(comparison,stringsAsFactors=F)
 comparison$es_cor=es_cor
 comparison$cortest_pvalue=pvalue
 
-fwrite(comparison,sprintf('eqtl/results/%s_eQTL_QTL_overlap.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(comparison,'eqtl/results/all_eQTL_QTL_overlap.txt',row.names=F,quote=F,sep='\t')
 
 
 comparison=fread(sprintf('eqtl/results/%s_eQTL_QTL_overlap.txt',time),data.table=F)

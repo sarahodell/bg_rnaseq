@@ -4,7 +4,7 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 24:00:00
-#SBATCH --array=1-38
+#SBATCH --array=1-100
 #SBATCH --ntasks=1
 #SBATCH --mem 3G
 
@@ -15,7 +15,7 @@ module load R
 
 #times=( "WD_0718" "WD_0720" "WD_0727" "WD_0712" )
 #time=${times[$SLURM_ARRAY_TASK_ID]}
-time="WD_0712"
+time="WD_0720"
 echo $time
 f=$SLURM_ARRAY_TASK_ID
 echo $f
