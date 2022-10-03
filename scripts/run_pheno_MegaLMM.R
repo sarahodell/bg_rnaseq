@@ -34,7 +34,7 @@ runs=50
 #burn_drop=0.5
 burn=0
 burnin=30
-k=100
+k=60
 #Increase thinning?
 thin=40
 

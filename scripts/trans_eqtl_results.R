@@ -84,8 +84,3 @@ saveRDS(factor_groups,sprintf('eqtl/results/%s_factor_groupings.rds',time))
 #}
 
 #library('clusterProfiler')
-#librar('biomaRt')
-listMarts(host="plants.ensembl.org",version=53)
-ensembl <- useEnsembl(host="plants.ensembl.org",biomart = "plants_mart",version)
-datasets <- listDatasets(ensembl)
-searchDatasets(mart = ensembl, pattern = "zea")

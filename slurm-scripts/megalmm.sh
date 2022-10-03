@@ -3,7 +3,7 @@
 #SBATCH -J megalmm
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
-#SBATCH -t 96:00:00
+#SBATCH -t 48:00:00
 #SBATCH --array=1-3
 #SBATCH --ntasks=60
 #SBATCH --mem=60G
@@ -17,7 +17,7 @@ module load R/4.1.0
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 #echo $time
 #echo $chr
-time="WD_0720"
+time="WD_0712"
 run=$SLURM_ARRAY_TASK_ID
 #run=4
 Rscript scripts/runMegaLMM.R $time $run 59
