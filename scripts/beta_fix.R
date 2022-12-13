@@ -21,7 +21,7 @@ library('data.table')
 
 all_res=c()
 for(chr in 1:10){
-  res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_residuals.txt',time,chr),data.table=F)
+  res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_residuals.txt',time,chr),data.table=F)
   res_var=apply(res[,-1],MARGIN=2,function(x) var(x))
   k=which(is.na(res_var))
   if(length(k)!=0){
@@ -35,10 +35,10 @@ for(chr in 1:10){
     all_res=cbind(all_res,res[,-1])
   }
 }
-fwrite(all_res,sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(all_res,sprintf('eqtl/results/cis_eQTL_%s_all_fkeep_residuals.txt',time),row.names=F,quote=F,sep='\t')
 
 #residuals
-exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
+exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_fkeep_residuals.txt',time),data.table=F)
 # full gene counts
 #exp=fread(sprintf('eqtl/%s_voom_normalized_gene_counts.txt',time),data.table=F)
 # need to t() and add genotype codes for this to work
@@ -77,7 +77,7 @@ for(e in envs){
 
 exp=cbind(exp,newpheno[,-1])
 #residuals
-fwrite(exp,sprintf('eqtl/results/%s_vst_residuals_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(exp,sprintf('eqtl/results/%s_fkeep_residuals_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
 #gene counts
 #fwrite(exp,sprintf('eqtl/results/%s_genecounts_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
 

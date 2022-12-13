@@ -19,14 +19,14 @@ library('MegaLMM')
 library('data.table')
 #options(warn=2)
 #Read in data
-run_id=sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_%s',time,run)
+run_id=sprintf('MegaLMM/pheno_MegaLMM_%s_%s',time,run)
 
 phenos=c("female_flowering_d6","male_flowering_d6","total_plant_height","harvest_grain_moisture",
 "grain_yield_15","tkw_15",'asi')
 envs=c("BLOIS_2014_OPT","BLOIS_2017_OPT","GRANEROS_2015_OPT","NERAC_2016_WD",
 "STPAUL_2017_WD","SZEGED_2017_OPT")
 
-exp=fread(sprintf('eqtl/results/%s_vst_residuals_x_phenotypes.txt',time),data.table=F)
+exp=fread(sprintf('eqtl/results/%s_vst_counts_x_phenotypes.txt',time),data.table=F)
 
 iterations=50000
 n_iter = 1000 # how many samples to collect at once?
@@ -34,7 +34,7 @@ runs=50
 #burn_drop=0.5
 burn=0
 burnin=30
-k=60
+k=nrow(exp)
 #Increase thinning?
 thin=40
 
@@ -101,6 +101,9 @@ colnames(K)=rownames(K)
 
 inter=intersect(data$ID,rownames(K))
 K=K[inter,inter]
+
+data=data[match(inter,data$ID),,drop=F]
+Y=Y[inter,]
 #K = setup$K covariance matrix?
 
 #cf_DFinf2NA = function(x){

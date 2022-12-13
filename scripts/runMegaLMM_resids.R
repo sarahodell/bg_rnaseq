@@ -25,14 +25,14 @@ exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.ta
 #testing
 #exp=exp[,1:100]
 
-run_id=sprintf('MegaLMM/MegaLMM_%s_%s',time,run)
+run_id=sprintf('MegaLMM/MegaLMM_%s_residuals_%s',time,run)
 iterations=50000
 n_iter = 1000 # how many samples to collect at once?
 runs=50
 #burn_drop=0.5
 burn=0
 burnin=30
-k=60
+k=nrow(exp)
 #Increase thinning?
 thin=40
 

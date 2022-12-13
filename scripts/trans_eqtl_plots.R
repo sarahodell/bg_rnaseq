@@ -23,30 +23,32 @@ greypalette=gray.colors(5)
 
 #pcol=list("asi_P"=mypalette[7],"female_flowering_d6_P" = mypalette[1],"grain_yield_15_P"=mypalette[2],"harvest_grain_moisture_P"=mypalette[3],"male_flowering_d6_P"=mypalette[4],"tkw_15_P"=mypalette[5],"total_plant_height_P"=mypalette[6])
 
-df=c()
+full_df=c()
 for(c in 1:10){
-  d=fread(sprintf('eqtl/trans/results/%s_c%s_factor_trans_eQTL.txt',time,c))
+  #d=fread(sprintf('eqtl/trans/results/%s_c%s_pheno_residuals_factor_trans_eQTL.txt',time,c))
+  d=fread(sprintf('eqtl/trans/results/%s_c%s_pheno_factor_trans_eQTL.txt',time,c))
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
   d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
-  df=rbind(df,d)
+  full_df=rbind(full_df,d)
 }
-factors=unique(df$Trait)
+factors=unique(full_df$Trait)
 factor=factors[f]
 #factor=paste0('Factor',factors[f])
-df=df[df$Trait==factor,]
+df=full_df[full_df$Trait==factor,]
 df=df[!is.na(df$p_value_ML),]
 df=df[!is.infinite(df$ML_logLik),]
 
 #order=match(df[order(df$p_value_ML),]$Gene,df$Gene)
 df=df[order(df$p_value_ML),]
 rownames(df)=seq(1,nrow(df))
-p_adjusted=p.adjust(df$p_value_ML,method='fdr')
-#df$value=-log10(df$p_value_ML)
-df$value=-log10(p_adjusted)
+#p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+df$value=-log10(df$p_value_ML)
+#df$value=-log10(p_adjusted)
 
-png(sprintf('eqtl/trans/images/%s_%s_q_value_trans_qqplot.png',time,factor))
-qqman::qq(p_adjusted)
+png(sprintf('eqtl/trans/images/%s_%s_trans_qqplot.png',time,factor))
+#png(sprintf('eqtl/trans/images/%s_%s_pheno_residuals_trans_qqplot.png',time,factor))
+qqman::qq(df$p_value_ML)
 dev.off()
 
 df=df[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
@@ -124,30 +126,30 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
     ) + guides(color="none")
 }
 
-ymax=round(max(subdf$value))+1
-threshold=-log10(0.05)
+#ymax=round(max(subdf$value))+1
+#threshold=-log10(0.05)
 #threshold=-log10(0.05/nrow(df))
-title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
-a2<-gg.manhattan2(subdf,threshold,
-             col=greypalette,
-             ylims=c(0,ymax)) + labs(caption = title)
+#title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
+#a2<-gg.manhattan2(subdf,threshold,
+#             col=greypalette,
+#             ylims=c(0,ymax)) + labs(caption = title)
 
 
-sigs1=subdf[subdf$value>=threshold,]
+#sigs1=subdf[subdf$value>=threshold,]
 
-if(dim(sigs1)[1]!=0){
-  png(sprintf('eqtl/trans/images/%s_trans_eQTL_manhattan_fdr_%s.png',factor,time),width=2000,height=1500)
-  print(a2)
-  dev.off()
-  fwrite(sigs1,sprintf('eqtl/results/%s_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
-}
+#if(dim(sigs1)[1]!=0){
+#  png(sprintf('eqtl/trans/images/%s_trans_eQTL_manhattan_fdr_%s.png',factor,time),width=2000,height=1500)
+#  print(a2)
+#  dev.off()
+#  fwrite(sigs1,sprintf('eqtl/results/%s_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+#}
 
 # Using Bonferroni instead of 5% FDR
-df$value=-log10(df$p_value_ML)
+#df$value=-log10(df$p_value_ML)
 
-png(sprintf('eqtl/trans/images/%s_%s_trans_qqplot.png',time,factor))
-qqman::qq(df$p_value_ML)
-dev.off()
+#png(sprintf('eqtl/trans/images/%s_%s_trans_qqplot.png',time,factor))
+#qqman::qq(df$p_value_ML)
+#dev.off()
 
 subdf=df[,c('Factor','CHR','BP','SNP','value')]
 #qq=qqPlot(df$p_value_ML)
@@ -155,8 +157,10 @@ subdf=subdf[order(subdf$CHR,subdf$BP),]
 
 ymax=round(max(subdf$value))+1
 #threshold=-log10(0.05)
-threshold=-log10(0.05/nrow(subdf))
-title=sprintf("trans-eQTL for Factor %s at timepoint %s",f,time)
+threshold=-log10(0.05/(nrow(df)))
+
+title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
+#title=sprintf("Residual trans-eQTL for %s at timepoint %s",factor,time)
 a2<-gg.manhattan2(subdf,threshold,
              col=greypalette,
              ylims=c(0,ymax)) + labs(caption = title)
@@ -165,8 +169,10 @@ a2<-gg.manhattan2(subdf,threshold,
 sigs2=subdf[subdf$value>=threshold,]
 
 if(dim(sigs2)[1]!=0){
-  png(sprintf('eqtl/images/%s_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
+  #png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
+  png(sprintf('eqtl/trans/images/%s_pheno_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
   print(a2)
   dev.off()
-  fwrite(sigs2,sprintf('eqtl/results/%s_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+  fwrite(sigs2,sprintf('eqtl/results/%s_pheno_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+  #fwrite(sigs2,sprintf('eqtl/results/%s_pheno_residuals_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
 }

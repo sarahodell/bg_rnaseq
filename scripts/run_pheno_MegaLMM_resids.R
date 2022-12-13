@@ -2,8 +2,7 @@
 args=commandArgs(trailingOnly=T)
 time=as.character(args[[1]])
 run=as.character(args[[2]])
-n=as.character(args[[3]])
-cores=as.numeric(args[[4]])
+cores=as.numeric(args[[3]])
 
 #Running MegaLMM
 #installed in R/4.1.0
@@ -18,13 +17,17 @@ library('pillar',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
 
 library('MegaLMM')
 library('data.table')
-#options(warn=s2)
+#options(warn=2)
 #Read in data
-exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
-#testing
-#exp=exp[,1:100]
+run_id=sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_%s',time,run)
 
-run_id=sprintf('MegaLMM/MegaLMM_%s_test_%s_%s',time,n,run)
+phenos=c("female_flowering_d6","male_flowering_d6","total_plant_height","harvest_grain_moisture",
+"grain_yield_15","tkw_15",'asi')
+envs=c("BLOIS_2014_OPT","BLOIS_2017_OPT","GRANEROS_2015_OPT","NERAC_2016_WD",
+"STPAUL_2017_WD","SZEGED_2017_OPT")
+
+exp=fread(sprintf('eqtl/results/%s_fkeep_residuals_x_phenotypes.txt',time),data.table=F)
+
 iterations=50000
 n_iter = 1000 # how many samples to collect at once?
 runs=50
@@ -38,27 +41,56 @@ thin=40
 
 
 start_time <- Sys.time()
+
+#exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_residuals.txt',time),data.table=F)
+# full gene counts
+#exp=fread(sprintf('eqtl/%s_voom_normalized_gene_counts.txt',time),data.table=F)
+# need to t() and add genotype codes for this to work
+#meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+#snames=colnames(exp)[-1]
+#gnames=meta[match(snames,meta$sample_name),]$dh_genotype
+#znames=exp$V1
+#colnames(exp)=c('ID',gnames)
+#rownames(exp)=exp$ID
+#exp=exp[,-1]
+#exp=as.matrix(exp)
+#exp=t(exp)
+#exp=as.data.frame(exp,stringsAsFactors=F)
+#exp$ID=rownames(exp)
+#exp=exp[,c('ID',znames)]
+
+
+#phenotypes=fread('../GridLMM/phenotypes_asi.csv',data.table=F)
+#phenotypes$Genotype_code=gsub('-','.',phenotypes$Genotype_code)
+#phenotypes2=phenotypes[phenotypes$Genotype_code %in% exp$ID,]
+#phenotypes2=phenotypes2[,c('Genotype_code',"Loc.Year.Treat",phenos)]
+#newpheno=data.frame(ID=exp$ID,stringsAsFactors=F)
+#for(e in envs){
+#  df=phenotypes2[phenotypes2$Loc.Year.Treat==e,]
+#  names(df)=c('ID','Loc.Year.Treat',paste0(e,'-',phenos))
+#  df=df[match(newpheno$ID,df$ID),]
+#  rownames(df)=seq(1,nrow(df))
+#  newpheno=cbind(newpheno,df[3:9])
+#}
+#newpheno_scaled=as.data.frame(sapply(seq(2,ncol(newpheno)),function(x) (newpheno[,x]-mean(newpheno[,x],na.rm=T))/sd(newpheno[,x],na.rm=T)),stringsAsFactors=F)
+#names(newpheno_scaled)=names(newpheno)[-1]
+
+#exp=cbind(exp,newpheno_scaled)
+#residuals
+#fwrite(exp,sprintf('eqtl/results/%s_residuals_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
+#gene counts
+#fwrite(exp,sprintf('eqtl/results/%s_genecounts_x_phenotypes.txt',time),row.names=F,quote=F,sep='\t')
+
+#testing
+#exp=exp[,1:100]
 key=exp[,c('ID'),drop=F]
 rownames(exp)=exp$ID
 #roots=read.table('/home/sodell/projects/BSFG/RootTraitMatrix.txt',sep='\t',header=TRUE)
 #key=read.table('/home/sodell/projects/BSFG/RootTraitPlantKey.txt',sep='\t',header=TRUE)
 
 Y = exp[,-1]
-
-# make sample subset
-#sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
-#sub=c(sub,sample(colnames(Y),as.numeric(n)-5))
-#print(length(sub)==length(unique(sub)))
-#test_samples=data.frame(sub,stringsAsFactors=F)
-#fwrite(test_samples,sprintf('test_samples/%s_test_%ssamples.txt',time,n),row.names=F,quote=F,)
-
-# read in subset of samples
-sub=fread(sprintf('test_samples/%s_test_%ssamples.txt',time,n),data.table=F)
-Y=Y[,sub$sub]
-
-
-Y=as.matrix(Y)
-Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
+#Y=as.matrix(Y)
+Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)))
 data = key
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
@@ -112,35 +144,6 @@ priors = MegaLMM_priors(
   h2_priors_resids_fun = function(h2s,n)  1,  # Function that returns the prior density for any value of the h2s vector (ie the vector of random effect proportional variances across all random effects. 1 means constant prior. Alternative: pmax(pmin(ddirichlet(c(h2s,1-sum(h2s)),rep(2,length(h2s)+1)),10),1e-10),
   h2_priors_factors_fun = function(h2s,n) 1 # See above. Another choice is one that gives 50% weight to h2==0: ifelse(h2s == 0,n,n/(n-1))
 )
-  #Lambda_prior=list(
-  #sampler=sample_Lambda_prec_ARD,
-  #Lambda_df=3,
-  #delta_1   = list(shape = 2,  rate = 1),
-  #delta_2   = list(shape = 3, rate = 1)),
-  #B_prior=list(
-  #sampler=sample_B_prec_ARD,
-  #global=list(V=1,nu=3),
-  #global_F=list(V=1,nu=3),
-  #B_df=3,
-  #B_F_df=2),
-  #h2_priors_resids_fun = function(h2s,n) 1,
-  #h2_priors_factors_fun = function(h2s,n) 1
-#)
-
-#Construct the model
-#MegaLMM_state = initialize_MegaLMM(Y,
-#                       model=~(1|ID),
-#                       ncores=cores
-#                       # time of day as a fixed effect at somepoint
-#                       #factor_model_fixed=NULL,
-#                       data = data, # the data.frame with information for constructing the model matrices
-                       #K_mats = list(ID = K), # covariance matrices for the random effects. If not provided, assume uncorrelated
-#                       run_parameters=run_parameters,
-#                       priors=priors #,
-                       #setup = setup  # only if running simulated data. Stores simulated values for comparison
-#)
-
-
 MegaLMM_state = setup_model_MegaLMM(Y,            # n x p data matrix
                               ~(1|ID),  # RHS of base model for factors and residuals. Fixed effects defined here only apply to the factor residuals.
                               data = data,         # the data.frame with information for constructing the model matrices
@@ -184,8 +187,8 @@ for(i  in 1:burnin) {
     MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
     print(MegaLMM_state) # print status of current chain
     plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
-    #MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
-    MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
+    MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
+    #MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
     MegaLMM_state = clear_Posterior(MegaLMM_state)
     print(MegaLMM_state$run_parameters$burn)
   }else{
@@ -194,8 +197,8 @@ for(i  in 1:burnin) {
     MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
     print(MegaLMM_state) # print status of current chain
     plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
-    MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
-    #MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
+    #MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
+    MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
     MegaLMM_state = clear_Posterior(MegaLMM_state)
     print(MegaLMM_state$run_parameters$burn)
   }
@@ -239,7 +242,7 @@ run_time=end_time-start_time
 
 
 line0=paste0(run_id,'\n')
-line1=sprintf("%s genes: 5 top genes, and %s random (listed in test_samples.txt)",n,as.character(as.numeric(n)-5))
+line1="Full gene set and phenotypes"
 line2=paste0(time,' Timepoint\n')
 line3=paste0(cores,' CPU')
 line4="60G"
@@ -256,75 +259,3 @@ line12=paste0("K: ",k)
 fileConn<-file(paste0(run_id,"/about.txt"))
 writeLines(c(line0,line1,line2,line3,line4,line5,line6,line7,line8,line9,line10,line11,line12), fileConn)
 close(fileConn)
-
-
-# get posterior distribution on a function of parameters
-# This is how to calculate the G-matrix for random effect #1 (ie animal above.)
-#MegaLMM_state$Posterior$folder=sprintf('MegaLMM_%s/Posterior',time)
-#MegaLMM_state$Posterior = reload_Posterior(MegaLMM_state)
-
-#MegaLMM_state$Posterior$F_h2 = reload_Posterior(MegaLMM_state,params="F_h2")
-#MegaLMM_state$Posterior$resid_h2 = reload_Posterior(MegaLMM_state,params="resid_h2")
-#MegaLMM_state$Posterior$tot_Eta_prec = reload_Posterior(MegaLMM_state,params="tot_Eta_prec")
-#MegaLMM_state$Posterior$Lambda = reload_Posterior(MegaLMM_state,params="Lambda")
-
-#F_h2 = MegaLMM_state$Posterior$F_h2
-#resid_h2 = MegaLMM_state$Posterior$resid_h2
-#tot_Eta_prec = MegaLMM_state$Posterior$tot_Eta_prec
-#Lambda = MegaLMM_state$Posterior$Lambda
-#G_samples = get_posterior_FUN(MegaLMM_state,t(Lambda) %*% diag(F_h2['ID',]) %*% Lambda + diag(resid_h2['ID',]/tot_Eta_prec[1,]))
-# get posterior mean of a parameter
-#G = get_posterior_mean(G_samples)
-# get Highest Posterior Density intervals for paramters
-#F_h2_HPD = get_posterior_HPDinterval(MegaLMM_state,F_h2)
-# make a boxplot to summarize a subset of parameters.
-#png(sprintf('%s_posterior_B1_boxplot.png',time))
-#boxplot(MegaLMM_state$Posterior$B1[,1,],outline=F);abline(h=0)
-#dev.off()
-
-#n_samples = 100;  # how many samples to collect at once?
-#MegaLMM_state$run_parameters$simulation=F
-#for(i  in 1:70) {
-#  print(sprintf('Run %d',i))
-#  MegaLMM_state = sample_MegaLMM(MegaLMM_state,n_samples,grainSize=1)  # run MCMC chain n_samples iterations. grainSize is a paramter for parallelization (smaller = more parallelization)
-#  # set of commands to run during burn-in period to help chain converge
-#  if(MegaLMM_state$current_state$nrun < MegaLMM_state$run_parameters$burn || i<10) {
-#    MegaLMM_state = reorder_factors(MegaLMM_state) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
-#    MegaLMM_state = clear_Posterior(MegaLMM_state)
-    # BSFG_state$current_state = update_k(BSFG_state) # use to drop insignificant factors
-#    MegaLMM_state$run_parameters$burn = max(MegaLMM_state$run_parameters$burn,MegaLMM_state$current_state$nrun+100) # if you made changes, set a new burn-in period
-#    print(MegaLMM_state$run_parameters$burn)
-#  }
-#  MegaLMM_state = save_posterior_chunk(MegaLMM_state)  # save any accumulated posterior samples in the database to release memory
-#  print(MegaLMM_state) # print status of current chain
-#  plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
-#}
-
-
-#cis_eQTL_model() function
-
-# reload the whole database of posterior samples
-#MegaLMM_state$Posterior = reload_Posterior(MegaLMM_state)
-
-# all parameter names in Posterior
-#MegaLMM_state$Posterior$posteriorSample_params
-#MegaLMM_state$Posterior$posteriorMean_params  # these ones only have the posterior mean saved, not individual posterior samples
-
-# instead, load only a specific parameter
-#Lambda = load_posterior_param(MegaLMM_state,'Lambda')
-
-# boxplots are good ways to visualize Posterior distributions on sets of related parameters
-#boxplot(MegaLMM_state$Posterior$F_h2[,1,])
-
-# get posterior distribution on a function of parameters
-# This is how to calculate the G-matrix for random effect #1 (ie animal above.)
-#G_samples = get_posterior_FUN(MegaLMM_state,Lambda %*% diag(F_h2['animal.(Intercept)',]) %*% t(Lambda) + resid_h2['animal.(Intercept)',]/tot_Eta_prec[1,])
-
-# get posterior mean of a parameter
-#G = get_posterior_mean(G_samples)
-
-# get Highest Posterior Density intervals for paramters
-#F_h2_HPD = get_posterior_HPDinterval(MegaLMM_state,F_h2)
-
-#boxplot(MegaLMM_state$Posterior$B[,2,],outline=F);abline(h=0)
-#boxplot(MegaLMM_state$Posterior$B_F[,2,],outline=F);abline(h=0)

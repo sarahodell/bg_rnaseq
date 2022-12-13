@@ -25,32 +25,32 @@ greypalette=gray.colors(5)
 
 df=c()
 for(c in 1:10){
-  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_fkeep_results.txt',time,c))
+  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_SNP_results.txt',time,c))
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
   d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
   df=rbind(df,d)
 }
 
-png(sprintf('eqtl/cis/images/%s_fkeep_qqplot.png',time))
-qqman::qq(df$p_value_ML)
+png(sprintf('eqtl/cis/images/%s_SNP_qqplot.png',time))
+qqman::qq(df$p_value_REML)
 dev.off()
 
-df=df[!is.na(df$p_value_ML),]
+df=df[!is.na(df$p_value_REML),]
 
 #order=match(df[order(df$p_value_ML),]$Gene,df$Gene)
 #df=df[order(df$p_value_ML),]
 #rownames(df)=seq(1,nrow(df))
 #p_adjusted=p.adjust(df$p_value_ML,method='fdr')
-df$value=-log10(df$p_value_ML)
+df$value=-log10(df$p_value_REML)
 #df$value=-log10(p_adjusted)
 
 #png(sprintf('eqtl/cis/images/%s_qqplot.png',time))
 #qqman::qq(df$p_value_ML)
 #dev.off()
 
-df=df[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
-names(df)=c('Gene','SNP','p_value_ML','CHR','BP','value')
+df=df[,c('Trait','X_ID','p_value_REML','CHR','BP','value')]
+names(df)=c('Gene','SNP','p_value_REML','CHR','BP','value')
 
 df=df[,c('Gene','CHR','BP','SNP','value')]
 #qq=qqPlot(df$p_value_ML)
@@ -134,9 +134,9 @@ a2<-gg.manhattan2(df,threshold,
 
 
 
-png(sprintf('eqtl/cis/images/ciseQTL_fkeep_manhattan_%s.png',time),width=2000,height=1500)
+png(sprintf('eqtl/cis/images/ciseQTL_SNP_manhattan_%s.png',time),width=2000,height=1500)
 print(a2)
 dev.off()
 
 sigs=df[df$value>=threshold,]
-fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_SNP_hits.txt',time),row.names=F,quote=F,sep='\t')

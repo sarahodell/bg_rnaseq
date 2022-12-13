@@ -10,7 +10,8 @@ library('data.table')
 library('dplyr')
 #library('lme4')
 
-phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means.txt',time),data.table=F)
+#phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means.txt',time),data.table=F)
+phenotype=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_all_F_means.txt',time),data.table=F)
 
 factor_results=c()
 
@@ -20,9 +21,9 @@ for(k in 2:ncol(phenotype)){
   data=data.frame(ID=phenotype$V1,ID2=phenotype$V1,y=phenotype[,p],stringsAsFactors=F)
   data=data[!is.na(data$y),]
   data$y=(data$y-mean(data$y))/sd(data$y)
+  #K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
+  K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
 
-
-  K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
   rownames(K)=K[,1]
   rownames(K)=gsub("-",".",rownames(K))
   K=as.matrix(K[,-1])
@@ -49,4 +50,6 @@ for(k in 2:ncol(phenotype)){
   factor_results=rbind(factor_results,gwas)
 }
 
-fwrite(factor_results,sprintf('eqtl/trans/results/%s_c%s_factor_trans_eQTL.txt',time,chr),row.names=F,quote=F,sep='\t')
+
+fwrite(factor_results,sprintf('eqtl/trans/results/%s_c%s_pheno_factor_trans_eQTL.txt',time,chr),row.names=F,quote=F,sep='\t')
+#fwrite(factor_results,sprintf('eqtl/trans/results/%s_c%s_factor_trans_eQTL.txt',time,chr),row.names=F,quote=F,sep='\t')

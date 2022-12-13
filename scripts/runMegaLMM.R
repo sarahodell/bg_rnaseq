@@ -19,8 +19,8 @@ library('MegaLMM')
 library('data.table')
 #options(warn=s2)
 #Read in data
-exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
-#exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts.txt',time),data.table=F)
+#exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
+exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 
 #testing
 #exp=exp[,1:100]
@@ -32,7 +32,7 @@ runs=50
 #burn_drop=0.5
 burn=0
 burnin=30
-k=60
+k=nrow(exp)
 #Increase thinning?
 thin=40
 
@@ -66,6 +66,8 @@ colnames(K)=rownames(K)
 
 inter=intersect(data$ID,rownames(K))
 K=K[inter,inter]
+data=data[match(inter,data$ID),,drop=F]
+Y=Y[inter,]
 #K = setup$K covariance matrix?
 
 #cf_DFinf2NA = function(x){
