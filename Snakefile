@@ -39,7 +39,7 @@ SAMPLE_TABLE["shortcut"] = SAMPLE_TABLE["batch"] + "/" + SAMPLE_TABLE["sample_na
 #SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['batch']!="batch_1"]
 #SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['batch']!="batch_2"]
 #temp for testing (only one batch)
-SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['batch']=="batch_1"]
+#SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['batch']=="batch_1"]
 #SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['sample_name']!=drop_samples[5]]
 #SAMPLE_TABLE = SAMPLE_TABLE[~SAMPLE_TABLE.batch.isin(drop_samples)]
 #SAMPLE_TABLE=SAMPLE_TABLE.tail(n=361)
@@ -73,8 +73,8 @@ SLANES=list(R1_TABLE["slane"])
 #LANES = [7,8]
 #TEST
 #SAMPLES=["18048FL-06-01-01_S1_L001","18048FL-06-01-01_S1_L001","18048FL-06-01-02_S2_L001","18048FL-06-01-02_S2_L001"]
-
-
+SAMPLES=SAMPLES[:10]
+DIRECTORIES=DIRECTORIES[1:10]
 print("Running alignment on these samples:")
 print(SAMPLES)
 
@@ -95,20 +95,22 @@ rule all:
     #expand("raw_reads/{dir}/{sample}_R2_001.fastq.gz",zip,dir=DIRECTORIES,sample=SAMPLES),
     #expand("raw_reads/{dir}/{sample}_R1_001.fastq.gz",zip, dir=DIRECTORIES, sample=SAMPLES),
     #expand("raw_reads/{dir}/{sample}_R2_001.fastq.gz",zip, dir=DIRECTORIES, sample=SAMPLES),
-    expand("/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz",batch=DIRECTORIES,sample=SAMPLES),
-    expand("/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz",batch=DIRECTORIES,sample=SAMPLES),
+    #expand("/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz",batch=DIRECTORIES,sample=SAMPLES),
+    #expand("/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz",batch=DIRECTORIES,sample=SAMPLES),
     #expand("qc/fastqc/{batch}/{sample}_R1_001.pe.qc_fastqc.zip",batch=DIRECTORIES,sample=SAMPLES),
     #expand("qc/fastqc/{batch}/{sample}_R2_001.pe.qc_fastqc.zip",batch=DIRECTORIES,sample=SAMPLES),
     #expand("qc/fastqc/{batch}/{sample}_R1_001.pe.qc_fastqc.html",batch=DIRECTORIES,sample=SAMPLES),
     #expand("qc/fastqc/{batch}/{sample}_R2_001.pe.qc_fastqc.html",batch=DIRECTORIES,sample=SAMPLES),
     #expand("qc/bg_{batch}_multiqc.html",zip,batch=DIRECTORIES,allow_missing=True),
-    #directory("transcript_index"),
+    "pseudos/decoys.txt",
+    "founders_transcript_index/sa.bin",
+    expand("salmon_quant/{batch}/{sample}_transcripts_quant/quant.sf",batch=DIRECTORIES,sample=SAMPLES)
     #expand("salmon_quant/{sample}_transcripts_quant/quant.sf",sample=SAMPLES)
-    'star/pass1/sjdbList.out.tab',
-    expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',batch=DIRECTORIES,sample=SAMPLES),
-    "star/pass2/sjdbList.out.tab",
-    expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam',batch=DIRECTORIES,sample=SAMPLES),
-    expand("/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai",batch=DIRECTORIES,sample=SAMPLES)
+    #'star/pass1/sjdbList.out.tab',
+    #expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',batch=DIRECTORIES,sample=SAMPLES),
+    #"star/pass2/sjdbList.out.tab",
+    #expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam',batch=DIRECTORIES,sample=SAMPLES),
+    #expand("/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai",batch=DIRECTORIES,sample=SAMPLES)
 #    expand("qc/rnaseqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
 #    expand("qc/bamqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
 #    "qc/multisampleBamQcReport.html"
@@ -116,9 +118,10 @@ rule all:
 #    expand('{sample}_HTSeq.csv', sample=SAMPLES),
 
 
-include: "rules/trimmomatic.smk"
+#include: "rules/trimmomatic.smk"
 #include: "rules/fastqc.smk"
-include: "rules/star.smk"
-#include: "rules/salmon.smk"
+#include: "rules/star.smk"
+include: "rules/salmon.smk"
 #include: "rules/qualimap.smk"
 #include: "rules/htseq.smk"
+#include: "rules/kallisto.smk"

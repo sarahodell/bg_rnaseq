@@ -54,3 +54,7 @@ qc/
 MegaLMM*
 src/
 annotations/
+es_sandbox/
+ASE/
+pseudos/
+*.vcf*

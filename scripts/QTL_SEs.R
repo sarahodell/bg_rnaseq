@@ -7,6 +7,7 @@ library('data.table')
 library('lme4')
 library('lme4qtl')
 library('emmeans')
+library('multcomp')
 library('ggplot2')
 library('GridLMM')
 
@@ -345,6 +346,127 @@ for(i in 1:nrow(qtl)){
 }
 saveRDS(ses,sprintf('eqtl/results/%s_ciseQTL_founder_es.rds',time))
 pdf(sprintf('eqtl/images/%s_ciseQTL_founder_es.pdf',time))
+for(i in 1:length(ses_plot)){
+  print(ses_plot[[i]])
+}
+dev.off()
+
+
+
+######### Try just using lme4 without kinship matrix and input that into emmeans and cld
+phenotype=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+qtl=fread(sprintf('eqtl/results/%s_cis_eQTL_hits.txt',time),data.table=F)
+
+#phenotype=fread('eqtl/normalized/WD_0712_voom_normalized_gene_counts.txt',data.table=F)
+#metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+#cs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+#samples=names(phenotype)[-1]
+#genos=metadata[match(samples,metadata$sample_name),]$dh_genotype
+#phenotype=as.data.frame(t(phenotype),stringsAsFactors=F)
+#names(phenotype)=c(phenotype[1,])
+#phenotype=phenotype[-1,]
+#phenotype$ID=genos
+ses=list()
+ses_plot=list()
+count=1
+for(i in 1:nrow(qtl)){
+  chr=as.character(qtl[i,]$CHR)
+  snp=qtl[i,]$SNP
+  pos=qtl[i,]$BP
+  results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_results2.txt',time,chr),data.table=F)
+  founder_probs = readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+  #K = fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table = F,h=T)
+  #rownames(K) = K[,1]
+  #K = as.matrix(K[,-1])
+  #K=K[inter,inter]
+  inter=intersect(rownames(founder_probs[[1]]),phenotype$ID)
+
+  X = do.call(cbind,lapply(founder_probs,function(x) x[inter,snp]))
+  #colnames(X) = founders
+  #rownames(X) = dimnames(founder_probs[[1]])[[1]]
+  y=qtl[i,]$Gene
+  subpheno = phenotype[,c('ID',y)]
+  names(subpheno)=c('ID','y')
+  subpheno=subpheno[!is.na(subpheno$y),]
+  rownames(subpheno)=subpheno$ID
+  subpheno=subpheno[inter,]
+  #subpheno=subpheno[match(inter,subpheno$ID),]
+  #phenotype$y=phenotype$y-mean(phenotype$y)
+  frep2=apply(X,MARGIN=2,function(x) round(sum(x[x>0.75])))
+  fkeep=founders[frep2>2]
+  X=X[,fkeep]
+  subpheno=cbind(subpheno,X)
+  founder=unlist(unname(apply(X,MARGIN=1,function(x) colnames(X)[which.max(x)])))
+  subpheno$founder=factor(founder,levels=fkeep)
+  #m4 = relmatLmer(y ~ 0 + X + (1|ID),data=subpheno,relmat = list(ID=K),REML=T)
+  #m1 = lm(y ~ 0+ X,data=subpheno)
+  #m2=lmer(y ~ 0 + X + (1|ID),data=subpheno,control=lmerControl(check.nobs.vs.nlev = "ignore",check.nobs.vs.rankZ = "ignore",
+  #   check.nobs.vs.nRE="ignore"))
+  f=as.formula(paste('y',paste(c(0,fkeep,"(1|ID)"),collapse=" + "),sep=" ~ "))
+  #refgrid=ref_grid(m3,at=list(B73_inra=1,A632_usa=0,CO255_inra=0,OH43_inra=0,A654_inra=0,FV2_inra=0,D105_inra=0,W117_inra=0,B96=0,F492=0,VA85=0))
+  m3=lmer(f,data=subpheno,control=lmerControl(check.nobs.vs.nlev = "ignore",check.nobs.vs.rankZ = "ignore",
+     check.nobs.vs.nRE="ignore"))
+  #f=as.formula(paste('y',paste(c(0,fkeep),collapse=" + "),sep=" ~ "))
+  #m2= lm(f, data=subpheno)
+
+
+  #m3=lm(paste0())
+  #em=emmeans(m1,specs='founder')
+  #allem=emmGrid()
+  for(f in fkeep){
+    atlist=list()
+    for(f2 in fkeep){
+      if(f==f2){
+        atlist[[f2]]=1
+      }else{
+        atlist[[f2]]=0
+      }
+    }
+    refgrid=ref_grid(m3,at=atlist)
+    em=emmeans(refgrid,specs=f,lmer.df="kenward-roger")
+    #em=as.data.frame(em,stringsAsFactors=F)
+    #em$sample=f
+    #em=em[,-1]
+    if(f==fkeep[1]){
+      allem=em
+    }else{
+      allem=rbind(allem,em)
+    }
+  }
+  cld=cld(allem,Letters=letters)
+  cld=as.data.frame(cld,stringsAsFactors=F)
+  cld=cld[order(cld$emmean),]
+  rownames(cld)=1:nrow(cld)
+  variable_f=sapply(seq(1,length(fkeep)),function(x) fkeep[which(cld[x,fkeep]==1)])
+  cld$variable_f=factor(variable_f,levels=variable_f)
+  #glm_betas=unlist(unname(results[results$Trait==y,as.character(cld$founder)]))
+  #glm_betas[-1]=glm_betas[1]+glm_betas[-1]
+  fgroups=cld$.group
+
+  ses[[count]]=list(gene=y,values=cld,tukey_res=fgroups,time=time,fkeep=fkeep,colsum=colSums(X))
+    #se4[2,]$value=se4[-1,]$value + se4[1,]$value
+    #se4=se4[order(se4$value),]
+    #GRIDLMM
+  #png(sprintf('GridLMM/effect_sizes/founder_ES/%s_BLUP_founder_effect_sizes_lme4qtl.png',name),width=1000,height=800)
+  p1=ggplot(cld,aes(x=variable_f,y=emmean,color=variable_f)) + geom_point() +
+  geom_errorbar(aes(ymin=lower.CL,ymax=upper.CL),data=cld) +
+  geom_text(aes(label=.group),vjust=-5,color="black",size=10)+
+  scale_color_manual(values=colorcodes[levels(cld$variable_f),]$hex_color,labels=levels(cld$variable_f))+
+  theme(axis.text.x=element_text(size=10)) +
+  xlab("Founder") + ylab("Expression (log2CPM)") +
+  labs(title=sprintf("%s cis-eQTL Founder Effect Sizes (lmer)",y))
+  #dev.off()
+
+
+  png('test.png')
+  print(p1)
+  dev.off()
+
+  ses_plot[[count]]=p1
+  count=count+1
+}
+saveRDS(ses,sprintf('eqtl/results/%s_ciseQTL_founder_lme4_es.rds',time))
+pdf(sprintf('eqtl/images/%s_ciseQTL_founder_lme4_es.pdf',time))
 for(i in 1:length(ses_plot)){
   print(ses_plot[[i]])
 }

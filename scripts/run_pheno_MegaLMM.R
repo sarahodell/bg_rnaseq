@@ -236,9 +236,6 @@ print(cumprod(MegaLMM_state$current_state$delta[1:20]))
 # boxplots are good ways to visualize Posterior distributions on sets of related parameters
 
 #MegaLMM_state$Posterior$F_h2 = load_posterior_param(MegaLMM_state,'F_h2')
-#png(paste0(run_id,'/',sprintf('%s_posterior_F_h2_boxplot.png',time)))
-#print(boxplot(MegaLMM_state$Posterior$F_h2[,1,]))
-#dev.off()
 
 # Run info file
 run_time=end_time-start_time

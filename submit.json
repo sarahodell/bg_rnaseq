@@ -27,6 +27,12 @@
 	"mem" : "7G",
 	"p" : "bigmemm"
     },
+    "decoy_genome" :
+    {
+  "time" : "24:00:00",
+  "p" : "bigmemh",
+  "mem" : "125G"
+    },
     "salmon_index" :
     {
   "time" : "24:00:00",
@@ -93,5 +99,17 @@
       "mem" : "7G",
       "t" : "24:00:00",
       "p" : "bigmemm"
+    },
+    "kallisto_index" :
+    {
+      "mem" : "32G",
+      "t" : "24:00:00",
+      "p" : "bigmemm"
+    },
+    "kallisto_quant" :
+    {
+      "mem" : "16G",
+      "t" : "24:00:00",
+      "p" : "bigmemh"
     }
  }

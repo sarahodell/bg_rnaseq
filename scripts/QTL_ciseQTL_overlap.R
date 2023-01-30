@@ -44,7 +44,7 @@ env1$BP_end=env1$BP+5000
 env1=as.data.table(env1)
 env2=as.data.table(qtl)
 #env2$end=env2$end-1
-setkey(env2,Chromosome,left_b `ound_bp,alt_right_bound_bp)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
 comparison=foverlaps(env1,env2,by.x=c('CHR','BP_start','BP_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
 #overlap of gene location +1 10kb? Look at papers. what do they use?

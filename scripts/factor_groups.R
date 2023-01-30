@@ -3,7 +3,7 @@
 library('data.table')
 library('ggplot2')
 
-time="WD_0712"
+time="WD_0718"
 
 #data=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_correlations.txt',time),data.table=F)
 data=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_correlations.txt',time),data.table=F)

@@ -4,11 +4,11 @@ library('generics',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
 library('MegaLMM')
 library('data.table')
 
-time="WD_0712"
+time="WD_0718"
 #n_ind=79
-n_ind=246
-n_k=100
-n_genes=5000
+#n_ind=246
+#n_k=100
+#n_genes=5000
 
 
 #K=K[inter,inter]
@@ -49,6 +49,21 @@ for(id in run_ids){
     fwrite(F_mean,paste0(run_id,'/F_means.txt'),row.names=T,quote=F,sep='\t')
   }
 }
+
+
+#Get F_h2
+
+
+run_id="MegaLMM/pheno_MegaLMM_WD_0712_3"
+MegaLMM_state=readRDS(paste0(run_id,'/','MegaLMM_state_base.rds'))
+MegaLMM_state$current_state=readRDS(paste0(run_id,'/','current_state.rds'))
+MegaLMM_state$Posterior=reload_Posterior(MegaLMM_state,params=c("F_h2"))
+h2_mean=get_posterior_mean(MegaLMM_state$Posterior$F_h2)
+
+png(paste0(run_id,'/',sprintf('%s_posterior_F_h2_boxplot.png',time)))
+print(boxplot(MegaLMM_state$Posterior$F_h2[,1,]))
+dev.off()
+
 
 # Average across runs
 
@@ -398,7 +413,9 @@ fwrite(f_all_means,sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means.txt',time),
 #############################################
 
 #
-run_ids = c(sprintf('pheno_MegaLMM_residuals_%s',time),sprintf('pheno_MegaLMM_%s',time))
+run_ids = c(sprintf('pheno_MegaLMM_%s',time))
+
+#run_ids = c(sprintf('pheno_MegaLMM_residuals_%s',time),sprintf('pheno_MegaLMM_%s',time))
 for(id in run_ids){
   if(grepl('residuals',id)){
     exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
@@ -630,19 +647,23 @@ fwrite(f_all_means,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_all_F_means.txt',
 r1=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_1/Lambda_means.txt',time),data.table=F)
 rownames(r1)=r1$V1
 r1=r1[,-1]
+r1_probs=paste0('Factor',c(41:189))
+r1=r1[!rownames(r1) %in% (r1_probs),]
 r1=t(as.matrix(r1))
 
 # run 2
 r2=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_2/Lambda_means.txt',time),data.table=F)
 rownames(r2)=r2$V1
 r2=r2[,-1]
+r2_probs=paste0('Factor',c(42:190))
+r2=r2[!rownames(r2) %in% (r2_probs),]
 r2=t(as.matrix(r2))
 
 # run 3
 
 r3=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_3/Lambda_means.txt',time),data.table=F)
 rownames(r3)=r3$V1
-r3_probs=paste0('Factor',c(93,96))
+r3_probs=paste0('Factor',c(43:190))
 r3=r3[!rownames(r3) %in% (r3_probs),]
 r3=r3[,-1]
 r3=t(as.matrix(r3))
@@ -735,6 +756,8 @@ run_id=sprintf('MegaLMM/pheno_MegaLMM_%s_%.0f',time,1)
 r1=fread(sprintf('%s/F_means.txt',run_id),data.table=F)
 rownames(r1)=r1$V1
 r1=r1[,-1]
+r1_probs=paste0('Factor',c(41:189))
+r1=r1[,!names(r1) %in% (r1_probs)]
 #r1_probs=paste0('Factor',c(96))
 #r1=r1[,!names(r1) %in% (r1_probs)]
 
@@ -744,6 +767,8 @@ run_id=sprintf('MegaLMM/pheno_MegaLMM_%s_%.0f',time,2)
 r2=fread(sprintf('%s/F_means.txt',run_id),data.table=F)
 rownames(r2)=r2$V1
 r2=r2[,-1]
+r2_probs=paste0('Factor',c(42:190))
+r2=r2[,!names(r2) %in% (r2_probs)]
 #r2_probs=paste0('Factor',c(95,96))
 #r2=r2[,!names(r2) %in% (r2_probs)]
 
@@ -752,7 +777,7 @@ run_id=sprintf('MegaLMM/pheno_MegaLMM_%s_%.0f',time,3)
 r3=fread(sprintf('%s/F_means.txt',run_id),data.table=F)
 rownames(r3)=r3$V1
 r3=r3[,-1]
-r3_probs=paste0('Factor',c(93,96))
+r3_probs=paste0('Factor',c(43:190))
 r3=r3[,!names(r3) %in% (r3_probs)]
 
 # Average across runs
