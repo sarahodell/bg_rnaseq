@@ -29,19 +29,26 @@ genetable=genetable[genetable$CHROM==chr,]
 genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
-phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts.txt',time),data.table=F)
+phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
-samples=colnames(phenotypes)[-1]
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
 
-genes=intersect(genes,phenotypes$V1)
+
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+phenotypes=phenotypes[,c('V1',kept_genes)]
+
+genos=phenotypes$V1
+
+genes=intersect(genes,names(phenotypes)[-1])
 
 X=fread(sprintf('../genotypes/qtl2/Biogemma_DHgenos/DH_geno_chr%s_binary.csv',chr),data.table=F,stringsAsFactors=F)
 rownames(X)=X$ind
 X=X[,-1]
 inds=rownames(X)
 
-dhs=metadata[match(samples,metadata$sample_name),]$dh_genotype
-i=intersect(dhs,inds)
+#dhs=metadata[match(samples,metadata$sample_name),]$dh_genotype
+i=intersect(genos,inds)
 K=K[i,i]
 X=X[i,]
 
@@ -62,16 +69,20 @@ for(g in 1:length(genes)){
   #snp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
   if(length(snp)!=0){
     subX=X[,snp,drop=F]
-    data=data.frame(sample=colnames(phenotypes)[-1],y=unlist(phenotypes[phenotypes[,1]==gene,][-1]),stringsAsFactors=F)
+    data=data.frame(ID=phenotypes$V1,y=phenotypes[,gene],stringsAsFactors=F)
     data=data[!is.na(data$y),]
-    data$ID=metadata[match(data$sample,metadata$sample_name),]$dh_genotype
+    #data$ID=metadata[match(data$sample,metadata$sample_name),]$dh_genotype
     rownames(data)=seq(1,nrow(data))
     data=data[!is.na(data$ID),]
 
-    if(length(unique(data$ID))<nrow(data)){
-      data=data%>%group_by(ID)%>%summarize(y=mean(y))
-    }
-    data=as.data.frame(data,stringsAsFactors=F)
+    data$PC1=pcs[match(data$ID,pcs$V1),]$PC1
+    data$PC2=pcs[match(data$ID,pcs$V1),]$PC2
+    data$PC3=pcs[match(data$ID,pcs$V1),]$PC3
+
+    #if(length(unique(data$ID))<nrow(data)){
+    #  data=data%>%group_by(ID)%>%summarize(y=mean(y))
+    #}
+    #data=as.data.frame(data,stringsAsFactors=F)
     rownames(data)=data$ID
     data=data[i,]
     data$ID2=data$ID
@@ -85,10 +96,10 @@ for(g in 1:length(genes)){
     }
     #subX=
     data$y=(data$y-mean(data$y))/sd(data$y)
-    data=data[,c('ID','ID2','y')]
+    data=data[,c('ID','ID2','PC1','PC2','PC3','y')]
 
     gwas = GridLMM_GWAS(
-                            formula = y~1+(1|ID),
+                            formula = y~1+PC1+PC2+PC3+(1|ID),
                             test_formula = ~1,
                             reduced_formula = ~0,
                             data = data,
@@ -119,6 +130,6 @@ for(g in 1:length(genes)){
 
 
 all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
-names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','beta.1','beta.2','REML_logLik','ID.RMEL','F,1','n_steps','Df_X','p_value_REML')
+names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','beta.1',"PC1","PC2","PC3",'beta.2','REML_logLik','ID.RMEL','F,1','n_steps','Df_X','p_value_REML')
 
 fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_SNP_results.txt',time,chr),row.names=F,quote=F,sep='\t')

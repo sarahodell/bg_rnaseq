@@ -41,9 +41,10 @@ df=df[!is.na(df$p_value_REML),]
 #order=match(df[order(df$p_value_ML),]$Gene,df$Gene)
 #df=df[order(df$p_value_ML),]
 #rownames(df)=seq(1,nrow(df))
-#p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+#p_adjusted=p.adjust(df$p_value_REML,method='fdr')
+#df$p_adjusted=p_adjusted
 df$value=-log10(df$p_value_REML)
-#df$value=-log10(p_adjusted)
+#df$value=-log10(df$p_adjusted)
 
 #png(sprintf('eqtl/cis/images/%s_qqplot.png',time))
 #qqman::qq(df$p_value_ML)
@@ -123,10 +124,11 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
       panel.grid.minor.x = element_blank()
     ) + guides(color="none")
 }
-
-ymax=round(max(df$value))+1
 #threshold=-log10(0.05)
 threshold=-log10(0.05/nrow(df))
+
+ymax=max(round(max(df$value))+1,threshold+1)
+
 title=sprintf("cis-eQTL at timepoint %s",time)
 a2<-gg.manhattan2(df,threshold,
              col=greypalette,

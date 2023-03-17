@@ -3,7 +3,7 @@
 library('data.table')
 library('ggplot2')
 
-time="WD_0718"
+time="WD_0712"
 
 #data=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_correlations.txt',time),data.table=F)
 data=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_correlations.txt',time),data.table=F)
@@ -22,6 +22,10 @@ sdata=data[strong,]
 
 phenotypes=rownames(lambda_all_means)[grepl('_',rownames(lambda_all_means))]
 
+# Get a prop_var matrix from lambdas
+
+prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) x^2/sum(x^2))),stringsAsFactors=F)
+fwrite(prop_matrix,sprintf('MegaLMM/pheno_MegaLMM_%s_prop_variance.txt',time),row.names=T,quote=F,sep='\t')
 
 factors=names(lambda_all_means)
 factor_groups=vector("list",length=length(factors))
@@ -30,6 +34,8 @@ for(i in 1:length(factors)){
   factor_groups[[i]]$genes=c()
   factor_groups[[i]]$phenotypes=c()
 }
+
+
 
 for(f in 1:nrow(lambda_all_means)){
   subl=lambda_all_means[f,,drop=F]
@@ -47,7 +53,7 @@ for(f in 1:nrow(lambda_all_means)){
     }
   }
 }
-
+names(factor_groups)=factors
 #saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
 saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
 
@@ -56,6 +62,7 @@ factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time)
 pheno_factors=c()
 pheno=c()
 prop_vars=c()
+ngenes=c()
 for(f in 1:length(factor_groups)){
   if(length(factor_groups[[f]]$phenotype)>0){
     print(f)
@@ -127,7 +134,7 @@ for(f in 1:nrow(lambda_all_means)){
 #saveRDS(factor_groups,sprintf('MegaLMM_residuals_%s_factor_groups.rds',time))
 saveRDS(factor_groups,sprintf('MegaLMM/MegaLMM_%s_factor_groups.rds',time))
 
-pheno_df=fread('MegaLMM/pheno_MegaLMM_WD_0712_sig_factors.txt',data.table=F)
+pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_sig_factors.txt',time),data.table=F)
 nFactors=length(unique(pheno_df$factor))
 nTraits=length(unique(pheno_df$phenotype))
 factorTraitvar=matrix(0, nrow = nFactors, ncol = nTraits)
@@ -210,12 +217,9 @@ phenosf=c("BLOIS_2014_OPT-asi",
 new_phenodf=c()
 for(f in factors){
   for(p in phenos){
-    val=pheno_df[pheno_df$factor==f & pheno_df$phenotype==p,]
-    if(dim(val)[1]!=0){
-      line=c(f,p,val$prop_var)
-    }else{
-      line=c(f,p,0)
-    }
+    #val=pheno_df[pheno_df$factor==f & pheno_df$phenotype==p,]
+    val=prop_matrix[p,f]
+    line=c(f,p,val)
     new_phenodf=rbind(new_phenodf,line)
   }
 }
@@ -233,11 +237,11 @@ scale_fill_gradient(low="white", high="darkblue") +
   theme(text = element_text(size=10)) + xlab("Factor") + ylab("Environment-Phenotype") +
   ggtitle("Proportion Variance")
 
-pdf('images/WD_0712_factor_trait_propvar.pdf')
+pdf(sprintf('images/%s_factor_trait_propvar.pdf',time))
 print(p1)
 dev.off()
 
-cis=fread('eqtl/results/WD_0712_cis_eQTL_fkeep_hits.txt',data.table=F)
+cis=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',time),data.table=F)
 pheno_factors=unique(pheno_df$factor)
 
 pheno_loc=c()
@@ -249,15 +253,15 @@ for(f in pheno_factors){
 cis_genes=c()
 cis_factors=c()
 
-for(i in pheno_loc){
-  test=factor_groups[[i]]$genes
+for(factor in pheno_factors){
+  test=factor_groups[[factor]]$genes
   overlap=cis$Gene %in% test
   if(sum(overlap)>0){
-    print(i)
+    print(factor)
     cis_gene=cis[which(overlap),]$Gene
     for(c in cis_gene){
-      cis_genes=c(c,cis_genes)
-      cis_factors=c(cis_factors,factor_groups[[i]]$factor)
+      cis_genes=c(cis_genes,c)
+      cis_factors=c(cis_factors,factor)
     }
   }
 }
@@ -332,3 +336,24 @@ fwrite(cis_overlap,sprintf('eqtl/results/%s_cis_pheno_factor_overlap.txt',time),
 
 cis_eqtl_overlap=fread('eqtl/results/WD_0712_eQTL_QTL_overlap.txt',data.table=F)
 qtt=intersect(cis_eqtl_overlap$Gene,cis_overlap$cis_gene)
+
+
+
+##### No. of genes per pheno_factor
+factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
+
+pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_sig_factors.txt',time),data.table=F)
+pheno_factors=unique(pheno_df$factor)
+ngenes=sapply(pheno_factors,function(x) length(factor_groups[[x]]$genes))
+
+genes_df=data.frame(factor=names(ngenes),ngenes=ngenes,stringsAsFactors=F)
+genes_df$factor_f=factor(genes_df$factor,levels=c(genes_df$factor))
+
+p1=ggplot(genes_df,aes(x=factor_f,y=ngenes)) + geom_bar(stat='identity') +
+geom_text(aes(label=ngenes), vjust=-0.3, size=3)+ xlab("Factor") +
+ylab("Number of Genes") + ggtitle(sprintf('Number of Genes in Phenotype Factors %s',time)) +
+theme(axis.text.x=element_text(angle=-45,hjust=-0.25))
+
+png(sprintf('images/factor_gene_counts_%s.png',time))
+print(p1)
+dev.off()

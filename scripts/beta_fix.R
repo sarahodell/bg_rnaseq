@@ -4,6 +4,14 @@ time=as.character(args[[1]])
 
 library('data.table')
 
+allcis=c()
+times=c('WD_0712','WD_0718','WD_0720','WD_0727')
+for(t in times){
+  df=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',t),data.table=F)
+  df$time=t
+  allcis=rbind(allcis,df)
+}
+
 #betas=c()
 #for(chr in 1:10){
 #  beta=fread(sprintf('eqtl/results/eQTL_%s_c%.0f_betas.txt',time,chr))

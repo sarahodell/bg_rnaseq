@@ -17,6 +17,8 @@ library('pillar',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
 
 library('MegaLMM')
 library('data.table')
+library('preprocessCore')
+
 #options(warn=s2)
 #Read in data
 #exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
@@ -39,12 +41,16 @@ thin=40
 
 
 start_time <- Sys.time()
-key=exp[,c('ID'),drop=F]
-rownames(exp)=exp$ID
+key=exp[,c('V1'),drop=F]
+rownames(exp)=exp$V1
 #roots=read.table('/home/sodell/projects/BSFG/RootTraitMatrix.txt',sep='\t',header=TRUE)
 #key=read.table('/home/sodell/projects/BSFG/RootTraitPlantKey.txt',sep='\t',header=TRUE)
 
 Y = exp[,-1]
+
+geneh2s=fread('eqtl/data/lme4qtl_WD_0712_h2s.txt',data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 & geneh2s$h2<1,]$gene
+Y=Y[,kept_genes]
 #sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
 #sub=c(sub,sample(colnames(Y),95))
 
@@ -55,8 +61,18 @@ Y = exp[,-1]
 #Y=as.matrix(Y)
 #Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
 Y=as.matrix(Y)
-Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
+
+#Ynorm1=normalize.quantiles(t(Y))
+#Ynorm1=t(Ynorm1)
+# Quantile Normalization
+Ynorm=normalize.quantiles(Y)
+
+rownames(Ynorm)=rownames(Y)
+colnames(Ynorm)=colnames(Y)
+Y=Ynorm
+#Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
 data = key
+names(data)=c('ID')
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
 rownames(K)=K[,1]
@@ -194,7 +210,14 @@ for(i  in 1:burnin) {
     print(MegaLMM_state) # print status of current chain
     plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
     #MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
-    MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
+    sd_F = apply(MegaLMM_state$current_state$F,2,sd)
+    mean_F = apply(MegaLMM_state$current_state$F,2,mean)
+    current_F = MegaLMM_state$current_state$F
+    MegaLMM_state$current_state$Lambda_prec = sweep(MegaLMM_state$current_state$Lambda_prec,1,sd_F,'/')
+    MegaLMM_state$current_state$delta = MegaLMM_state$current_state$delta / sd_F
+    current_F = scale(current_F)
+    current_F = sweep(current_F,2,mean_F,'+')
+    MegaLMM_state$current_state$F = current_F
     MegaLMM_state = clear_Posterior(MegaLMM_state)
     print(MegaLMM_state$run_parameters$burn)
   }
@@ -213,17 +236,17 @@ end_time <- Sys.time()
 # MegaLMM_state$Posterior = reload_Posterior(MegaLMM_state)
 # U_hat = get_posterior_mean(MegaLMM_state,U_R + U_F %*% Lambda)
 # all parameter names in Posterior
-MegaLMM_state$Posterior$posteriorSample_params
-MegaLMM_state$Posterior$posteriorMean_params  # these ones only have the posterior mean saved, not individual posterior samples
-print("F_var")
-print(apply(MegaLMM_state$current_state$F,2,var))
-print("delta")
-print(MegaLMM_state$current_state$delta)
-print("Lambda_tau2")
-print(MegaLMM_state$current_state$Lambda_tau2)
+#MegaLMM_state$Posterior$posteriorSample_params
+#MegaLMM_state$Posterior$posteriorMean_params  # these ones only have the posterior mean saved, not individual posterior samples
+#print("F_var")
+#print(apply(MegaLMM_state$current_state$F,2,var))
+#print("delta")
+#print(MegaLMM_state$current_state$delta)
+#print("Lambda_tau2")
+#print(MegaLMM_state$current_state$Lambda_tau2)
 
-print("Cumprod(delta[1:20])")
-print(cumprod(MegaLMM_state$current_state$delta[1:20]))
+#print("Cumprod(delta[1:20])")
+#print(cumprod(MegaLMM_state$current_state$delta[1:20]))
 # instead, load only a specific parameter
 # Lambda = load_posterior_param(MegaLMM_state,'Lambda')
 # boxplots are good ways to visualize Posterior distributions on sets of related parameters
@@ -235,6 +258,19 @@ print(cumprod(MegaLMM_state$current_state$delta[1:20]))
 
 # Run info file
 run_time=end_time-start_time
+
+MegaLMM_state=readRDS(sprintf('%s/MegaLMM_state_base.rds',run_id))
+MegaLMM_state$current_state=readRDS(sprintf('%s/current_state.rds',run_id))
+MegaLMM_state$Posterior=reload_Posterior(MegaLMM_state,c('F','F_h2'))
+
+pdf(sprintf('%s/F_F_h2_heatmap.pdf',run_id))
+Image(MegaLMM_state$current_state$F)
+Image(get_posterior_mean(MegaLMM_state,F))
+boxplot(MegaLMM_state$Posterior$F_h2[,1,])
+boxplot(get_posterior_mean(MegaLMM_state,F_h2))
+dev.off()
+
+F_h2_HPD = get_posterior_HPDinterval(MegaLMM_state,F_h2)
 
 
 line0=paste0(run_id,'\n')

@@ -19,7 +19,7 @@ module load R/4.1.0
 time="WD_0712"
 #run=$SLURM_ARRAY_TASK_ID
 #samplesize=(100 500 1000 5000 10000)
-run=1
+run=4
 #n=${samplesize[$SLURM_ARRAY_TASK_ID]}
-n=5000
+n=1000
 Rscript scripts/runMegaLMM_test.R $time $run $n 59

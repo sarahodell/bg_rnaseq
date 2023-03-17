@@ -1,7 +1,9 @@
 library('abind')
 library('data.table')
+library('ggplot2')
+library('dplyr')
 
-time="WD_0712"
+time="WD_0718"
 #ciseqtl=fread('eqtl/results/all_cis_eQTL_vst_hits.txt',data.table=F)
 ciseqtl=fread('eqtl/results/WD_0712_cis_eQTL_fkeep_hits.txt',data.table=F)
 
@@ -19,7 +21,7 @@ ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits.txt',data.table=F)
 #ciseqtl=all_cis_eqtl
 #ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),data.table=F)
 qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
-qtl=qtl[qtl$Method=="Founder_probs",]
+fqtl=qtl[qtl$Method=="Founder_probs",]
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 
 
@@ -37,18 +39,21 @@ for(chr in 1:10){#
   all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
 }
 
+ciseqtl$block_start=all_founder_blocks[match(ciseqtl$SNP,all_founder_blocks$focal_snp),]$start
+ciseqtl$block_end=all_founder_blocks[match(ciseqtl$SNP,all_founder_blocks$focal_snp),]$end
+
 #overlap of SNP 5kb upstream or downstream of SNP
 env1=ciseqtl
-env1$BP_start=env1$BP-5000
-env1$BP_end=env1$BP+5000
+#env1$BP_start=env1$BP-5000
+#env1$BP_end=env1$BP+5000
 env1=as.data.table(env1)
-env2=as.data.table(qtl)
+env2=as.data.table(fqtl)
 #env2$end=env2$end-1
 setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
-comparison=foverlaps(env1,env2,by.x=c('CHR','BP_start','BP_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
 #overlap of gene location +1 10kb? Look at papers. what do they use?
-ciseqtl=ciseqtl[ciseqtl$time=="WD_0712",]
+#ciseqtl=ciseqtl[ciseqtl$time=="WD_0718",]
 
 ciseqtl_genetable=genetable[genetable$Gene_ID %in% ciseqtl$Gene,]
 #ciseqtl_genetable=ciseqtl_genetable[grepl('T001',ciseqtl_genetable$TXNAME),]
@@ -97,8 +102,7 @@ comparison2=foverlaps(env1,env2,by.x=c('CHROM','window_START','window_END'),by.y
 ## Correlation of effect sizes
 # Grab founder effect sizes from QTL_F -
 # Grab founder effect sizes from cis-eQTL test from GridLMM
-pvalue=c()
-es_cor=c()
+
 
 # Change betas based on time point of eQTL
 #eqtl_betas=c()
@@ -107,20 +111,30 @@ es_cor=c()
 #  eqtl_betas=rbind(eqtl_betas,eqtl_beta)
 #}
 #eqtl_betas$snp_gene=paste0(eqtl_betas$X_ID,'_',eqtl_betas$Trait)
+pvalue=c()
+es_cor=c()
 
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra","A654_inra","FV2_inra",
+"C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+colorcodes=fread('../GridLMM/effect_sizes/founder_color_codes.txt',data.table=F)
+rownames(colorcodes)=colorcodes$founder
 
-for(q in 1:nrow(comparison2)){
-  row=comparison2[q,]
+comp_list=list()
+count=1
+for(q in 1:nrow(comparison)){
+  row=comparison[q,]
   id=row$pheno_env_id
   chr=row$CHR
   pheno=row$Phenotype
   env=row$Environment
+  gene=row$Gene
   #time=row$time
-  time="WD_0718"
+  time=row$time
   eqtl_betas=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_fkeep_results.txt',time,chr),data.table=F)
   eqtl_betas$snp_gene=paste0(eqtl_betas$X_ID,'_',eqtl_betas$Trait)
+#  effect_sizes=readRDS(sprintf('../GridLMM/GridLMM_founderprobs/models/Biogemma_chr%.0f_%s_x_%s_vst_founderprobs.rds',chr,pheno,env))
 
-  effect_sizes=readRDS(sprintf('../GridLMM/GridLMM_founderprobs/models/Biogemma_chr%.0f_%s_x_%s_vst_founderprobs.rds',chr,pheno,env))
+  effect_sizes=readRDS(sprintf('../GridLMM/GridLMM_founderprobs/models/Biogemma_chr%.0f_%s_x_%s_founderprobs.rds',chr,pheno,env))
   effect_sizes=unlist(unname(effect_sizes[effect_sizes$X_ID==row$highest_SNP,6:21]))
   effect_sizes[-1]=effect_sizes[1] + effect_sizes[-1]
   #test=which(unlist(unname(lapply(effect_sizes,function(x) x$i==id))))
@@ -128,17 +142,49 @@ for(q in 1:nrow(comparison2)){
   tmp=eqtl_betas[eqtl_betas$X_ID==row$SNP & eqtl_betas$Trait==row$Gene,c(6,10:24)]
   eqs=unlist(unname(tmp))
   intercept=min(which(!is.na(eqs)))
+  df=data.frame(founder=founders,exp_effects=eqs,pheno_effects=effect_sizes,stringsAsFactors=F)
+  df=df[order(df$exp_effects),]
+  df$founder_f=factor(df$founder,levels=c(df$founder))
   #eqs[-intercept]=eqs[intercept]+eqs[-intercept]
   t=cor.test(eqs,effect_sizes)
   pvalue=c(pvalue,t$p.value)
   es_cor=c(es_cor,t$estimate)
+  p1=ggplot(df,aes(x=exp_effects,y=pheno_effects)) + geom_point(aes(color=founder_f)) + xlab("Expression effect sizes") +
+  scale_color_manual(values=colorcodes[levels(df$founder_f),]$hex_color,labels=levels(df$founder_f))+
+  ylab("Phenotype effect sizes") + ggtitle(sprintf('r=%.2f Founder %s and %s effects',t$estimate,gene,pheno))
+  comp_list[[count]]=p1
+  count=count+1
+
+  drop=c("VA85","A632_usa")
+  dloc=c(2,16)
+  subf=founders[-dloc]
+  subdf= df[df$founder %in% subf,]
+  newt=cor.test(subdf$exp_effects,subdf$pheno_effects)
+  p1=ggplot(subdf,aes(x=exp_effects,y=pheno_effects)) + geom_point(aes(color=founder_f)) + xlab("Expression effect sizes") +
+  scale_color_manual(values=colorcodes[levels(df$founder_f),]$hex_color,labels=levels(df$founder_f))+
+  ylab("Phenotype effect sizes") + ggtitle(sprintf('r=%.2f Founder %s and %s effects, dropped',newt$estimate,gene,pheno))
+  comp_list[[count]]=p1
+  count=count+1
 }
 
-comparion2=as.data.frame(comparison2,stringsAsFactors=F)
-comparison2$es_cor=es_cor
-comparison2$cortest_pvalue=pvalue
+drop=c("VA85","A632_usa")
+dloc=c(2,16)
+subf=founders[-dloc]
+subdf= df[df$founder %in% subf,]
 
-fwrite(comparison2,'eqtl/results/all_eQTL_QTL_overlap.txt',row.names=F,quote=F,sep='\t')
+
+pdf(sprintf('images/%s_eQTL_QTL_effect_sizes.pdf',time))
+for(i in 1:length(comp_list)){
+  print(comp_list[[i]])
+}
+dev.off()
+
+
+comparion=as.data.frame(comparison,stringsAsFactors=F)
+comparison$es_cor=es_cor
+comparison$cortest_pvalue=pvalue
+
+fwrite(comparison,'eqtl/results/all_eQTL_QTL_overlap.txt',row.names=F,quote=F,sep='\t')
 
 
 comparison=fread('eqtl/results/all_eQTL_QTL_overlap.txt',data.table=F)
@@ -264,3 +310,67 @@ eqtl_beta=unlist(unname(eqtl_betas[eqtl_betas$Trait==rap27,6:21]))
 #eqtl_beta[-1]=eqtl_beta[1]+eqtl_beta[-1]
 names(eqtl_beta)=founders
 cor(eqtl_beta,betas)
+
+
+# How correlated with phenotype effect sizes are genes within the support interval?
+times=c("WD_0712","WD_0718",'WD_0720','WD_0727')
+
+qtl_genes=fread('metadata/QTL_support_interval_genes.txt',data.table=F)
+qtl_genes$pheno_env=paste0(qtl_genes$Phenotype,'-',qtl_genes$Environment)
+pheno_envs=unique(qtl_genes$pheno_env)
+for(pe in pheno_envs){
+  df=qtl_genes[qtl_genes$pheno_env==pe,]
+  chroms=unique(df$CHROM)
+  pheno=strsplit(pe,'-')[[1]][1]
+  env=strsplit(pe,'-')[[1]][2]
+  for(chr in chroms){
+    effect_sizes=readRDS(sprintf('../GridLMM/GridLMM_founderprobs/models/Biogemma_chr%.0f_%s_x_%s_vst_founderprobs.rds',chr,pheno,env))
+    tmp=df[df$CHROM==chr,]
+    qs=unique(tmp$ID)
+    for(q in qs){
+      subdf=tmp[tmp$ID==q,]
+      infosnp=unique(subdf[subdf$ID==q,]$highest_SNP)
+      effect_size=unlist(unname(effect_sizes[effect_sizes$X_ID==infosnp,6:21]))
+      effect_size[-1]=effect_size[1] + effect_size[-1]
+
+      for(time in times){
+        eqtl_betas=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_fkeep_results.txt',time,chr),data.table=F)
+        eqtl_betas$snp_gene=paste0(eqtl_betas$X_ID,'_',eqtl_betas$Trait)
+        #eqtl_rap27=eqtl_betas[eqtl_betas$Trait==rap27,]
+
+        eqtl_beta=eqtl_betas[eqtl_betas$Trait %in% subdf$Gene_ID,c(1,6,10:24)]
+        rownames(eqtl_beta)=eqtl_beta$Trait
+        eqtl_beta=eqtl_beta[,-1]
+        #tmp1=eqtl_betas[match(testesnps$snp_gene,eqtl_betas$snp_gene),]
+        #tmp1=tmp1[which(unlist(unname(sapply(seq(1,nrow(tmp1)),function(x) sum(is.na(tmp1[x,]))<16)))),]
+        #tmp=tmp1[,c(6,10:24)]
+        #rownames(tmp)=seq(1,nrow(tmp))
+        results=apply(eqtl_beta,MARGIN=1,function(x) cor.test(effect_size,x))
+        pvalues=unlist(lapply(results,function(x) x$p.value))
+        cors=unlist(lapply(results,function(x) x$estimate))
+        correlations=data.frame(Gene_ID=rownames(eqtl_beta),pheno_env=pe,cor=cors,pvalue=pvalues,stringsAsFactors=F)
+        coln=paste0(time,'-correlation')
+        coln2=paste0(time,'-pvalue')
+        names(correlations)=c('Gene_ID','pheno_env',coln,coln2)
+        #qtl_genes[(match(correlations$Gene,qtl_genes$Gene_ID) & qtl_genes$pheno_env==pe),coln]=correlations[,coln]
+
+        # How do I update qtl_genes for correlations and fill in as I go?
+        for(x in 1:nrow(eqtl_beta)){
+          qtl_genes[(qtl_genes$pheno_env==pe & qtl_genes$Gene_ID==rownames(eqtl_beta)[x]),coln]=correlations[correlations$Gene_ID==rownames(eqtl_beta)[x],coln]
+          qtl_genes[(qtl_genes$pheno_env==pe & qtl_genes$Gene_ID==rownames(eqtl_beta)[x]),coln2]=correlations[correlations$Gene_ID==rownames(eqtl_beta)[x],coln2]
+
+        }
+      }
+    }
+  }
+}
+# Include cor.test - correct for multiple testing
+# This is looking at additive effects only - should do with full expression as well
+#(after correcting for PCs?)
+ntests=sum(!is.na(qtl_genes[,c(26,28,30,32)]))
+#23894
+threshold=0.05/ntests
+
+sig=qtl_genes[sum(qtl_genes[,c(27,29,31,33)]<=threshold) > 0,]
+which.main
+fwrite(qtl_genes,'eqtl/QTL_GeneExp_correlations.txt',row.names=F,quote=F,sep='\t')

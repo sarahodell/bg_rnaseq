@@ -10,6 +10,7 @@ library('data.table')
 library('dplyr')
 library('lme4')
 library('lme4qtl')
+library('preprocessCore')
 
 #time="WD_0720"
 #chr="10"
@@ -29,17 +30,31 @@ genetable=genetable[genetable$CHROM==chr,]
 genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
-phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts.txt',time),data.table=F)
+phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
 pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
-samples=colnames(phenotypes)[-1]
-genos=metadata[match(samples,metadata$sample_name),]$genotype
+
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+phenotypes=phenotypes[,c('V1',kept_genes)]
+
+genos=phenotypes$V1
+#genos=metadata[match(samples,metadata$sample_name),]$genotype
 testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
 founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
-genes=intersect(genes,phenotypes$V1)
+genes=intersect(genes,names(phenotypes)[-1])
+rownames(phenotypes)=phenotypes$V1
+phenotypes=phenotypes[,-1]
+phenotypes=as.matrix(phenotypes)
+
+# Quantile normalization of genes
+pnorm=normalize.quantiles(phenotypes)
+rownames(pnorm)=rownames(phenotypes)
+colnames(pnorm)=colnames(phenotypes)
+phenotypes=pnorm
 #genes=genes[1:20]
 #ID      BGA_ID  CODE_HYBRIDE
 #linenames=fread('metadata/Lines_Names_BALANCE.txt',data.table=F)
@@ -51,8 +66,8 @@ genes=intersect(genes,phenotypes$V1)
 #metadata$dh_genotype=dh_genotype
 X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
 inds=rownames(X_list[[1]])
-dhs=metadata[match(samples,metadata$sample_name),]$dh_genotype
-i=intersect(dhs,inds)
+#dhs=metadata[match(samples,metadata$sample_name),]$dh_genotype
+i=intersect(genos,inds)
 
 nob73=c()
 
@@ -65,24 +80,24 @@ for(g in 1:length(genes)){
   gene=genes[g]
   snp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
   if(length(snp)!=0){
-    data=data.frame(sample=colnames(phenotypes)[-1],y=unlist(phenotypes[phenotypes[,1]==gene,][-1]),stringsAsFactors=F)
+    data=data.frame(ID=rownames(phenotypes),y=phenotypes[,gene],stringsAsFactors=F)
     data=data[!is.na(data$y),]
-    data$ID=metadata[match(data$sample,metadata$sample_name),]$dh_genotype
-    rownames(data)=seq(1,nrow(data))
-    data=data[!is.na(data$ID),]
-    data$PC1=pcs[match(pcs$sample,data$sample),]$PC1
-    data$PC2=pcs[match(pcs$sample,data$sample),]$PC2
-    data$PC3=pcs[match(pcs$sample,data$sample),]$PC3
+    #data$ID=metadata[match(data$sample,metadata$sample_name),]$dh_genotype
+    #rownames(data)=seq(1,nrow(data))
+    #data=data[!is.na(data$ID),]
+    data$PC1=pcs[match(data$ID,pcs$V1),]$PC1
+    data$PC2=pcs[match(data$ID,pcs$V1),]$PC2
+    data$PC3=pcs[match(data$ID,pcs$V1),]$PC3
     K=K[i,i]
-    if(length(unique(data$ID))<nrow(data)){
-      data=data%>%group_by(ID)%>%summarize(y=mean(y),PC1=mean(PC1),PC2=mean(PC2),PC3=mean(PC3))
-    }
-    data=as.data.frame(data,stringsAsFactors=F)
+    #if(length(unique(data$ID))<nrow(data)){
+    #  data=data%>%group_by(ID)%>%summarize(y=mean(y),PC1=mean(PC1),PC2=mean(PC2),PC3=mean(PC3))
+    #}
+    #data=as.data.frame(data,stringsAsFactors=F)
     rownames(data)=data$ID
     data=data[i,]
     data$ID2=data$ID
     # variance stabilize
-    data$y=(data$y-mean(data$y))/sd(data$y)
+    #data$y=(data$y-mean(data$y))/sd(data$y)
     data=data[,c('ID','ID2','y','PC1','PC2','PC3')]
       #rownames(data)=data$ID
     null_model = GridLMM_ML(y~1+PC1+PC2+PC3+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)

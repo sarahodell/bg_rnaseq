@@ -4,7 +4,7 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 24:00:00
-#SBATCH --array=1-79
+#SBATCH --array=1-92
 #SBATCH --ntasks=1
 #SBATCH --mem 3G
 
@@ -21,7 +21,7 @@ module load R
 
 time="WD_0712"
 echo $time
-#f="$(sed "${SLURM_ARRAY_TASK_ID}q;d" 'eqtl/pheno_residuals_trans_eQTL_list.txt' | cut -f2 -d,)"
-f=$SLURM_ARRAY_TASK_ID
+f="$(sed "${SLURM_ARRAY_TASK_ID}q;d" 'eqtl/trans/WD_0712_factors.txt' | cut -f1 -d,)"
+#f=$SLURM_ARRAY_TASK_ID
 echo $f
-Rscript scripts/trans_eqtl_plots.R $time $f
+Rscript scripts/trans_fkeep_plots.R $time $f

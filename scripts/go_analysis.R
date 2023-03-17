@@ -1,4 +1,7 @@
 #!/usr/bin/env Rscript
+
+args=commandArgs(trailingOnly=T)
+time=as.character(args[[1]])
 #library('biomaRt')
 #library('AnnotationHub')
 #library('AnnotationForge')
@@ -10,10 +13,10 @@ library('rols')
 #library('TissueEnrich')
 library('dplyr')
 
-time="WD_0712"
+#time="WD_0712"
 
-factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
-#factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
+#factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
+factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
 
 
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
@@ -32,8 +35,8 @@ annotation=annotation[order(annotation$CHROM,annotation$START),]
 #rownames(annotation)=seq(1,nrow(annotation))
 #rownames(genetable)=seq(1,nrow(genetable))
 
-#pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_sig_factors.txt',time),data.table=F)
-pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_sig_factors.txt',time),data.table=F)
+pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_sig_factors.txt',time),data.table=F)
+#pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_sig_factors.txt',time),data.table=F)
 
 #'MegaLMM/pheno_MegaLMM_residuals_%s_sig_factors.txt',time)
 #testv5=glist[match(test,glist$v4_Gene_ID),]$v5_Gene_ID
@@ -140,13 +143,15 @@ for(f in pheno_factors){
   inter=intersect(test,genes[which(genes %in% test)])
   test=inter
   go=nullp(DEgenes=deg,bias.data=avg_logexp,plot.fit=T)
-  GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],method="Sampling",repcnt=1000)
+  GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],method="Sampling",repcnt=10000,use_genes_without_cat=TRUE)
   GO.samp$factor=f
+  #enriched.GO=GO.samp[p.adjust(GO.samp$over_represented_pvalue,method="BH")<.05,]
   all_go=rbind(all_go,GO.samp)
 }
 all_go=as.data.frame(all_go,stringsAsFactors=F)
+fwrite(all_go,sprintf('MegaLMM/GO/pheno_MegaLMM_%s_GOSeq_all.txt',time),row.names=F,quote=F,sep='\t')
 enriched.GO=all_go[p.adjust(all_go$over_represented_pvalue,method="BH")<.05,]
-fwrite(all_go,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_GOSeq_enriched.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(enriched.GO,sprintf('MegaLMM/GO/pheno_MegaLMM_%s_GOSeq_enriched.txt',time),row.names=F,quote=F,sep='\t')
 
 #pdf('images/WD_0712_nullp_plots.pdf', onefile=TRUE)
 #for (my.plot in my.plots) {
@@ -183,7 +188,7 @@ fwrite(all_go,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_GOSeq_enriched.txt',ti
 #enriched.GO=GO.samp[p.adjust(GO.samp$over_represented_pvalue,method="BH")<.05,]
 
 ####
-
+#all_go=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_GOSeq_enriched.txt',time),data.table=F)
 
 
 pheno_loc=c()
@@ -196,7 +201,7 @@ for(i in pheno_loc){
   test=factor_groups[[i]]$genes
   factor=factor_groups[[i]]$factor
   #results=enricher(test,TERM2GENE=annotation)
-  factor_groups[[i]]$go=enriched.GO[enriched.GO$factor==factor,]
+  factor_groups[[i]]$go=all_go[all_go$factor==factor,]
 }
 
 
@@ -235,20 +240,27 @@ for(i in pheno_loc){
 }
 
 
-#saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
-saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
+saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
+#saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
 
 all_go_df=c()
 for(i in pheno_loc){
   if(nrow(sub)!=0){
     factor=factor_groups[[i]]$factor
     sub=as.data.frame(factor_groups[[i]]$go,stringsAsFactors=F)
+    #sub=sub[sub$over_represented_pvalue<=0.05,]
+
     sub$factor=factor
-    all_go_df=rbind(all_go_df,sub)
+    #all_go_df=rbind(all_go_df,sub)
+    sub=sub[,c('category','over_represented_pvalue')]
+    fwrite(sub,sprintf('MegaLMM/GO/pheno_MegaLMM_%s_%s_GO_terms.txt',time,factor),row.names=F,quote=F,sep='\t')
   }
 }
 
-fwrite(all_go_df,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_GO_terms.txt',time),row.names=F,quote=F,sep='\t')
+
+#enriched.GO=GO[p.adjust(GO$over_represented_pvalue,method="BH")<.05,]
+
+#fwrite(all_go_df,sprintf('MegaLMM/pheno_MegaLMM_%s_GO_terms.txt',time),row.names=F,quote=F,sep='\t')
 
 #group_by(A, B) %>%
 #             filter(value == max(value)) %>%

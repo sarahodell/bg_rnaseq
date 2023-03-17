@@ -123,10 +123,10 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
       panel.grid.minor.x = element_blank()
     ) + guides(color="none")
 }
-
-ymax=round(max(df$value))+1
-#threshold=-log10(0.05)
 threshold=-log10(0.05/nrow(df))
+#threshold=-log10(0.05)
+
+ymax=max(round(max(df$value))+1,threshold+1)
 title=sprintf("cis-eQTL at timepoint %s",time)
 a2<-gg.manhattan2(df,threshold,
              col=greypalette,

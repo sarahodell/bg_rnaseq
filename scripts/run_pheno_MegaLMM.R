@@ -201,7 +201,15 @@ for(i  in 1:burnin) {
     print(MegaLMM_state) # print status of current chain
     plot(MegaLMM_state) # make some diagnostic plots. These are saved in a pdf booklet: diagnostic_plots.pdf
     #MegaLMM_state = reorder_factors(MegaLMM_state,drop_cor_threshold = 0.6) # Factor order doesn't "mix" well in the MCMC. We can help it by manually re-ordering from biggest to smallest
-    MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
+    #MegaLMM_state$current_state$F = scale(MegaLMM_state$current_state$F)
+    sd_F = apply(MegaLMM_state$current_state$F,2,sd)
+    mean_F = apply(MegaLMM_state$current_state$F,2,mean)
+    current_F = MegaLMM_state$current_state$F
+    MegaLMM_state$current_state$Lambda_prec = sweep(MegaLMM_state$current_state$Lambda_prec,1,sd_F,'/')
+    MegaLMM_state$current_state$delta = MegaLMM_state$current_state$delta / sd_F
+    current_F = scale(current_F)
+    current_F = sweep(current_F,2,mean_F,'+')
+    MegaLMM_state$current_state$F = current_F
     MegaLMM_state = clear_Posterior(MegaLMM_state)
     print(MegaLMM_state$run_parameters$burn)
   }
