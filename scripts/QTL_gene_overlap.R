@@ -41,7 +41,7 @@ fwrite(comparison,'metadata/QTL_support_interval_genes.txt',row.names=F,quote=F,
 qtts=c()
 
 # How many QTTs are in the support intervals of relevant QTL?
-factor_groups=readRDS('MegaLMM/pheno_MegaLMM_WD_0718_factor_groups.rds')
+factor_groups=readRDS('MegaLMM/pheno_MegaLMM_WD_0712_factor_groups.rds')
 qtl=qtl[qtl$Environment!="ALL",]
 qtl$env_pheno=paste0(qtl$Environment,'-',qtl$Phenotype)
 env_phenos=unique(paste0(qtl$Environment,'-',qtl$Phenotype))
@@ -69,7 +69,7 @@ for(pe in env_phenos){
 }
 
 qtts=as.data.frame(qtts,stringsAsFactors=F)
-fwrite(qtts,'MegaLMM/QTT_QTL_overlap_WD_0718.txt',row.names=F,quote=F,sep='\t')
+fwrite(qtts,'MegaLMM/QTT_QTL_overlap_WD_0712.txt',row.names=F,quote=F,sep='\t')
 
 qtts %>% group_by(env_pheno) %>% count()
 

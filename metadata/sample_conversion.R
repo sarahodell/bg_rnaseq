@@ -4,24 +4,26 @@ library('xlsx')
 library('tidyverse')
 library('data.table')
 
-setwd('~/projects/biogemma/expression/raw_reads')
+#setwd('~/projects/biogemma/expression/raw_reads')
 
-allfiles=list.files('.','*.fastq.gz',recursive=T,full.names=F)
-samples=sapply(seq(1,length(allfiles)),function(x) strsplit(allfiles[x],"[.]")[[1]][1])
-sample_names=data.frame(sample=samples,stringsAsFactors=F)
-fwrite(sample_names,'sample_names.txt',row.names=F,col.names=F,quote=F)
+#allfiles=list.files('.','*.fastq.gz',recursive=T,full.names=F)
+#samples=sapply(seq(1,length(allfiles)),function(x) strsplit(allfiles[x],"[.]")[[1]][1])
+#sample_names=data.frame(sample=samples,stringsAsFactors=F)
+#fwrite(sample_names,'sample_names.txt',row.names=F,col.names=F,quote=F)
+
+
 #filenames=list.files('../batch_1','*.fastq.gz',full.names=F)
 #samples=sapply(seq(1,length(filenames)),function(x) strsplit(filenames[x],"[.]")[[1]][1])
 
-sample_table=fread('BG_WD_OPT_sample_submission.csv',data.table=F)
-seq_table=fread('../metadata/BG_sequencing_log.csv',data.table=F)
+sample_table=fread('metadata/BG_WD_OPT_sample_submission.csv',data.table=F)
+seq_table=fread('metadata/BG_sequencing_log.csv',data.table=F)
 
 #samples_names=data.frame(sample=samples,stringsAsFactors=F)
 #fwrite(samples_names,'sample_names.txt',row.names=F,col.names=F,quote=F)
 
 seq_table$plate_num=sapply(seq(1,dim(seq_table)[1]),function(x) as.integer(strsplit(seq_table$plate,"P")[[x]][2]))
 
-sample_names=fread('sample_names.txt',data.table = F,header=F)
+sample_names=fread('metadata/sample_names.txt',data.table = F,header=F)
 names(sample_names)=c("seq_name")
 split0=strsplit(sample_names$seq_name,"/")
 sample_names$batch=sapply(seq(1,dim(sample_names)[1]),function(x) split0[[x]][1])
@@ -130,7 +132,7 @@ for(i in seq(1,dim(sample_names)[1])){
 sample_merge=left_join(sample_names,sample_table,by=c('plate','well'))
 fwrite(sample_merge,'BG_sequencing_sample_conversion_table.txt',row.names=F,quote=F,sep='\t')
 
-
+#sample_complete=sample_merge[!is.na(sample_merge$genotype) & sample_merge$genotype!="",]
 sample_complete=sample_merge[complete.cases(sample_merge),]
 sample_complete %>% group_by(experiment) %>% count()
 ## A tibble: 7 x 2
@@ -153,3 +155,6 @@ summary(geno_count$n)
 #  6.000   8.000  10.000   9.794  10.000  20.000
 
 # divide number by 2 for number of genotypes
+
+metadata=fread('metadata/BG_sequencing_sample_conversion_table.txt',data.table=F)
+linenames=fread('metadata/Lines_Names_BALANCE.txt',data.table=F)

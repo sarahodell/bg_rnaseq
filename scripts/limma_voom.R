@@ -57,28 +57,28 @@ summary(d0$samples$lib.size/1e6)
 
 #WD_0712
 #cutoff=5 #WD_0712
-#nind=5
+#nind=10
 
 #WD_0718
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 #0.9159  2.3909  2.9809  3.5351  3.9585 19.0705
 
 #cutoff=5# maybe higher cutoff for WD_0718?
-#nind=10
+#nind=15
 
 #WD_0720
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 #0.7989  1.5374  2.0579  2.8556  2.9763 31.1158
 
 #cutoff=5 # WD_0720
-#nind=10
+#nind=15
 
 #WD_0727
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 #0.8286  1.3695  1.8596  2.9590  3.2023 20.2946
 
 cutoff=5
-nind=10
+nind=15
 
 maxes=apply(cpm(d0),1,max)
 # fewer than 2 samples with cpm higher than cutoff
@@ -184,8 +184,8 @@ fwrite(norm,'eqtl/normalized/WD_0718_voom_normalized_gene_counts_formatted.txt',
 #EB.09S.H.00108 120.74085   8.6337794  -9.916408 EB.09S.H.00108
 #EB.09S.H.00133  99.98044 -49.1580966  -2.700268 EB.09S.H.00133
 
-drop_ind=c('EB.09S.H.00133')
-norm=norm[,!names(norm)%in% drop_ind]
+#drop_ind=c('EB.09S.H.00133')
+#norm=norm[,!names(norm)%in% drop_ind]
 norm=as.data.frame(t(norm),stringsAsFactors=F)
 fwrite(norm,'eqtl/normalized/WD_0720_voom_normalized_gene_counts_formatted.txt',row.names=T,quote=F,sep='\t')
 

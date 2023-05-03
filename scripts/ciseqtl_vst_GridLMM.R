@@ -131,7 +131,7 @@ for(g in 1:length(genes)){
     #plate=metadata[match(data$ID,metadata$dh_genotype),]$plate
     #data$plate=as.factor(plate)
     # variance stabilize
-    #data$y=(data$y-mean(data$y))/sd(data$y)
+    data$y=(data$y-mean(data$y))/sd(data$y)
     data=data[,c('ID','ID2','y','PC1','PC2','PC3')]
       #rownames(data)=data$ID
     null_model = GridLMM_ML(y~1+PC1+PC2+PC3+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
@@ -266,8 +266,8 @@ all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
 #all_betas=as.data.frame(all_betas,stringsAsFactors=F)
 #names(all_betas)=c('Gene_ID','SNP',paste0('beta.',seq(1,16)))
 
-fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_residuals.txt',time,chr),row.names=F,quote=F,sep='\t')
-fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_results.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%s_vst_residuals.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_vst_results.txt',time,chr),row.names=F,quote=F,sep='\t')
 
 
     # Run GridLMM

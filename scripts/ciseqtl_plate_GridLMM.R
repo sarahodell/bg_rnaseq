@@ -32,7 +32,7 @@ genes=unique(genetable$Gene_ID)
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
 phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
-pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+#pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
 
 geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
 kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
@@ -103,7 +103,7 @@ founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_in
 nob73=c()
 
 all_gwas=data.frame(matrix(ncol=29,nrow=length(genes)))
-names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","PC1","PC2","PC3",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
+names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","plate",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
 
 all_res=data.frame(matrix(ncol=length(genes),nrow=length(i)))
 names(all_res)=genes
@@ -116,9 +116,9 @@ for(g in 1:length(genes)){
     #data$ID=metadata[match(data$sample,metadata$sample_name),]$dh_genotype
     #rownames(data)=seq(1,nrow(data))
     #data=data[!is.na(data$ID),]
-    data$PC1=pcs[match(data$ID,pcs$V1),]$PC1
-    data$PC2=pcs[match(data$ID,pcs$V1),]$PC2
-    data$PC3=pcs[match(data$ID,pcs$V1),]$PC3
+    #data$PC1=pcs[match(data$ID,pcs$V1),]$PC1
+    #data$PC2=pcs[match(data$ID,pcs$V1),]$PC2
+    #data$PC3=pcs[match(data$ID,pcs$V1),]$PC3
     #K=K[i,i]
     #if(length(unique(data$ID))<nrow(data)){
     #  data=data%>%group_by(ID)%>%summarize(y=mean(y),PC1=mean(PC1),PC2=mean(PC2),PC3=mean(PC3))
@@ -128,13 +128,13 @@ for(g in 1:length(genes)){
     data=data[i,]
     data$ID2=data$ID
 
-    #plate=metadata[match(data$ID,metadata$dh_genotype),]$plate
-    #data$plate=as.factor(plate)
+    plate=metadata[match(data$ID,metadata$dh_genotype),]$plate
+    data$plate=as.factor(plate)
     # variance stabilize
     #data$y=(data$y-mean(data$y))/sd(data$y)
-    data=data[,c('ID','ID2','y','PC1','PC2','PC3')]
+    data=data[,c('ID','ID2','y','plate')]
       #rownames(data)=data$ID
-    null_model = GridLMM_ML(y~1+PC1+PC2+PC3+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
+    null_model = GridLMM_ML(y~1+plate+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
 
     h2_start=null_model$results[,grepl('.ML',colnames(null_model$results),fixed=T),drop=FALSE]
     names(h2_start) = sapply(names(h2_start),function(x) strsplit(x,'.',fixed=T)[[1]][1])
@@ -174,8 +174,8 @@ for(g in 1:length(genes)){
     #betas[-1]=betas[1]+betas[-1]
     if(!("B73_inra" %in% fkeep)){
       nob73=c(nob73,gene)
-      end=10+length(fkeep)-2
-      betas=gwas[,c(6,10:end)]
+      end=8+length(fkeep)-2
+      betas=gwas[,c(6,8:end)]
       betas=unlist(unname(betas))
       betas[-1]=betas[1]+betas[-1]
       #names(gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',fkeep,'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
@@ -185,36 +185,36 @@ for(g in 1:length(genes)){
       ncol1=data.frame(matrix(ncol=1,nrow=1))
       names(ncol1)='B73_inra'
       new_gwas=cbind(new_gwas,ncol1)
-      new_gwas=cbind(new_gwas,gwas[,7:9])
-      new_gwas=cbind(new_gwas,gwas[,c(6,10:end)])
-      names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra',"PC1","PC2","PC3",fkeep)
+      new_gwas=cbind(new_gwas,gwas[,7])
+      new_gwas=cbind(new_gwas,gwas[,c(6,8:end)])
+      names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra',"plate",fkeep)
       fdrop=founders[!(founders %in% fkeep)]
       fdrop=fdrop[fdrop!="B73_inra"]
       nacol=data.frame(matrix(ncol=length(fdrop),nrow=1))
       names(nacol)=fdrop
       new_gwas=cbind(new_gwas,nacol)
       new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
-      new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","PC1","PC2","PC3",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+      new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","plate",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
       #new_X=cbind(X,data[,c('PC1','PC2','PC3')])
       #new_X=new_X[,c(fkeep[1],'PC1','PC2','PC3',fkeep[-1])]
     }else{
-      end=10+length(fkeep)-2
-      betas=gwas[,c(6,10:end)]
+      end=8+length(fkeep)-2
+      betas=gwas[,c(6,8:end)]
       betas=unlist(unname(betas))
       betas[-1]=betas[1]+betas[-1]
       #names(gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',fkeep,'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
       names(betas)=fkeep
       new_gwas=gwas[,1:5]
       new_gwas=cbind(new_gwas,betas[1])
-      new_gwas=cbind(new_gwas,gwas[,7:9])
-      new_gwas=cbind(new_gwas,gwas[,10:end])
-      names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra',"PC1","PC2","PC3",fkeep[-1])
+      new_gwas=cbind(new_gwas,gwas[,7])
+      new_gwas=cbind(new_gwas,gwas[,8:end])
+      names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra',"plate",fkeep[-1])
       fdrop=founders[!(founders %in% fkeep)]
       nacol=data.frame(matrix(ncol=length(fdrop),nrow=1))
       names(nacol)=fdrop
       new_gwas=cbind(new_gwas,nacol)
       new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
-      new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","PC1","PC2","PC3",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+      new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML',"B73_inra","plate",founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
       #new_X=cbind(X,data[,c('PC1','PC2','PC3')])
       #new_X=new_X[,c('B73_inra','PC1','PC2','PC3',fkeep[-1])]
     }
@@ -266,8 +266,8 @@ all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
 #all_betas=as.data.frame(all_betas,stringsAsFactors=F)
 #names(all_betas)=c('Gene_ID','SNP',paste0('beta.',seq(1,16)))
 
-fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_residuals.txt',time,chr),row.names=F,quote=F,sep='\t')
-fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_results.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%s_plate_residuals.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_plate_results.txt',time,chr),row.names=F,quote=F,sep='\t')
 
 
     # Run GridLMM

@@ -3,36 +3,56 @@
 library('data.table')
 library('ggplot2')
 
-time="WD_0712"
+time="WD_0727"
 
 #data=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_correlations.txt',time),data.table=F)
-data=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_correlations.txt',time),data.table=F)
+data=fread(sprintf('MegaLMM/MegaLMM_%s_factor_correlations.txt',time),data.table=F)
 
-lambda_all_means=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_all_Lambda_means.txt',time),data.table=F)
+lambda_all_means=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means.txt',time),data.table=F)
 #lambda_all_means=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_all_Lambda_means.txt',time),data.table=F)
 rownames(lambda_all_means)=lambda_all_means$V1
 lambda_all_means=lambda_all_means[,-1]
 
 count=c()
 for(i in 1:nrow(data)){
-  count=c(count,sum(abs(data[i,c(4:6)])>=0.75,na.rm=T))
+  count=c(count,sum(abs(data[i,c(4:6)])>=0.9,na.rm=T))
 }
 strong=which(count==3)
 sdata=data[strong,]
 
-phenotypes=rownames(lambda_all_means)[grepl('_',rownames(lambda_all_means))]
+
+lambda=lambda_all_means[,'Factor2',drop=F]
+lambda$lambda2=lambda$Factor2**2
+sublambda=lambda[lambda$lambda2>=0.1,]
+lgenes=rownames(lambda[lambda$lambda2>=0.1,])
+lgenes=data.frame(genes=lgenes,stringsAsFactors=F)
+fwrite(lgenes,'WD_0727_Factor2_lambda2_genelist.txt',row.names=F,quote=F,sep='\t',col.names=F)
+
+true_nft=length(intersect(ft_genelist$V4,lgenes$genes))
+
+genes=rownames(lambda)
+ngenes=nrow(lgenes)
+allgenes=nrow(lambda)
+nfts=c()
+for(i in 1:10000){
+	draw=sample(seq(1,allgenes),ngenes)
+	nft=intersect(ft_genelist$V4,genes[draw])
+	nfts=c(nfts,length(nft))
+}
+
+#phenotypes=rownames(lambda_all_means)#[grepl('_',rownames(lambda_all_means))]
 
 # Get a prop_var matrix from lambdas
 
 prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) x^2/sum(x^2))),stringsAsFactors=F)
-fwrite(prop_matrix,sprintf('MegaLMM/pheno_MegaLMM_%s_prop_variance.txt',time),row.names=T,quote=F,sep='\t')
+fwrite(prop_matrix,sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),row.names=T,quote=F,sep='\t')
 
 factors=names(lambda_all_means)
 factor_groups=vector("list",length=length(factors))
 for(i in 1:length(factors)){
   factor_groups[[i]]$factor=factors[i]
   factor_groups[[i]]$genes=c()
-  factor_groups[[i]]$phenotypes=c()
+  #factor_groups[[i]]$phenotypes=c()
 }
 
 
@@ -43,19 +63,19 @@ for(f in 1:nrow(lambda_all_means)){
   var_exp=apply(subl,MARGIN=1,function(x) x**2)
   tot_var=sum(var_exp)
   prop_var=var_exp/tot_var
-  fkeep=names(subl[,which(prop_var>=0.1),drop=F])
+  fkeep=names(subl[,which(var_exp>=0.1),drop=F])
   for(k in fkeep){
     x=which(unlist(unname(lapply(factor_groups,function(x) x$factor==k))))
-    if(gene %in% phenotypes){
-      factor_groups[[x]]$phenotypes=c(factor_groups[[x]]$phenotypes,gene)
-    }else{
-      factor_groups[[x]]$genes=c(factor_groups[[x]]$genes,gene)
-    }
+    #if(gene %in% phenotypes){
+    #  factor_groups[[x]]$phenotypes=c(factor_groups[[x]]$phenotypes,gene)
+    #}else{
+    factor_groups[[x]]$genes=c(factor_groups[[x]]$genes,gene)
+    #}
   }
 }
 names(factor_groups)=factors
 #saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
-saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
+saveRDS(factor_groups,sprintf('MegaLMM/MegaLMM_%s_factor_groups2.rds',time))
 
 factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
 

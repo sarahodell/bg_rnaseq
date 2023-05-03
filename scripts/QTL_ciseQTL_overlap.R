@@ -7,16 +7,16 @@ time="WD_0718"
 #ciseqtl=fread('eqtl/results/all_cis_eQTL_vst_hits.txt',data.table=F)
 ciseqtl=fread('eqtl/results/WD_0712_cis_eQTL_fkeep_hits.txt',data.table=F)
 
-times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+times=c("WD_0712","WD_0720","WD_0727")
 all_cis_eqtl=c()
 for(t in times){
   ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',t),data.table=F)
   ciseqtl$time=t
   all_cis_eqtl=rbind(all_cis_eqtl,ciseqtl)
 }
-fwrite(all_cis_eqtl,'eqtl/results/all_cis_eQTL_fkeep_hits.txt',row.names=F,quote=F,sep='\t')
+fwrite(all_cis_eqtl,'eqtl/results/all_cis_eQTL_fkeep_hits2.txt',row.names=F,quote=F,sep='\t')
 
-ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits.txt',data.table=F)
+ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits2.txt',data.table=F)
 
 #ciseqtl=all_cis_eqtl
 #ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),data.table=F)

@@ -5,11 +5,16 @@ time=as.character(args[[1]])
 
 library('data.table')
 library('lme4')
+library('lmerTest')
+library('pbkrtest')
+library('PLS205')
 library('lme4qtl')
 library('emmeans')
 library('multcomp')
 library('ggplot2')
 library('GridLMM')
+library('preprocessCore')
+
 
 
 colorcodes=fread('../GridLMM/effect_sizes/founder_color_codes.txt',data.table=F)
@@ -35,6 +40,37 @@ phenotype=phenotype[phenotype$V1 %in% inter,]
 pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
 metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
 genos=phenotype$V1
+
+
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+
+
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+phenotype=phenotype[,c('V1',kept_genes)]
+
+metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+metadata=metadata[metadata$experiment==time,]
+
+######
+genos=phenotype$V1
+rownames(phenotype)=phenotype$V1
+phenotype=phenotype[,-1]
+phenotype=as.matrix(phenotype)
+
+#Ynorm=c()
+#plates=unique(data$plate)
+#for(p in plates){
+#  pinds=data[data$plate==p,]$ID
+#  subY=phenotype[pinds,]
+#  subYnorm=normalize.quantiles(as.matrix(subY))
+#  rownames(subYnorm)=rownames(subY)
+#  colnames(subYnorm)=colnames(subY)
+#  Ynorm=rbind(Ynorm,subYnorm)
+#}
+
+#Ynorm=as.matrix(Ynorm)
+#phenotype=Ynorm
 #genos=metadata[match(pcs$sample,metadata$sample_name),]$dh_genotype
 #pcs$ID=genos
 
@@ -65,16 +101,24 @@ for(i in 1:nrow(qtl)){
   #rownames(K) = K[,1]
   #K = as.matrix(K[,-1])
   #K=K[inter,inter]
+  genetable2=genetable[genetable$CHROM==chr,]
+  genes=unique(genetable2$Gene_ID)
+  genes=intersect(genes,names(phenotype)[-1])
+  #Separate individuals by plate and quantile normalize separately
+
+  #subpheno=Ynorm
   inter=intersect(rownames(founder_probs[[1]]),genos)
 
   X = do.call(cbind,lapply(founder_probs,function(x) x[inter,snp]))
   #colnames(X) = founders
   #rownames(X) = dimnames(founder_probs[[1]])[[1]]
   y=qtl[i,]$Gene
-  subpheno = phenotype[,c('V1',y)]
-  names(subpheno)=c('ID','y')
+  subpheno = phenotype[,y,drop=F]
+  subpheno=as.data.frame(subpheno,stringsAsFactors=F)
+  subpheno$ID=rownames(subpheno)
+  names(subpheno)=c('y','ID')
   subpheno=subpheno[!is.na(subpheno$y),]
-  rownames(subpheno)=subpheno$ID
+  #rownames(subpheno)=subpheno$ID
   subpheno=subpheno[inter,]
   #subpheno=subpheno[match(inter,subpheno$ID),]
   #phenotype$y=phenotype$y-mean(phenotype$y)
@@ -87,6 +131,9 @@ for(i in 1:nrow(qtl)){
   data$PC1=pcs[match(data$ID,pcs$sample),]$PC1
   data$PC2=pcs[match(data$ID,pcs$sample),]$PC2
   data$PC3=pcs[match(data$ID,pcs$sample),]$PC3
+
+  #plate=metadata[match(data$ID,metadata$dh_genotype),]$plate
+  #data$plate=as.factor(plate)
 
   m1=lm(y~PC1+PC2+PC3,data)
   resids=summary(m1)$residuals
@@ -140,6 +187,17 @@ for(i in 1:nrow(qtl)){
   #glm_betas[-1]=glm_betas[1]+glm_betas[-1]
   fgroups=cld$.group
 
+  qtl$gene_snp=paste0(qtl$Gene,'_',qtl$SNP)
+  gs=qtl[i,]$gene_snp
+  print(gs)
+  results$gene_snp=paste0(results$Trait,'_',results$X_ID)
+  row=results[results$gene_snp==gs,]
+  betas=unlist(row[,fkeep])
+  betas[-1]=betas[-1]+betas[1]
+  rownames(cld)=cld$variable_f
+  em=cld[fkeep,]
+  print(cor(em$emmean,unname(betas)))
+
   ses[[count]]=list(gene=y,values=cld,tukey_res=fgroups,time=time,fkeep=fkeep,colsum=colSums(X))
     #se4[2,]$value=se4[-1,]$value + se4[1,]$value
     #se4=se4[order(se4$value),]
@@ -172,6 +230,77 @@ for(i in 1:length(ses_plot)){
 dev.off()
 
 
+
+
+### test
+#plate=metadata[match(subpheno$ID,metadata$dh_genotype),]$plate
+#subpheno$plate=as.factor(plate)
+
+#m1=lm(y~PC1+PC2+PC3,data)
+#resids=summary(m1)$residuals
+#subpheno$resids=resids
+
+
+#founder=unlist(unname(apply(X,MARGIN=1,function(x) colnames(X)[which.max(x)])))
+#subpheno$founder=factor(founder,levels=fkeep)
+#m4 = relmatLmer(y ~ (1|plate) + (1|founder:plate)+ (1|ID) + 0 + founder ,
+#data=subpheno,relmat = list(ID=K),REML=T,control=lmerControl(check.nobs.vs.nlev = "ignore",check.nobs.vs.rankZ = "ignore",
+#   check.nobs.vs.nRE="ignore"))
+
+
+#em=emmeans(m4,specs='founder',lmer.df="kenward-roger")
+#cld=cld(em)
+#cld=cld[order(cld$emmean),]
+#rownames(cld)=1:nrow(cld)
+#variable_f=sapply(seq(1,length(fkeep)),function(x) fkeep[which(cld[x,fkeep]==1)])
+#cld$variable_f=factor(variable_f,levels=variable_f)
+
+#p1=ggplot(cld,aes(x=variable_f,y=emmean,color=variable_f)) + geom_point() +
+#  geom_errorbar(aes(ymin=lower.CL,ymax=upper.CL),data=cld) +
+#   geom_text(aes(label=.group),vjust=-5,color="black",size=6)+
+#   ylim(min(cld$lower.CL)-0.25,max(cld$upper.CL)+0.25) +
+#   scale_color_manual(values=colorcodes[levels(cld$variable_f),]$hex_color,labels=levels(cld$variable_f))+
+#   theme(axis.text.x=element_text(size=10,angle=45)) +
+   #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+#   xlab("Founder") + ylab("Expression (log2CPM)") +
+#   labs(title=sprintf("%s cis-eQTL Founder Effect Sizes (lme4qtl)",y))
+   #dev.off()
+
+
+#png('test.png')
+#print(p1)
+#dev.off()
+
+#results=fread('eqtl/cis/results/eQTL_WD_0712_c1_fkeep_results.txt',data.table=F)
+#qtl$gene_snp=paste0(qtl$Gene,'_',qtl$SNP)
+#results$gene_snp=paste0(results$Trait,'_',results$X_ID)
+#gs=qtl[1,]$gene_snp
+#row=results[results$gene_snp==gs,]
+#betas=row[,fkeep]
+#em=as.data.frame(em,stringsAsFactors=F
+#cor(em$emmean,unlist(unname(betas)))
+#   (is_crossed(founder~plate,subpheno))
+#   [1] FALSE
+#               plate
+#   founder      7 8
+#     B73_inra   5 3
+#     CO255_inra 4 0
+#     FV252_inra 1 2
+#     A654_inra  5 0
+#     FV2_inra   4 2
+#     C103_inra  3 5
+#     EP1_inra   8 1
+#     D105_inra  1 6
+#     W117_inra  2 4
+#     DK63       3 2
+#     F492       5 1
+#     ND245      4 2
+#     VA85       2 3
+
+
+#m1 = lm(y ~ 0+ X,data=subpheno)
+#m2=lmer(y ~ 0 + X + (1|ID),data=subpheno,control=lmerControl(check.nobs.vs.nlev = "ignore",check.nobs.vs.rankZ = "ignore",
+#   check.nobs.vs.nRE="ignore"))
 
 
 ##### multcompl code ####

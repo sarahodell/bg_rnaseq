@@ -13,10 +13,9 @@ library('rols')
 #library('TissueEnrich')
 library('dplyr')
 
-#time="WD_0712"
+#time="WD_0727"
 
 #factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
-factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
 
 
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
@@ -35,14 +34,14 @@ annotation=annotation[order(annotation$CHROM,annotation$START),]
 #rownames(annotation)=seq(1,nrow(annotation))
 #rownames(genetable)=seq(1,nrow(genetable))
 
-pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_sig_factors.txt',time),data.table=F)
+#pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_%s_sig_factors.txt',time),data.table=F)
 #pheno_df=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_sig_factors.txt',time),data.table=F)
 
 #'MegaLMM/pheno_MegaLMM_residuals_%s_sig_factors.txt',time)
 #testv5=glist[match(test,glist$v4_Gene_ID),]$v5_Gene_ID
 #kept_test=test[which(!is.na(testv5))]
 #testv5=testv5[!is.na(testv5)]
-pheno_factors=unique(pheno_df$factor)
+pheno_factors=c('Factor14')
 genes=unique(annotation$Gene)
 genelength=genetable[match(genes,genetable$Gene_ID),]$LENGTH
 names(genelength)=genes
@@ -50,6 +49,11 @@ names(genelength)=genes
 exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 rownames(exp)=exp$ID
 exp=exp[,-1]
+
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+exp=exp[,c(kept_genes)]
+
 log_inverse=function(x){
   return(2^x)
 }
@@ -60,6 +64,9 @@ avg_exp[avg_exp<1]=0
 # re-log the input data
 avg_logexp=log2(avg_exp)
 avg_logexp[is.infinite(avg_logexp)]=0
+
+#avg_exp2=apply(exp,2,mean)
+
 #genes=genes[1:10]
 #go_list = sapply(genes,function(x) NULL)
 #go_list = sapply(seq(1,length(genes)),function(x) go_list[[x]]=annotation[annotation$Gene==names(go_list)[x],]$GO)
@@ -119,22 +126,82 @@ avg_logexp[is.infinite(avg_logexp)]=0
 #enrichmentOutput<-setNames(data.frame(assay(output2[[1]]),row.names = rowData(output2[[1]])[,1]),colData(output2[[1]])[,1])
 #enrichmentOutput$Tissue<-row.names(enrichmentOutput)
 
-######### GOSeq ########
+prop_var=fread('MegaLMM/MegaLMM_WD_0727_prop_variance.txt',data.table=F)
+# How much variation is enough? 
+subvar=prop_var[,c('V1','Factor2')]
+cutoff=0.9
+test=subvar[subvar$Factor2>=cutoff,]$V1
 
-pheno_factors=unique(pheno_df$factor)
-genes=names(avg_exp)
+testlist=data.frame(genes=test,stringsAsFactors=F)
+fwrite(testlist,sprintf('WD_0727_Factor2_%.1f_gene_list.txt',cutoff),row.names=F,col.names=F,quote=F,sep='\t')
+
+
+
 inter2=length(intersect(names(avg_exp),annotation$Gene))
 #genelength=genetable[match(genes,genetable$Gene_ID),]$LENGTH
 #names(genelength)=genes
 
+fulllist=data.frame(genes=genes,stringsAsFactors=F)
+fwrite(fulllist,'WD_0727_full_gene_list.txt',row.names=F,col.names=F,quote=F,sep='\t')
 
 
+ft_genelist=fread('../selection/FT_gene_list_AGPv4.bed',data.table=F)
+# Enrichment of flowering time genes?
+cutoff=0.1
+test=subvar[subvar$Factor2>=cutoff,]$V1
+gtable=genetable[genetable$Gene_ID %in% test,]
 
 
-#nullp_list=vector("list",length(pheno_factors))
+find_nearest_snp=function(row){
+    index=which.min(abs(row$START-pmap[pmap$chr==row$CHROM,]$pos))
+    return(pmap[index,]$marker)
+}
+
+nearest_snps=sapply(seq(1,nrow(gtable)),function(x) find_nearest_snp(gtable[x,]))
+gtable$SNP=nearest_snps
+
+snplist=gtable[,'SNP',drop=F]
+fwrite(snplist,'WD_0727_Factor2_snplist.txt',row.names=F,col.names=F,sep='\t',quote=F)
+
+true_nft=length(intersect(ft_genelist$V4,test))
+
+ngenes=length(test)
+allgenes=length(genes)
+nfts=c()
+for(i in 1:1000){
+	draw=sample(seq(1,allgenes),ngenes)
+	nft=intersect(ft_genelist$V4,genes[draw])
+	nfts=c(nfts,length(nft))
+}
+
+# 0.1 cutoff 60 genes
+#summary(nfts)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  39.00   53.75   58.00   57.36   61.00   74.00 
+# quantile(nfts,0.95)
+#95% 
+# 67 
+
+# 0.5 cutoff 5 genes
+summary(nfts)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  1.000   7.000   9.000   9.166  11.000  23.000 
+#quantile(nfts,0.05)
+#5% 
+# 4
+
+######### GOSeq ########
+pheno_factors=c('Factor16')
+factor_groups=readRDS(sprintf('MegaLMM/MegaLMM_%s_factor_groups.rds',time))
+#pheno_factors=unique(pheno_df$factor)
+genes=names(avg_exp)
+
+nullp_list=vector("list",length(pheno_factors))
+
 
 
 all_go=c()
+enriched_go=c()
 for(f in pheno_factors){
   indices=which(unlist(unname(lapply(factor_groups,function(x) x$factor==f))))
   test=factor_groups[[indices]]$genes
@@ -142,22 +209,32 @@ for(f in pheno_factors){
   names(deg)=genes
   inter=intersect(test,genes[which(genes %in% test)])
   test=inter
-  go=nullp(DEgenes=deg,bias.data=avg_logexp,plot.fit=T)
-  GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],method="Sampling",repcnt=10000,use_genes_without_cat=TRUE)
+  #genelength2=genelength[genes]
+  go=nullp(DEgenes=deg,bias.data=avg_exp,plot.fit=T)
+  GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],use_genes_without_cat=TRUE,test.cats=c("GO:BP"))
+  #GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],method="Sampling",repcnt=10000,use_genes_without_cat=TRUE)
+  GO.samp=as.data.frame(GO.samp,stringsAsFactors=F)
   GO.samp$factor=f
   #enriched.GO=GO.samp[p.adjust(GO.samp$over_represented_pvalue,method="BH")<.05,]
   all_go=rbind(all_go,GO.samp)
+  GO.samp$adjusted_p=p.adjust(GO.samp$over_represented_pvalue,method="fdr")
+  enriched_go=rbind(enriched_go,GO.samp[GO.samp$adjusted_p<(0.05/length(pheno_factors)),])
 }
 all_go=as.data.frame(all_go,stringsAsFactors=F)
-fwrite(all_go,sprintf('MegaLMM/GO/pheno_MegaLMM_%s_GOSeq_all.txt',time),row.names=F,quote=F,sep='\t')
-enriched.GO=all_go[p.adjust(all_go$over_represented_pvalue,method="BH")<.05,]
-fwrite(enriched.GO,sprintf('MegaLMM/GO/pheno_MegaLMM_%s_GOSeq_enriched.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(all_go,sprintf('MegaLMM/GO/MegaLMM_%s_GOSeq_all.txt',time),row.names=F,quote=F,sep='\t')
+#all_go=all_go[all_go$ontology!="CC",]
+#all_go=all_go[!is.na(all_go$ontology),]
+#rownames(all_go)=seq(1,nrow(all_go))
+#enriched.GO=all_go[all_go$adjusted_p<(0.05/length(pheno_factors)),]
 
-#pdf('images/WD_0712_nullp_plots.pdf', onefile=TRUE)
-#for (my.plot in my.plots) {
-#    replayPlot(my.plot)
-#}
-#graphics.off()
+
+fwrite(enriched_go,sprintf('MegaLMM/GO/MegaLMM_%s_GOSeq_enriched.txt',time),row.names=F,quote=F,sep='\t')
+
+pdf('images/WD_0727_nullp_plots.pdf', onefile=TRUE)
+for (my.plot in my.plots) {
+    replayPlot(my.plot)
+}
+graphics.off()
 #### Generally leaf-tissue enriched GO terms
 #deg=ifelse(genes %in% leaf_enriched$Gene,1,0)
 #names(deg)=genes
@@ -240,7 +317,7 @@ for(i in pheno_loc){
 }
 
 
-saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
+saveRDS(factor_groups,sprintf('MegaLMM/MegaLMM_%s_factor_groups.rds',time))
 #saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
 
 all_go_df=c()
@@ -253,7 +330,7 @@ for(i in pheno_loc){
     sub$factor=factor
     #all_go_df=rbind(all_go_df,sub)
     sub=sub[,c('category','over_represented_pvalue')]
-    fwrite(sub,sprintf('MegaLMM/GO/pheno_MegaLMM_%s_%s_GO_terms.txt',time,factor),row.names=F,quote=F,sep='\t')
+    fwrite(sub,sprintf('MegaLMM/GO/MegaLMM_%s_%s_GO_terms.txt',time,factor),row.names=F,quote=F,sep='\t')
   }
 }
 

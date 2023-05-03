@@ -7,15 +7,15 @@ cores=as.numeric(args[[3]])
 #Running MegaLMM
 #installed in R/4.1.0
 #devtools::install_github('deruncie/MegaLMM',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('generics',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('rlang',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('vctrs',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('glue',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('tibble',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('tidyselect',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
-library('pillar',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
+library('generics',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('rlang',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('vctrs',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('glue',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('tibble',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('tidyselect',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('pillar',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 
-library('MegaLMM')
+library('MegaLMM',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('data.table')
 library('preprocessCore')
 
@@ -24,6 +24,9 @@ library('preprocessCore')
 #exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
 exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 
+meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+meta=meta[meta$experiment==time,]
+meta=meta[meta$read==1,]
 #testing
 #exp=exp[,1:100]
 
@@ -48,7 +51,7 @@ rownames(exp)=exp$V1
 
 Y = exp[,-1]
 
-geneh2s=fread('eqtl/data/lme4qtl_WD_0712_h2s.txt',data.table=F)
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
 kept_genes=geneh2s[geneh2s$h2>0 & geneh2s$h2<1,]$gene
 Y=Y[,kept_genes]
 #sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
@@ -60,19 +63,11 @@ Y=Y[,kept_genes]
 #Y=Y[,sub$sub]
 #Y=as.matrix(Y)
 #Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
-Y=as.matrix(Y)
 
-#Ynorm1=normalize.quantiles(t(Y))
-#Ynorm1=t(Ynorm1)
-# Quantile Normalization
-Ynorm=normalize.quantiles(Y)
-
-rownames(Ynorm)=rownames(Y)
-colnames(Ynorm)=colnames(Y)
-Y=Ynorm
-#Y =as.data.frame(apply(Y,MARGIN=2,function(x)  (x-mean(x,na.rm=T))/sd(x,na.rm=T)   ))
 data = key
 names(data)=c('ID')
+plate=meta[match(data$ID,meta$dh_genotype),]$plate
+data$plate=as.factor(plate)
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
 rownames(K)=K[,1]
@@ -82,8 +77,26 @@ colnames(K)=rownames(K)
 
 inter=intersect(data$ID,rownames(K))
 K=K[inter,inter]
+
 data=data[match(inter,data$ID),,drop=F]
 Y=Y[inter,]
+
+######
+
+#Separate individuals by plate and quantile normalize separately
+Ynorm=c()
+plates=unique(data$plate)
+for(p in plates){
+  pinds=data[data$plate==p,]$ID
+  subY=Y[pinds,]
+  subYnorm=normalize.quantiles(as.matrix(subY))
+  rownames(subYnorm)=rownames(subY)
+  colnames(subYnorm)=colnames(subY)
+  Ynorm=rbind(Ynorm,subYnorm)
+}
+
+Y=Ynorm
+
 #K = setup$K covariance matrix?
 
 #cf_DFinf2NA = function(x){
@@ -157,7 +170,7 @@ priors = MegaLMM_priors(
 
 
 MegaLMM_state = setup_model_MegaLMM(Y,            # n x p data matrix
-                              ~(1|ID),  # RHS of base model for factors and residuals. Fixed effects defined here only apply to the factor residuals.
+                              ~(1|ID) + plate,  # RHS of base model for factors and residuals. Fixed effects defined here only apply to the factor residuals.
                               data = data,         # the data.frame with information for constructing the model matrices
                               relmat = list(ID = K), # covariance matrices for the random effects. If not provided, assume uncorrelated
                               run_parameters=run_parameters,
