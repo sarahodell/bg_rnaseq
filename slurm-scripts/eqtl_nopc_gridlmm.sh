@@ -6,7 +6,7 @@
 #SBATCH -t 96:00:00
 #SBATCH --array=1-40%20
 #SBATCH --ntasks=1
-#SBATCH --mem 7G
+#SBATCH --mem 4G
 
 module load R/4.1.0
 
@@ -17,4 +17,4 @@ chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f2 -d,)"
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 echo $time
 echo $chr
-Rscript scripts/ciseqtl_noPC_GridLMM.R $time $chr 1
+Rscript scripts/ciseqtl_vst_GridLMM.R $time $chr 1
