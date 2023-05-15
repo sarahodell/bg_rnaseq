@@ -48,13 +48,14 @@ inter=intersect(inds,data$ID)
 rownames(data)=data$ID
 data=data[inter,]
 K=K[inter,inter]
+X_list=lapply(X_list,function(x) x[inter,])
 
 null_model = GridLMM_ML(y~1+plate+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
 
 nmarkers=dim(X_list[[1]])[2]
 frep2=sapply(seq(1,nmarkers),function(i) lapply(X_list,function(j) sum(j[,i]>0.75)))
 founders=names(X_list)
-fkeep=apply(frep2,MARGIN=2,function(x) x>2)
+fkeep=apply(frep2,MARGIN=2,function(x) x>3)
 markers=dimnames(X_list[[1]])[[2]]
 colnames(fkeep)=markers
 colnames(frep2)=markers
@@ -65,13 +66,9 @@ names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','plate',fou
 
 
 for(g in fgroups){
-  subm=colnames(fkeep[,colSums(fkeep)==g])
-  subfkeep=fkeep[,subm]
-  X_list_sub=lapply(X_list,function(x) x[inter,subm])
-  pattern=apply(subfkeep,MARGIN=2,function(x) str_flatten(c(unlist(founders[x])),'-'))
-  #pattern=
-  fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
-  fpatterns=unique(fdf$fpattern)
+  subm=colnames(fkeep[,colSums(fkeep)==g,drop=F])
+  subfkeep=fkeep[,subm,drop=F]
+  X_list_sub=lapply(X_list,function(x) x[,subm,drop=F])
   if(g==16){
     #print("16")
     h2_start=null_model$results[,grepl('.ML',colnames(null_model$results),fixed=T),drop=FALSE]
@@ -90,6 +87,9 @@ for(g in fgroups){
     gwas=gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','plate',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
     all_gwas=rbind(all_gwas,gwas)
   }else{
+  	pattern=apply(subfkeep,MARGIN=2,function(x) str_flatten(c(unlist(founders[x])),'-'))
+  	fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
+  	fpatterns=unique(fdf$fpattern)
     for(i in fpatterns){
       #print(i)
       subm2=fdf[fdf$fpattern==i,]$marker

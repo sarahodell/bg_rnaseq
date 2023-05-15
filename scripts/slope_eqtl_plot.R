@@ -98,7 +98,7 @@ gg.manhattan2=function(df, threshold, col, ylims,bounds){
 df=c()
 for(c in 1:10){
 	print(c)
-	dlist=readRDS(sprintf('eqtl/trans/results/trans_eQTL_%.0f_c%s_fkeep_results.rds',c,time))
+	dlist=readRDS(sprintf('eqtl/trans/results/slope_eQTL_c%.0f_fkeep_results.rds',c))
 	d=as.data.frame(do.call(rbind, dlist))
 	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
 	d$CHR=c
@@ -109,8 +109,7 @@ genes=unique(df$Trait)
 df=df[!is.na(df$p_value_ML),]
 df=df[!is.infinite(df$ML_logLik),]
 n_m=4716
-n_genes=31879
-adjust=n_genes*n_m
+adjust=length(genes)*n_m*4
 threshold=-log10(0.05/adjust)
 print(threshold)
 
@@ -124,11 +123,11 @@ print(threshold)
 allsigs=c()
 for(g in genes){
 	sub=df[df$Trait==g,]
-	#sub=sub[order(sub$p_value_ML),]
-	#rownames(sub)=seq(1,nrow(sub))
-	#p_adjusted=p.adjust(sub$p_value_ML,method='fdr')
-	sub$value=-log10(sub$p_value_ML)
-	#sub$value=-log10(p_adjusted)
+	sub=sub[order(sub$p_value_ML),]
+	rownames(sub)=seq(1,nrow(sub))
+	p_adjusted=p.adjust(sub$p_value_ML,method='fdr')
+	#df$value=-log10(df$p_value_ML)
+	sub$value=-log10(p_adjusted)
 
 	sub=sub[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
 	names(sub)=c('Gene','SNP','p_value_ML','CHR','BP','value')
@@ -154,7 +153,7 @@ for(g in genes){
 	sigs2=subdf[subdf$value>=threshold,]
 
 	if(dim(sigs2)[1]!=0){#png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
-  		png(sprintf('eqtl/trans/images/%s_%s_trans_eQTL_scan_manhattan.png',time,g),width=2000,height=1500)
+  		png(sprintf('eqtl/trans/images/%s_%s_trans_eQTL_scan_manhattan.png',time,gene),width=2000,height=1500)
   		print(a2)
   		dev.off()
   		allsigs=rbind(allsigs,sigs2)

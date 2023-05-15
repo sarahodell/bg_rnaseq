@@ -40,8 +40,10 @@ inds=rownames(X_list[[1]])
 
 inter=intersect(genos,inds)
 K=K[inter,inter]
+X_list=lapply(X_list,function(x) x[inter,])
 
 genes=unique(phenotypes$gene)
+testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
 
 
 
@@ -96,7 +98,7 @@ transeqtl_gwas=function(rep){
   			}
   		}
   		subfkeep=fkeep[,subm]
-  		X_list_sub=lapply(X_list,function(x) x[inter,subm])
+  		X_list_sub=lapply(X_list,function(x) x[,subm])
   		if(g==16){
       		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
       		gwas$Trait=gene

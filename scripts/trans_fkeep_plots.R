@@ -26,7 +26,10 @@ greypalette=gray.colors(5)
 #threshtable=fread('eqtl/trans/threshold_0.05_table.txt',data.table=F)
 #threshold=threshtable[threshtable$time==time & threshtable$factor==factor,]$threshold
 #print(threshold)
-adjust=17
+n_m=4716
+time_factors=list("WD_0712"=8,"WD_0718"=22,"WD_0720"=21,"WD_0727"=17)
+n_factors=68
+adjust=n_m*n_factors
 #threshold=-log10((10^-threshold)/adjust)
 threshold=-log10(0.05/adjust)
 print(threshold)
@@ -47,11 +50,11 @@ df=df[!is.na(df$p_value_ML),]
 df=df[!is.infinite(df$ML_logLik),]
 
 #order=match(df[order(df$p_value_ML),]$Gene,df$Gene)
-df=df[order(df$p_value_ML),]
-rownames(df)=seq(1,nrow(df))
-p_adjusted=p.adjust(df$p_value_ML,method='fdr')
-#df$value=-log10(df$p_value_ML)
-df$value=-log10(p_adjusted)
+#df=df[order(df$p_value_ML),]
+#rownames(df)=seq(1,nrow(df))
+#p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+df$value=-log10(df$p_value_ML)
+#df$value=-log10(p_adjusted)
 
 #png(sprintf('eqtl/trans/images/%s_%s_trans_fkeep_qqplot.png',time,factor))
 #png(sprintf('eqtl/trans/images/%s_%s_pheno_residuals_trans_qqplot.png',time,factor))

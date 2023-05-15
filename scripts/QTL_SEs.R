@@ -7,12 +7,13 @@ library('data.table')
 library('lme4')
 library('lmerTest')
 library('pbkrtest')
-library('PLS205')
+#library('PLS205')
 library('lme4qtl')
-library('emmeans')
-library('multcomp')
+library('emmeans',lib='/home/sodell/R/x86_64-conda-linux-gnu/4.2')
+library('multcomp',lib='/home/sodell/R/x86_64-conda-linux-gnu/4.2')
+library('multcompView',lib='/home/sodell/R/x86_64-conda-linux-gnu/4.2')
 library('ggplot2')
-library('GridLMM')
+library('GridLMM',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('preprocessCore')
 
 
@@ -25,6 +26,8 @@ founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra","A654_inr
 
 #qtl=fread(sprintf('allelic/%s_%s_pheno_trans_kept_SNPS.txt',time,factor),data.table=F)
 qtl=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',time),data.table=F)
+
+#qtl=fread(sprintf('eqtl/results/WD_0727_trans_eQTL_scan_hits.txt',time),data.table=F)
 phenotype=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 
 #phenotype=fread(sprintf('eqtl/normalized/WD_0712_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
@@ -230,7 +233,167 @@ for(i in 1:length(ses_plot)){
 dev.off()
 
 
+##### Trans ######
 
+colorcodes=fread('../GridLMM/effect_sizes/founder_color_codes.txt',data.table=F)
+rownames(colorcodes)=colorcodes$founder
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra","A654_inra","FV2_inra",
+"C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+#has_mite=c(F,T,T,T,F,T,T,T,T,T,T,F,T,T,T,F)
+
+
+qtl=fread(sprintf('eqtl/results/%s_trans_eQTL_scan_hits.txt',time),data.table=F)
+
+#for WD_0727
+indices=c(4,5,9,13,14)
+qtl=qtl[indices,]
+rownames(qtl)=seq(1:nrow(qtl))
+#qtl=fread(sprintf('eqtl/results/WD_0727_trans_eQTL_scan_hits.txt',time),data.table=F)
+phenotype=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+
+#phenotype=fread(sprintf('eqtl/normalized/WD_0712_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+
+K = fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table = F,h=T)
+rownames(K) = K[,1]
+K = as.matrix(K[,-1])
+
+inter=intersect(rownames(K),phenotype$V1)
+K=K[inter,inter]
+phenotype=phenotype[phenotype$V1 %in% inter,]
+
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+genos=phenotype$V1
+
+
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+
+
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+phenotype=phenotype[,c('V1',kept_genes)]
+
+metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+metadata=metadata[metadata$experiment==time,]
+
+######
+genos=phenotype$V1
+rownames(phenotype)=phenotype$V1
+phenotype=phenotype[,-1]
+phenotype=as.matrix(phenotype)
+
+ses=list()
+ses_plot=list()
+count=1
+
+chroms=unique(qtl$CHR)
+for(c in chroms){
+	subqtl=qtl[qtl$CHR==c,]
+	subqtl$gene_snp=paste0(subqtl$Gene,'_',subqtl$SNP)
+
+	qgenes=unique(subqtl$Gene)
+	chr=as.character(c)
+	results=readRDS(sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_fkeep_results.rds',chr,time))
+  	tgenes=which(unlist(lapply(results,function(x) unique(x$Trait))) %in% qgenes)
+  	results=results[tgenes]
+  	founder_probs = readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	for(i in 1:nrow(subqtl)){
+		res=results[[i]]
+  		snp=subqtl[i,]$SNP
+  		pos=subqtl[i,]$BP
+  		genetable2=genetable[genetable$CHROM==chr,]
+  		genes=unique(genetable2$Gene_ID)
+ 		genes=intersect(genes,names(phenotype)[-1])
+ 		inter=intersect(rownames(founder_probs[[1]]),genos)
+ 		X = do.call(cbind,lapply(founder_probs,function(x) x[inter,snp]))
+		y=subqtl[i,]$Gene
+  		subpheno = phenotype[,y,drop=F]
+ 		subpheno=as.data.frame(subpheno,stringsAsFactors=F)
+  		subpheno$ID=rownames(subpheno)
+  		names(subpheno)=c('y','ID')
+  		subpheno=subpheno[!is.na(subpheno$y),]
+  		subpheno=subpheno[inter,]
+  		frep2=apply(X,MARGIN=2,function(x) round(sum(x[x>0.75])))
+  		fkeep=founders[frep2>2]
+  		X=X[,fkeep]
+  		subpheno=cbind(subpheno,X)
+
+  		data=subpheno
+  		data$PC1=pcs[match(data$ID,pcs$sample),]$PC1
+  		data$PC2=pcs[match(data$ID,pcs$sample),]$PC2
+  		data$PC3=pcs[match(data$ID,pcs$sample),]$PC3
+  		
+  		m1=lm(y~PC1+PC2+PC3,data)
+  		resids=summary(m1)$residuals
+  		subpheno$resids=resids
+   	 	f=as.formula(paste('resids',paste(c(0,fkeep,"(1|ID)"),collapse=" + "),sep=" ~ "))
+  
+  		m3=relmatLmer(f,data=subpheno,relmat = list(ID = K))
+
+  		for(f in fkeep){
+    		atlist=list()
+    		for(f2 in fkeep){
+      			if(f==f2){
+        			atlist[[f2]]=1
+      			}else{
+        			atlist[[f2]]=0
+     	 		}
+    		}
+    		refgrid=ref_grid(m3,at=atlist)
+    		em=emmeans(refgrid,specs=f,lmer.df="kenward-roger")
+    		if(f==fkeep[1]){
+      			allem=em
+    		}else{
+      			allem=rbind(allem,em)
+    		}
+  		}
+  		cld=cld(allem,Letters=letters)
+  		cld=as.data.frame(cld,stringsAsFactors=F)
+  		cld=cld[order(cld$emmean),]
+  		rownames(cld)=1:nrow(cld)
+  		variable_f=sapply(seq(1,length(fkeep)),function(x) fkeep[which(cld[x,fkeep]==1)])
+  		cld$variable_f=factor(variable_f,levels=variable_f)
+  		fgroups=cld$.group
+
+  		gs=subqtl[i,]$gene_snp
+  		print(gs)
+  		
+  		res$gene_snp=paste0(res$Trait,'_',res$X_ID)
+  		row=res[res$gene_snp==gs,]
+  		betas=unlist(row[,fkeep])
+  		betas[-1]=betas[-1]+betas[1]
+  		rownames(cld)=cld$variable_f
+  		em=cld[fkeep,]
+  		print(cor(em$emmean,unname(betas)))
+
+  		ses[[count]]=list(gene=y,values=em,tukey_res=fgroups,time=time,fkeep=fkeep,colsum=colSums(X))
+     	
+     	p1=ggplot(cld,aes(x=variable_f,y=emmean,color=variable_f)) + geom_point() +
+  		geom_errorbar(aes(ymin=lower.CL,ymax=upper.CL),data=cld) +
+  		geom_text(aes(label=.group),vjust=-5,color="black",size=6)+
+ 		ylim(min(cld$lower.CL)-0.25,max(cld$upper.CL)+0.25) +
+  		scale_color_manual(values=colorcodes[levels(cld$variable_f),]$hex_color,labels=levels(cld$variable_f))+
+  		theme(axis.text.x=element_text(size=10,angle=45)) +
+  		xlab("Founder") + ylab("Expression (log2CPM)") +
+  		labs(title=sprintf("%s trans-eQTL Founder Effect Sizes (lme4qtl)",y))
+  		
+  		#png('test.png')
+  		#print(p1)
+  		#dev.off()
+  		
+  		
+  		ses_plot[[count]]=p1
+  		count=count+1
+	}
+}
+
+saveRDS(ses,sprintf('eqtl/results/%s_transeQTL_founder_lme4qtl_es.rds',time))
+
+pdf(sprintf('eqtl/images/%s_transeQTL_founder_lme4qtl_es.pdf',time))
+for(j in 1:length(ses_plot)){
+  print(ses_plot[[j]])
+}
+dev.off()
 
 ### test
 #plate=metadata[match(subpheno$ID,metadata$dh_genotype),]$plate

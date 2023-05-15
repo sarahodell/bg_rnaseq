@@ -430,10 +430,10 @@ env1=eqtl
 #env1$BP_start=env1$BP-5000
 #env1$BP_end=env1$BP+5000
 env1=as.data.table(env1)
-env2=as.data.table(fqtl)
+env2=as.data.table(qtl)
 #env2$end=env2$end-1
-setkey(env2,Chromosome,block_start,block_end)
-comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','block_start','block_end'),nomatch=NULL)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
 f14_27=fread('eqtl/results/Factor14_trans_WD_0727_eQTL_fkeep_hits.txt',data.table=F)
 
@@ -441,3 +441,160 @@ goi=c("Zm00001d041650","Zm00001d009688","Zm00001d045677")
 factor_groups=readRDS('MegaLMM/MegaLMM_WD_0727_factor_groups2.rds')
 f2genes=factor_groups[['Factor2']]$genes
 f14genes=factor_groups[['Factor14']]$genes
+
+# nearest SNPs for genes in Factor 14
+
+find_nearest_snp=function(row){
+    index=which.min(abs(row$START-pmap[pmap$chr==row$CHROM,]$pos))
+    return(pmap[index,]$marker)
+}
+
+gtable=genetable[genetable$Gene_ID %in% f14genes,]
+
+nearest_snps=sapply(seq(1,nrow(gtable)),function(x) find_nearest_snp(gtable[x,]))
+gtable$SNP=nearest_snps
+
+snplist=gtable[,'SNP',drop=F]
+snplist=rbind(snplist,data.frame(SNP=unique(f14_27$SNP)))
+snp2=unique(snplist$SNP)
+snp2=data.frame(SNP=snp2,stringsAsFactors=F)
+
+fwrite(snp2,'WD_0727_Factor14_snplist.txt',row.names=F,col.names=F,sep='\t',quote=F)
+
+ld=fread('Factor14_rsquared.ld',data.table=F)
+ld=ld[ld$SNP_A==snp,]
+
+ld2=ld[ld$SNP_B %in% snplist$V1,]
+
+
+#####
+# Correlation between Fvalues and phenotypes
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+
+exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+rownames(exp)=exp$V1
+exp=exp[,-1]
+metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+
+metadata=metadata[metadata$experiment==time,]
+
+
+geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+exp=exp[,kept_genes]
+
+genes=names(exp)
+
+#genes=genes[1:5]
+df=fread('eqtl/results/factor_transQTL_all.txt',data.table=F)
+df %>% group_by(time,Factor) %>% filter(value==max(value)) %>% arrange(time,Factor,SNP)
+
+# A tibble: 10 × 6
+# Groups:   time, Factor [3]
+#   Factor     CHR        BP SNP           value time   
+#   <chr>    <int>     <int> <chr>         <dbl> <chr>  
+# 1 Factor16     4   5535185 AX-90856708    2.90 WD_0718
+# 2 Factor16     4   5414982 AX-91597662    2.90 WD_0718
+# 3 Factor16     4   5663654 AX-91849936    2.90 WD_0718
+# 4 Factor14     7 171058661 AX-91065358    3.95 WD_0727
+# 5 Factor14     7 170989903 AX-91743057    3.95 WD_0727
+# 6 Factor14     7 170886882 PZE-107118743  3.95 WD_0727
+# 7 Factor2      8 152630937 AX-91107495    3.43 WD_0727
+# 8 Factor2      8 150428041 AX-91202104    3.43 WD_0727
+# 9 Factor2      8 150234596 AX-91772402    3.43 WD_0727
+#10 Factor2      8 150347882 AX-91772415    3.43 WD_0727
+
+time="WD_0727"
+factor="Factor2"
+snp="AX-91772402"
+chr="8"
+
+time="WD_0727"
+factor="Factor14"
+snp="AX-91743057"
+chr="7"
+
+time="WD_0718"
+factor="Factor16"
+snp="AX-91597662"
+chr="4"
+
+f_all_means=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means.txt',time),data.table=F)
+
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+
+exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+rownames(K)=K[,1]
+rownames(K)=gsub("-",".",rownames(K))
+K=as.matrix(K[,-1])
+colnames(K)=rownames(K)
+
+
+X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+inds=rownames(X_list[[1]])
+
+inter=intersect(exp$V1,inds)
+
+X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+colnames(X) = founders
+rownames(X) = inter
+
+
+founder=unlist(unname(apply(X,MARGIN=1,function(x) colnames(X)[which.max(x)])))
+fdata=data.frame(ID=inter,founder=founder,stringsAsFactors=F)
+
+
+fdata$fvalue=f_all_means[match(fdata$ID,f_all_means$V1),factor]
+
+
+find_qtts=function(e,p){
+	pheno=phenotypes[phenotypes$Loc.Year.Treat==e,c('Genotype_code',p)]
+	pheno$f=fdata[match(pheno$Genotype_code,fdata$ID),'fvalue']
+	test=cor.test(pheno[,p],pheno$f,use="complete.obs")
+	return(test)
+}
+
+envs=unique(phenotypes$Loc.Year.Treat)
+phenos=names(phenotypes)[3:8]
+
+all_qtts=data.frame(matrix(ncol=5,nrow=0))
+names(all_qtts)=c('pheno','env','factor','r','pvalue')
+
+for(p in phenos){
+	for(e in envs){
+		correlations=find_qtts(e,p)
+		line=data.frame(pheno=p,env=e,factor=factor,r=unlist(correlations['estimate']),pvalue=unlist(correlations['p.value']),stringsAsFactors=F)
+		all_qtts=rbind(all_qtts,line)
+	}
+}
+
+ntests=48
+threshold=0.05/3
+all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
+
+# WD_0727 Factor 2
+### total plant height was actually th emost correlated with f-values
+# r of -0.17
+# none of them are significant though
+# Is there a way I can compare this to a null distribution rather than fdr correction?
+
+# WD_0727 Factor 14
+#### highest correlation is with male_flowering_d6 (0.15) and tkw_15 (-0.15)
+## neither of them are significant after multiple test correction
+
+# WD_0718 Factor16
+#### highest correlation is with grain_yield_15 (r=0.18) and total_plant_height (r=0.16) in SZEGED_2017_OPT
+# Neither are significant after fdr correction
+
+# Raw F values and raw phenotypes are not significantly correlated
+# What about phenotype genetic values?
+
+
+fwrite(all_qtts,sprintf('eqtl/results/%s_%s_F_pheno_corrs.txt',time,factor),row.names=F,quote=F,sep='\t')
+
+
+
+
+
+

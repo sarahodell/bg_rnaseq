@@ -54,12 +54,12 @@ phenotypes=phenotypes[inter,]
 genos=rownames(phenotypes)
 
 K=K[inter,inter]
-X_list=lapply(X_list,function(x) x[inter,])
 
 
 founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
 testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
-
+allweights=fread(sprintf('eqtl/normalized/%s_voom_weights.txt',time),data.table=F)
+allweights=allweights[,c('V1',inter)]
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
 n_reps=seq(1,length(genes))
@@ -69,6 +69,7 @@ transeqtl_gwas=function(rep){
 	all_gwas=data.frame(matrix(ncol=29,nrow=0))
 	names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
 	gene=genes[rep]
+	gweights=unlist(allweights[allweights$V1==gene,inter])
 	gene_chrom=genetable[genetable$Gene_ID==gene,]$CHROM
 	data=data.frame(ID=rownames(phenotypes),y=phenotypes[,gene],stringsAsFactors=F)
 	data=data[!is.na(data$y),]
@@ -79,7 +80,7 @@ transeqtl_gwas=function(rep){
 	data=data[inter,]
 	data$ID2=data$ID
 	data=data[,c('ID','ID2','y','PC1','PC2','PC3')]
-	null_model = GridLMM_ML(y~1+PC1+PC2+PC3+(1|ID),data,relmat=list(ID=K),ML=T,REML=F,verbose=F)
+	null_model = GridLMM_ML(y~1+PC1+PC2+PC3+(1|ID),data,weights=gweights,relmat=list(ID=K),ML=T,REML=F,verbose=F)
 	h2_start=null_model$results[,grepl('.ML',colnames(null_model$results),fixed=T),drop=FALSE]
 	names(h2_start) = sapply(names(h2_start),function(x) strsplit(x,'.',fixed=T)[[1]][1])
 	h2_start
@@ -90,7 +91,7 @@ transeqtl_gwas=function(rep){
 	nmarkers=dim(X_list[[1]])[2]
 	frep2=sapply(seq(1,nmarkers),function(i) lapply(X_list,function(j) sum(j[,i]>0.75)))
 	founders=names(X_list)
-	fkeep=apply(frep2,MARGIN=2,function(x) x>3)
+	fkeep=apply(frep2,MARGIN=2,function(x) x>2)
 	markers=dimnames(X_list[[1]])[[2]]
 	colnames(fkeep)=markers
 	colnames(frep2)=markers
@@ -173,6 +174,6 @@ print(system.time({
 results=mclapply(n_reps,transeqtl_gwas,mc.cores=cores)
 }))
 
-saveRDS(results,sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_fkeep_results.rds',time,chr))
+saveRDS(results,sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results.rds',time,chr))
 
 

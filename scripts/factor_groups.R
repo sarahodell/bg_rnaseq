@@ -63,7 +63,7 @@ for(f in 1:nrow(lambda_all_means)){
   var_exp=apply(subl,MARGIN=1,function(x) x**2)
   tot_var=sum(var_exp)
   prop_var=var_exp/tot_var
-  fkeep=names(subl[,which(var_exp>=0.1),drop=F])
+  fkeep=names(subl[,which(prop_var>=0.1),drop=F])
   for(k in fkeep){
     x=which(unlist(unname(lapply(factor_groups,function(x) x$factor==k))))
     #if(gene %in% phenotypes){
@@ -75,7 +75,7 @@ for(f in 1:nrow(lambda_all_means)){
 }
 names(factor_groups)=factors
 #saveRDS(factor_groups,sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_groups.rds',time))
-saveRDS(factor_groups,sprintf('MegaLMM/MegaLMM_%s_factor_groups2.rds',time))
+saveRDS(factor_groups,sprintf('MegaLMM/MegaLMM_%s_factor_groups.rds',time))
 
 factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
 
