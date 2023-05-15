@@ -9,7 +9,7 @@
 
 module load plink
 
-/home/sodell/bin/./plink --threads 5 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list WD_0727_Factor2_snplist.txt --ld-window-r2 0.01 --out Factor2_rsquared
+/home/sodell/bin/./plink --threads 5 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list WD_0727_Factor14_snplist.txt --ld-window-r2 0.01 --out Factor2_rsquared
 
 #plink --bfile Biogemma_DHLines_600K_Genotypes_binary --freqx --nonfounders --out ../ld_decay/Biogemma_DHLine_allele_freq
 

@@ -5,7 +5,7 @@
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 96:00:00
 #SBATCH --array=1-40%20
-#SBATCH --ntasks=8
+#SBATCH --ntasks=16
 #SBATCH --mem 32G
 
 module load R/4.2.2
@@ -20,3 +20,4 @@ echo $time
 echo $chr
 
 Rscript scripts/transeqtl_scan.R $time $chr 8
+#Rscript scripts/transeqtl_weighted.R $time $chr 16

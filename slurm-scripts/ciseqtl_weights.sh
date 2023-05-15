@@ -17,5 +17,5 @@ chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f2 -d,)"
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 echo $time
 echo $chr
-Rscript scripts/ciseqtl_GridLMM.R $time $chr 1
-#Rscript scripts/ciseqtl_weights.R $time $chr 1
+#Rscript scripts/ciseqtl_GridLMM.R $time $chr 1
+Rscript scripts/ciseqtl_weights.R $time $chr 1
