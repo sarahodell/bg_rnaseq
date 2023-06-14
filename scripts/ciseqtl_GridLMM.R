@@ -156,5 +156,5 @@ for(g in 1:length(genes)){
 all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
 
 
-fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_results.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results.txt',time,chr),row.names=F,quote=F,sep='\t')
 

@@ -279,6 +279,7 @@ ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits.txt',data.table=F)
 ciseqtl=ciseqtl[ciseqtl$time==time,]
 
 drop_ind=c('EB.09S.H.00041','EB.09S.H.00133','EB.10H.H.00087')
+norm=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 
 
 plot_list=list()
@@ -288,8 +289,8 @@ for(i in 1:nrow(ciseqtl)){
   if(gene %in% names(norm)){
 
     #print("True")
-    ex=data.frame(ID=norm$ID,exp=unlist(norm[,gene]),stringsAsFactors=F)
-    ex=ex[ex$ID!="",]
+    ex=data.frame(ID=norm$V1,exp=unlist(norm[,gene]),stringsAsFactors=F)
+    ex=ex[ex$ID %in% inter,]
     ex=ex[order(ex$exp),]
     rownames(ex)=seq(1,nrow(ex))
     ex$ID_f=factor(ex$ID,levels=c(unique(ex$ID)))
@@ -334,3 +335,17 @@ dev.off()
 #top.table$Gene <- rownames(top.table)
 #top.table <- top.table[,c("Gene", names(top.table)[1:6])]
 #write.table(top.table, file = "NO_MITE_v_MITE_DEGs.txt", row.names = F, sep = "\t", quote = F)
+
+
+# Correlation of plate with PC
+time="WD_0720"
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+
+meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+meta=meta[meta$experiment==time,]
+meta=meta[meta$read==1,]
+meta=meta[match(pcs$V1,meta$dh_genotype),]
+
+cor(meta$plate,pcs$PC1)
+cor(meta$plate,pcs$PC2)
+cor(meta$plate,pcs$PC3)

@@ -33,6 +33,10 @@ K=K[inter,inter]
 Y=Y[inter,]
 
 
+allweights=fread(sprintf('eqtl/normalized/%s_voom_weights.txt',time),data.table=F)
+allweights=allweights[,c('V1',inter)]
+
+
 h2s=c()
 allgenes=c()
 chroms=c()
@@ -42,7 +46,7 @@ for(chr in 1:10){
   for(g in intergene){
       data=data.frame(ID=rownames(Y),y=Y[,g],stringsAsFactors=F)
       data=data[!is.na(data$y),]
-
+      gweights=unlist(allweights[allweights$V1==g,inter])
       founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra",
       "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra",
       "B96","DK63","F492","ND245","VA85")
@@ -51,7 +55,7 @@ for(chr in 1:10){
       data$ID2=data$ID
       data=data[,c('ID','ID2','y')]
 
-      m4_K = relmatLmer(y ~ 1 + (1|ID),data=data,relmat = list(ID=K))
+      m4_K = relmatLmer(y ~ 1 + (1|ID),data=data,relmat = list(ID=K),weights=gweights)
       h2=VarProp(m4_K)[1,'prop']
       h2s=c(h2s,h2)
       allgenes=c(allgenes,g)
@@ -60,20 +64,20 @@ for(chr in 1:10){
 }
 
 herit=data.frame(chr=chroms,gene=allgenes,h2=h2s,stringsAsFactors=F)
-fwrite(herit,sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(herit,sprintf('eqtl/data/lme4qtl_weighted_%s_h2s.txt',time),row.names=F,quote=F,sep='\t')
 
 
 p1=ggplot(aes(x=h2),data=herit) + geom_histogram() + xlab('Gene h2')
-png(sprintf('images/gene_h2_%s_hist.png',time))
+png(sprintf('images/gene_weighted_h2_%s_hist.png',time))
 print(p1)
 dev.off()
 
 
-intermed=herit[herit$h2 > 0,]
-rownames(intermed)=seq(1,nrow(intermed))
-draw=sample(seq(1,nrow(intermed)),1000)
+#intermed=herit[herit$h2 > 0,]
+#rownames(intermed)=seq(1,nrow(intermed))
+#draw=sample(seq(1,nrow(intermed)),1000)
 
 
-sub=intermed[draw,]
-sub=sub[,'gene',drop=F]
-fwrite(sub,sprintf('test_samples/%s_test_1000samples.txt',time),row.names=F,quote=F,sep='\t')
+#sub=intermed[draw,]
+#sub=sub[,'gene',drop=F]
+#fwrite(sub,sprintf('test_samples/%s_test_1000samples.txt',time),row.names=F,quote=F,sep='\t')

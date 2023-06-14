@@ -594,7 +594,102 @@ all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
 fwrite(all_qtts,sprintf('eqtl/results/%s_%s_F_pheno_corrs.txt',time,factor),row.names=F,quote=F,sep='\t')
 
 
+#### Do any factors have enrichment of FT genes?
+time="WD_0727"
+prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),data.table=F)
+ft_genes=fread('../selection/FT_gene_list_AGPv4.bed',data.table=F)
+names(ft_genes)=c('CHR','START','END','GENE_ID')
+
+allft=c()
+
+factors=names(prop_var)[-1]
+for(factor in factors){
+	fgenes=prop_var[prop_var[,factor]>=0.1,]$V1
+	tn=sum(fgenes %in% ft_genes$GENE_ID)
+	ft_geneoverlap=data.frame(factor=factor,ngenes=length(fgenes),inft=tn,stringsAsFactors=F)
+	allft=rbind(allft,ft_geneoverlap)
+}
+
+allgenes=prop_var$V1
+
+null=c()
+for(i in 1:nrow(allft)){
+	row=allft[i,]
+	ngenes=row$ngenes
+	tgenes=row$inft
+	alltn=c()
+	for(j in 1:1000){
+		draw=sample(allgenes,ngenes)
+		tn=sum(draw %in% ft_genes$GENE_ID)
+		alltn=c(alltn,tn)
+	}
+	adjust=68
+	q5=quantile(alltn,1-(0.05/adjust))
+	null=c(null,q5)
+
+}
+allft$null=null
+
+ft_geneoverlap=c()
+for(i in 1:length(factor_groups)){
+  #inds=which(pheno_factors==f)
+  #i=pheno_loc[inds]
+  fgenes=factor_groups[[i]]$genes
+  f=factor_groups[[i]]$factor
+  ngenes=length(fgenes)
+  match=intersect(fgenes,ft_genes$GENE_ID)
+  if(f %in% ft_factors){
+    inft=T
+  }else{
+    inft=F
+  }
+  ft_geneoverlap=rbind(ft_geneoverlap,c(f,length(match),ngenes,inft))
+}
+ft_geneoverlap=as.data.frame(ft_geneoverlap,stringsAsFactors=F)
+names(ft_geneoverlap)=c('factor','overlap','ngenes','inft')
+ft_geneoverlap$overlap=as.numeric(ft_geneoverlap$overlap)
+ft_geneoverlap$ngenes=as.numeric(ft_geneoverlap$ngenes)
+ft_geneoverlap$inft=factor(ft_geneoverlap$inft,levels=c('FALSE','TRUE'))
+m1=lm(overlap~ngenes+inft,ft_geneoverlap)
+anova(m1)
 
 
 
+### What do Fvalues look like for Factor 14
+time="WD_0727"
+fvalues=fread('MegaLMM/MegaLMM_WD_0727_all_F_means.txt',data.table=F)
+snp="PZE-107118743"
+samples=fread(sprintf('eqtl/data/%s_samples.txt',time),data.table=F,header=F)
+chr="7"
 
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+colorcodes=fread('../GridLMM/effect_sizes/founder_color_codes.txt',data.table=F)
+rownames(colorcodes)=colorcodes$founder
+
+#pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+X_list=lapply(X_list,function(x) x[samples$V1,])
+X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
+#frep2=apply(X,MARGIN=2,function(x) round(sum(x[x>0.75])))
+#fkeep=founders[frep2>3]
+
+certain=apply(X,MARGIN=1,function(x) sum(x>0.75)>0)
+X=X[certain,]
+founder=unlist(unname(apply(X,MARGIN=1,function(x) colnames(X)[which.max(x)])))
+fvalues=fvalues[,c('V1','Factor14')]
+rownames(fvalues)=fvalues$V1
+fvalues=fvalues[certain,]
+fvalues$founder=founder
+fvalues=fvalues[order(fvalues$Factor14),]
+fvalues$ind_f=factor(fvalues$V1,levels=c(fvalues$V1))
+fvalues$founder_f=factor(fvalues$founder,levels=c(founders))
+
+
+
+p1=ggplot(aes(x=ind_f,y=Factor14),data=fvalues)+geom_point(aes(color=founder_f)) +
+scale_color_manual(values=colorcodes[levels(fvalues$founder_f),]$hex_color,labels=levels(fvalues$founder_f))
+
+
+png('images/WD_0727_Factor14_Fvalue_by_ind.png')
+print(p1)
+dev.off()

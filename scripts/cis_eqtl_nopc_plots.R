@@ -13,7 +13,7 @@ library('tidyr')
 library('readr')
 library('ggrepel')
 library('RColorBrewer')
-library('qqman')
+#library('qqman')
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
@@ -25,36 +25,25 @@ greypalette=gray.colors(5)
 
 df=c()
 for(c in 1:10){
-  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_vst_results.txt',time,c))
+  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_plate_results.txt',time,c))
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
   d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
   df=rbind(df,d)
 }
 
-png(sprintf('eqtl/cis/images/%s_vst_qqplot.png',time))
-qqman::qq(df$p_value_ML)
-dev.off()
 
 df=df[!is.na(df$p_value_ML),]
+#p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+df$value=-log10(df$p_value_ML)
+#df$value=-log10(p_adjusted)
 
-#order=match(df[order(df$p_value_ML),]$Gene,df$Gene)
-#df=df[order(df$p_value_ML),]
-#rownames(df)=seq(1,nrow(df))
-p_adjusted=p.adjust(df$p_value_ML,method='fdr')
-#df$value=-log10(df$p_value_ML)
-df$value=-log10(p_adjusted)
-
-#png(sprintf('eqtl/cis/images/%s_qqplot.png',time))
-#qqman::qq(df$p_value_ML)
-#dev.off()
 
 df=df[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
 names(df)=c('Gene','SNP','p_value_ML','CHR','BP','value')
 
-df=df[,c('Gene','CHR','BP','SNP','value')]
-#qq=qqPlot(df$p_value_ML)
-df=df[order(df$CHR,df$BP),]
+df2=df[,c('Gene','CHR','BP','SNP','value')]
+df2=df2[order(df$CHR,df$BP),]
 
 gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
   # format df
@@ -123,10 +112,13 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
       panel.grid.minor.x = element_blank()
     ) + guides(color="none")
 }
-#threshold=-log10(0.05/nrow(df))
-threshold=-log10(0.05)
 
-ymax=max(round(max(df$value))+1,threshold+1)
+adjust=31879
+threshold=-log10(0.05/adjust)
+#threshold=-log10(0.05/nrow(df))
+#threshold=-log10(0.05)
+
+ymax=max(round(max(df2$value))+1,threshold+1)
 title=sprintf("cis-eQTL at timepoint %s",time)
 a2<-gg.manhattan2(df,threshold,
              col=greypalette,
@@ -134,9 +126,35 @@ a2<-gg.manhattan2(df,threshold,
 
 
 
-png(sprintf('eqtl/cis/images/ciseQTL_vst_manhattan_%s.png',time),width=2000,height=1500)
+png(sprintf('eqtl/cis/images/ciseQTL_plate_weight_manhattan_%s.png',time),width=2000,height=1500)
 print(a2)
 dev.off()
 
 sigs=df[df$value>=threshold,]
-fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_plate_weight_hits.txt',time),row.names=F,quote=F,sep='\t')
+
+
+df=df[order(df$p_value_ML),]
+p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+df$value=-log10(p_adjusted)
+df2=df[,c('Gene','CHR','BP','SNP','value')]
+df2=df2[order(df$CHR,df$BP),]
+
+threshold=-log10(0.05/4)
+
+ymax=max(round(max(df2$value))+1,threshold+1)
+title=sprintf("cis-eQTL at timepoint %s",time)
+a2<-gg.manhattan2(df,threshold,
+             col=greypalette,
+             ylims=c(0,ymax)) + labs(caption = title)
+
+
+
+
+png(sprintf('eqtl/cis/images/ciseQTL_plate_weight_bonf_manhattan_%s.png',time),width=2000,height=1500)
+print(a2)
+dev.off()
+
+sigs=df[df$value>=threshold,]
+fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_plate_weight_bonf_hits.txt',time),row.names=F,quote=F,sep='\t')
+

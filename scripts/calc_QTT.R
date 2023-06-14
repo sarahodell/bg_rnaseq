@@ -50,6 +50,10 @@ geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
 kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
 exp=exp[,kept_genes]
 
+eqtl=fread('eqtl/results/cis_trans_eQTL_hits.txt',data.table=F)
+eqtl=eqtl[eqtl$time==time,]
+exp=exp[,unique(eqtl$Trait)]
+
 genes=names(exp)
 
 #genes=genes[1:5]
@@ -79,17 +83,26 @@ for(p in phenos){
 fwrite(all_qtts,sprintf('eqtl/results/%s_QTTs.txt',time),row.names=F,quote=F,sep='\t')
 
 
-ntests=4
-#388224 WD_0712
-#451536 WD_0718
-#431184 WD_0720
-#259248 WD_0727
+ntests=nrow(all_qtts)
+#388224 WD_0712 6 eQTL 288
+#451536 WD_0718 3 eQTL 144
+#431184 WD_0720 2 eQTL 96
+#259248 WD_0727 3 eQTL 144
 
 #ntests=3474240
 threshold=0.05/ntests
-all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
 
-sig=all_qtts[all_qtts$padjust<threshold,]
+#WD_0718
+# Zm00001d042747 and flowering time -0.216
+# Zm00001d042747 and tkw_15 0.17
+
+#WD_0720
+# Zm00001d025017 and flowering time -0.172, grain_yield_15, -0.15
+
+# 5% FDR
+all_qtts=all_qtts[order(all_qtts$pvalue),]
+all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
+sig=all_qtts[all_qtts$padjust<=0.05,]
     #no significant QTTs for WD_0712
 
 #sig=qtl_genes[sum(qtl_genes[,c(27,29,31,33)]<=threshold) > 0,]

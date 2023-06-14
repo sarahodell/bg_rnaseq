@@ -5,45 +5,53 @@ library('dplyr')
 
 time="WD_0718"
 #ciseqtl=fread('eqtl/results/all_cis_eQTL_vst_hits.txt',data.table=F)
-ciseqtl=fread('eqtl/results/WD_0712_cis_eQTL_fkeep_hits.txt',data.table=F)
+eqtl=fread('eqtl/results/all_eQTL_fdr_hits.txt',data.table=F)
+sub=fread('eqtl/results/all_cis_trans_fdr_hits.txt',data.table=F)
+factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
+#eqtl=fead('head')
+#times=c("WD_0712","WD_0720","WD_0727")
+#all_cis_eqtl=c()
+#for(t in times){
+#  ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',t),data.table=F)
+#  ciseqtl$time=t
+#  all_cis_eqtl=rbind(all_cis_eqtl,ciseqtl)
+#}
+#fwrite(all_cis_eqtl,'eqtl/results/all_cis_eQTL_fkeep_hits2.txt',row.names=F,quote=F,sep='\t')
 
-times=c("WD_0712","WD_0720","WD_0727")
-all_cis_eqtl=c()
-for(t in times){
-  ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',t),data.table=F)
-  ciseqtl$time=t
-  all_cis_eqtl=rbind(all_cis_eqtl,ciseqtl)
-}
-fwrite(all_cis_eqtl,'eqtl/results/all_cis_eQTL_fkeep_hits2.txt',row.names=F,quote=F,sep='\t')
-
-ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits2.txt',data.table=F)
+#ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits2.txt',data.table=F)
 
 #ciseqtl=all_cis_eqtl
 #ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),data.table=F)
-qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
-fqtl=qtl[qtl$Method=="Founder_probs",]
-genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 
-
-#Look 5kb upstream or downstream of gene
-genetable$window_START=genetable$START-5000
-genetable$window_END=genetable$END+5000
-
-# Does it make more sense to use 10kb region around the significant SNP
-ciseqtl$window_START=ciseqtl$BP-5000
-ciseqtl$window_END=ciseqtl$BP+5000
-# Or use the founder LD block? I think this one is more accurate
 all_founder_blocks=c()
 for(chr in 1:10){#
   founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
   all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
 }
 
-ciseqtl$block_start=all_founder_blocks[match(ciseqtl$SNP,all_founder_blocks$focal_snp),]$start
-ciseqtl$block_end=all_founder_blocks[match(ciseqtl$SNP,all_founder_blocks$focal_snp),]$end
+#eqtl$block_start=all_founder_blocks[match(eqtl$SNP,all_founder_blocks$focal_snp),]$start
+#eqtl$block_end=all_founder_blocks[match(eqtl$SNP,all_founder_blocks$focal_snp),]$end
 
-#overlap of SNP 5kb upstream or downstream of SNP
-env1=ciseqtl
+
+qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
+fqtl=qtl[qtl$Method=="Founder_probs",]
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+
+fqtl$block_start=all_founder_blocks[match(fqtl$highest_SNP,all_founder_blocks$focal_snp),]$start
+fqtl$block_end=all_founder_blocks[match(fqtl$highest_SNP,all_founder_blocks$focal_snp),]$end
+
+
+#Look 5kb upstream or downstream of gene
+#genetable$window_START=genetable$START-5000
+#genetable$window_END=genetable$END+5000
+
+# Does it make more sense to use 10kb region around the significant SNP
+#ciseqtl$window_START=ciseqtl$BP-5000
+#ciseqtl$window_END=ciseqtl$BP+5000
+# Or use the founder LD block? I think this one is more accurate
+
+#overlap of recomb blocks of eQTL variants with support intervals of QTL
+env1=sub
 #env1$BP_start=env1$BP-5000
 #env1$BP_end=env1$BP+5000
 env1=as.data.table(env1)
@@ -51,6 +59,182 @@ env2=as.data.table(fqtl)
 #env2$end=env2$end-1
 setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
 comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+# 22 trans-eQTL variants overlap with support intervals of QTL
+# 13 QTL
+
+#overlap of recomb blocks of eQTL genes with support intervals of QTL
+env1=sub
+#env1$BP_start=env1$BP-5000
+#env1$BP_end=env1$BP+5000
+env1=as.data.table(sub)
+env2=as.data.table(qtl)
+#env2$end=env2$end-1
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison2=foverlaps(env1,env2,by.x=c('gene_chr','gene_start','gene_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+# 28 trans-eQTL genes overlap with support intervals of QTL
+# 14 QTL
+
+# Overlap of eQTL variants with eQTL genes 
+env1=sub[,c('Trait','CHR','block_start','block_end','SNP','class')]
+names(env1)=c('Trait.variant','CHR','block_start','block_end','SNP.variant','class.variant')
+env1=as.data.table(env1)
+env2=sub[,c('Trait','SNP','class','gene_chr','gene_start','gene_end')]
+names(env2)=c('Trait.transcript','SNP.transcript','class.transcript','gene_chr','gene_start','gene_end')
+env2=as.data.table(env2)
+setkey(env2,gene_chr,gene_start,gene_end)
+comparison3=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('gene_chr','gene_start','gene_end'),nomatch=NULL)
+
+comparison3$gene1_gene2=paste0(comparison3$Trait.transcript,'-',comparison3$Trait.variant)
+length(unique(comparison3$gene1_gene2))
+# 90 (45) instances of eQTL variants overlapping with eQTL genes for other trans-eQTL
+
+# Overlap of eQTL variants with each other
+env1=sub[,c('Trait','CHR','block_start','block_end','SNP','class','time')]
+names(env1)=c('Trait.1','CHR','block_start','block_end','SNP.1','class.1','time.1')
+env1=as.data.table(env1)
+env2=sub[,c('Trait','CHR','block_start','block_end','SNP','class','time')]
+names(env2)=c('Trait.2','CHR','block_start','block_end','SNP.2','class.2','time.2')
+env2=as.data.table(env2)
+setkey(env2,CHR,block_start,block_end)
+comparison4=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+comparison4=comparison4[comparison4$Trait.1!=comparison4$Trait.2,]
+
+geneinter4=intersect(comparison4$Trait.1,comparison4$Trait.2)
+length(unique(comparison4$gene1_gene2))
+# 418 (209) instances of eQTL variants controlling multiple genes in trans
+# 904 (452) of the shared SNPs are in the same timepoint
+# 324 (162) genes share a trans-eQTL variant in the same time point
+
+#Across all timepoints
+snp_avg=comparison4 %>% group_by(SNP.1) %>% summarize(avg=length(unique(gene1_gene2)))
+summary(snp_avg$avg/2)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  1.000   1.000   1.000   3.116   3.000  28.000	
+
+# The WD_0712 cis-eQTL variant on CHR 1 overlaps with a WD_0727 trans-eQTL variant for Zm00001d047592
+# This gene also has two large trans-eQTL on chr 5 in WD_0727 (this is the big inter-LD region)
+
+# how often is a SNP an eQTL in multiple timepoints?
+snptime=sub %>% group_by(SNP) %>% summarize(ntimes=length(unique(time)))
+summary(snptime$ntimes)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  1.000   1.000   1.000   1.065   1.000   3.000
+# There were 60 eQTL variants that were eQTL in more than one timepoint
+# There was one SNP that was an eQTL in three different timepoints (AX-90719118)
+# It controlled three different genes in WD_0712, WD_0718, and WD_0727
+
+
+# How many genes were different SNPs associated with
+genesnp= sub %>% group_by(SNP,time) %>% summarize(ngenes=length(unique(Trait)))
+summary(genesnp$ngenes)
+
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#   1.00    1.00    1.00    1.23    1.00    7.00 
+genesnp[genesnp$ngenes==7,]
+#  SNP         time    ngenes
+#  <chr>       <chr>    <int>
+#1 AX-90610207 WD_0727      7
+#2 AX-90794853 WD_0727      7
+#3 AX-90965986 WD_0727      7
+#4 AX-91673845 WD_0727      7
+
+# 173 SNPs associated with more than one gene, (111 with 2, 14 with 3, 12 with 4,two with 5, 9 with 6, 3 with 7, 2 with 8)
+
+
+# Were any genes trans-eQTL across timepoints?
+genetime=sub %>% group_by(Trait) %>% summarize(ntimes=length(unique(time)))
+summary(genetime$ntimes)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  1.000   1.000   1.000   1.009   1.000   2.000
+#genetime[genetime$ntimes==2,]
+# A tibble: 3 × 2
+#  Trait          ntimes
+#  <chr>           <int>
+#1 Zm00001d049691      2
+#2 Zm00001d051459      2
+#3 Zm00001d051801      2
+
+
+## Factors
+factorgenes=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
+egenes=unique(sub$Trait)
+sum(egenes %in% factorgenes$Gene)
+infactors=egenes[egenes %in% factorgenes$Gene]
+# There are 77 trans-eQTL genes that load onto factors with factor trans-eQTL
+subf=factorgenes[factorgenes$Gene %in% egenes,]
+subf %>% group_by(Trait) %>% count()
+# A tibble: 3 × 2
+# Groups:   Trait [3]
+#  Trait        n
+#  <chr>    <int>
+#1 Factor14   235
+#2 Factor16     2
+#3 Factor2     50
+
+
+### overlap of eQTL and factor eQTL
+env1=sub[,c('Trait','CHR','block_start','block_end','SNP','class')]
+names(env1)=c('Trait.variant','CHR','block_start','block_end','SNP.variant','class.variant')
+env1=as.data.table(env1)
+env2=factoreqtl[,c('Trait','CHR','SNP','class','time','block_start','block_end')]
+names(env2)=c('Trait.factor','CHR','SNP.factor','class.factor','time.factor','block_start','block_end')
+env2=as.data.table(env2)
+setkey(env2,CHR,block_start,block_end)
+comparison5=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+
+factorg=comparison5 %>% group_by(Trait.factor) %>% summarize(ngenes=length(unique(Trait.variant)))
+#  Trait.factor ngenes
+#  <chr>         <int>
+#1 Factor14          9
+#2 Factor2           1
+
+# In factor 2, "Zm00001d010440" is overlapping with the factor trans-eQTL (prop_var = 0.1194212)
+
+f14g=c("Zm00001d027804","Zm00001d034716", "Zm00001d049577", "Zm00001d050770",
+ "Zm00001d013614", "Zm00001d015242", "Zm00001d021130" ,"Zm00001d021854",
+  "Zm00001d009256")
+f14props=c(0.436,0.671,0.862,0.756,0.503,0,0.879,0.698,0.453) # all but "Zm00001d015242" are loaded on Factor 14
+
+# Overlap of cis and trans eQTL genes with factor genes
+#env1=sub[,c('Trait','gene_chr','gene_start','gene_end','SNP','class','time')]
+#names(env1)=c('Trait.1','gene_chr','gene_start','gene_end','SNP.1','class.1','time1')
+#env1=as.data.table(env1)
+#env2=factorgenes[,c('Trait','Gene','gene_chr','gene_start','gene_end','SNP','class','time')]
+#names(env2)=c('Trait.factor','Gene','gene_chr','gene_start','gene_end','SNP.factor','class.factor','time.factor')
+#env2=as.data.table(env2)
+#setkey(env2,gene_chr,gene_start,gene_end)
+#comparison5=foverlaps(env1,env2,by.x=c('gene_chr','gene_start','gene_end'),by.y=c('gene_chr','gene_start','gene_end'),nomatch=NULL)
+
+
+# Overlap of cis and trans variants with factor genes
+#env1=eqtl[,c('Trait','CHR','block_start','block_end','SNP','class','time')]
+#names(env1)=c('Trait.1','CHR','block_start','block_end','SNP.1','class.1','time1')
+#env1=as.data.table(env1)
+#env2=factorgenes[,c('Trait','Gene','gene_chr','gene_start','gene_end','SNP','class','time')]
+#names(env2)=c('Trait.factor','Gene','gene_chr','gene_start','gene_end','SNP.factor','class.factor','time.factor')
+#env2=as.data.table(env2)
+#setkey(env2,gene_chr,gene_start,gene_end)
+#comparison6=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('gene_chr','gene_start','gene_end'),nomatch=NULL)
+
+
+
+# Overlap of factor eQTL variants with QTL support intervals
+qtl10=fread('../GridLMM/Biogemma_10p_QTL.csv',data.table=F)
+env1=factoreqtl
+#env1$BP_start=env1$BP-5000
+#env1$BP_end=env1$BP+5000
+env1=as.data.table(env1)
+env2=as.data.table(qtl10)
+#env2$end=env2$end-1
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+# Factor 2 trans-eQTL on chr 8 overlaps with qTPH8 in Graneros 2015 OPt
+
+
+
 
 #overlap of gene location +1 10kb? Look at papers. what do they use?
 #ciseqtl=ciseqtl[ciseqtl$time=="WD_0718",]

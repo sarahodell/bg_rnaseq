@@ -5,7 +5,7 @@
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 10:00:00
 #SBATCH --array=1-40
-#SBATCH --ntasks=1
+#SBATCH --ntasks=2
 #SBATCH --mem 4G
 
 module load R
@@ -17,5 +17,5 @@ chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f2 -d,)"
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 echo $time
 echo $chr
-#Rscript scripts/ciseqtl_GridLMM.R $time $chr 1
-Rscript scripts/ciseqtl_weights.R $time $chr 1
+#Rscript scripts/ciseqtl_GridLMM.R $time $chr 2
+Rscript scripts/ciseqtl_weights.R $time $chr 2

@@ -16,6 +16,7 @@ for(time in times){
 
   zcn8="Zm00001d010752"
   rap27="Zm00001d010987"
+  rap272="Zm00001d010987"
   mads69="Zm00001d042315"
   goi=c(zcn8,rap27,mads69)
 

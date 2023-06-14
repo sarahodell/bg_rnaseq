@@ -71,9 +71,9 @@ df$value=-log10(df$p_value_ML)
 df=df[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
 names(df)=c('Gene','SNP','p_value_ML','CHR','BP','value')
 
-df=df[,c('Gene','CHR','BP','SNP','value')]
+df2=df[,c('Gene','CHR','BP','SNP','value')]
 #qq=qqPlot(df$p_value_ML)
-df=df[order(df$CHR,df$BP),]
+df2=df2[order(df$CHR,df$BP),]
 
 gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
   # format df
@@ -143,12 +143,12 @@ gg.manhattan2 <- function(df, threshold, col, ylims,bounds){
     ) + guides(color="none")
 }
 
-ymax=round(max(df$value))+1
+ymax=round(max(df2$value))+1
 #threshold=-log10(0.05)
 adjust=31879
 threshold=-log10(0.05/adjust)
 title=sprintf("cis-eQTL at timepoint %s",time)
-a2<-gg.manhattan2(df,threshold,
+a2<-gg.manhattan2(df2,threshold,
              col=greypalette,
              ylims=c(0,ymax)) + labs(caption = title)
 
@@ -160,3 +160,32 @@ dev.off()
 
 sigs=df[df$value>=threshold,]
 fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_weights_hits.txt',time),row.names=F,quote=F,sep='\t')
+
+df=df[order(df$p_value_ML),]
+rownames(df)=seq(1,nrow(df))
+#p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+#df$value=-log10(df$p_value_ML)
+df$value=-log10(df$p_adjusted)
+df2=df[,c('Gene','CHR','BP','SNP','value')]
+#qq=qqPlot(df$p_value_ML)
+df2=df2[order(df$CHR,df$BP),]
+
+
+ymax=round(max(df2$value))+1
+threshold=-log10(0.05/4)
+#adjust=31879
+#threshold=-log10(0.05/adjust)
+title=sprintf("cis-eQTL at timepoint %s",time)
+a2<-gg.manhattan2(df2,threshold,
+             col=greypalette,
+             ylims=c(0,ymax)) + labs(caption = title)
+
+
+
+png(sprintf('eqtl/cis/images/ciseQTL_weights_fdr_manhattan_%s.png',time),width=2000,height=1500)
+print(a2)
+dev.off()
+
+sigs=df[df$value>=threshold,]
+fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_weights_fdr_hits.txt',time),row.names=F,quote=F,sep='\t')

@@ -54,6 +54,7 @@ phenotypes=phenotypes[inter,]
 genos=rownames(phenotypes)
 
 K=K[inter,inter]
+X_list=lapply(X_list,function(x) x[inter,])
 
 
 founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
@@ -63,8 +64,11 @@ allweights=allweights[,c('V1',inter)]
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
 n_reps=seq(1,length(genes))
+#rerun=fread('eqtl/trans/rerun.txt',data.table=F)
+#n_reps=rerun$trouble
+print(length(n_reps))
 #n_reps=seq(1,5)
-
+#n_reps=7
 transeqtl_gwas=function(rep){
 	all_gwas=data.frame(matrix(ncol=29,nrow=0))
 	names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
@@ -91,74 +95,55 @@ transeqtl_gwas=function(rep){
 	nmarkers=dim(X_list[[1]])[2]
 	frep2=sapply(seq(1,nmarkers),function(i) lapply(X_list,function(j) sum(j[,i]>0.75)))
 	founders=names(X_list)
-	fkeep=apply(frep2,MARGIN=2,function(x) x>2)
+	fkeep=apply(frep2,MARGIN=2,function(x) x>3)
 	markers=dimnames(X_list[[1]])[[2]]
 	colnames(fkeep)=markers
 	colnames(frep2)=markers
 	fgroups=unique(colSums(fkeep))
-	
 	for(g in fgroups){
-		subm=colnames(fkeep[,colSums(fkeep)==g])
+		subm=colnames(fkeep[,colSums(fkeep)==g,drop=F])
 		if(chr==gene_chrom){
   			snp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
   			if(sum(snp %in% subm)!=0){
-  				subm=subm[subm!=snp]
+  				subm=subm[!(subm %in% snp)]
   			}
   		}
-  		subfkeep=fkeep[,subm]
-  		X_list_sub=lapply(X_list,function(x) x[inter,subm])
-  		if(g==16){
-      		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
-      		gwas$Trait=gene
-      		names(gwas)[c(6,10:24)]=founders
-      		names(gwas)[7:9]=c('PC1','PC2','PC3')
-      		gwas=gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
-      		all_gwas=rbind(all_gwas,gwas)
-      	}else{
-      		pattern=apply(subfkeep,MARGIN=2,function(x) str_flatten(c(unlist(founders[x])),'-'))
-    		fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
-    		fpatterns=unique(fdf$fpattern)
-      		for(i in fpatterns){
-        		subm2=fdf[fdf$fpattern==i,]$marker
-        		subf=subfkeep[,subm2,drop=F]
-        		fk=founders[subf[,1]]
-        		nfk=founders[!subf[,1]]
-        		X_list_sub2=X_list_sub[ - which(names(X_list_sub) %in% nfk)]
-        		X_list_sub2=lapply(X_list_sub2,function(x) x[,subm2,drop=F])
-
-        		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub2[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
-        		gwas$Trait=gene
-        		if(!("B73_inra" %in% fk)){
-          			end=10+length(fk)-2
-          			new_gwas=gwas[,1:5]
-          			ncol1=data.frame(matrix(ncol=1,nrow=nrow(gwas)))
-          			names(ncol1)='B73_inra'
-          			new_gwas=cbind(new_gwas,ncol1)
-         	 		new_gwas=cbind(new_gwas,gwas[,7:9])
-          			new_gwas=cbind(new_gwas,gwas[,c(6,10:end)])
-          			names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',fk)
-          			fdrop=nfk[nfk!="B73_inra"]
-          			nacol=data.frame(matrix(ncol=length(fdrop),nrow=nrow(gwas)))
-          			names(nacol)=fdrop
-          			new_gwas=cbind(new_gwas,nacol)
-          			new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
-          			new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
-        		}else{
-          			end=10+length(fk)-2
-          			new_gwas=gwas[,1:5]
-          			new_gwas=cbind(new_gwas,gwas[,6])
-          			new_gwas=cbind(new_gwas,gwas[,7:9])
-          			new_gwas=cbind(new_gwas,gwas[,10:end])
-          			names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',fk[-1])
+  		if(length(subm)!=0){
+  			subfkeep=fkeep[,subm,drop=F]
+  			X_list_sub=lapply(X_list,function(x) x[inter,subm,drop=F])
+  			if(g==16){
+      			gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=1,verbose=F)
+      			gwas$Trait=gene
+      			names(gwas)[c(6,10:24)]=founders
+      			names(gwas)[7:9]=c('PC1','PC2','PC3')
+      			gwas=gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+      			all_gwas=rbind(all_gwas,gwas)
+      		}else{
+      			pattern=apply(subfkeep,MARGIN=2,function(x) str_flatten(c(unlist(founders[x])),'-'))
+    			fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
+    			fpatterns=unique(fdf$fpattern)
+      			for(i in fpatterns){
+        			subm2=fdf[fdf$fpattern==i,]$marker
+        			subf=subfkeep[,subm2,drop=F]
+        			fk=founders[subf[,1]]
+        			nfk=founders[!subf[,1]]
+        			X_list_sub2=X_list_sub[ - which(names(X_list_sub) %in% nfk)]
+        			X_list_sub2=lapply(X_list_sub2,function(x) x[,subm2,drop=F])
+        			gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub2[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=1,verbose=F)
+        			gwas$Trait=gene
+        			end=10+length(fk)-2
+        			names(gwas)[c(6,10:end)]=fk
+      				names(gwas)[7:9]=c('PC1','PC2','PC3')
+          			new_gwas=gwas[,1:end]
           			nacol=data.frame(matrix(ncol=length(nfk),nrow=nrow(gwas)))
           			names(nacol)=nfk
           			new_gwas=cbind(new_gwas,nacol)
           			new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
           			new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
-          		}
-        		all_gwas=rbind(all_gwas,new_gwas)
+        			all_gwas=rbind(all_gwas,new_gwas)
+        		}
         	}
-        }
+  		}
     }
 	all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
 	tmp=all_gwas
@@ -174,6 +159,11 @@ print(system.time({
 results=mclapply(n_reps,transeqtl_gwas,mc.cores=cores)
 }))
 
+
+#for(g in 1:length(n_reps)){
+#	b[[n_reps[g]]]=results[[g]]
+#}
 saveRDS(results,sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results.rds',time,chr))
 
+#saveRDS(b,'eqtl/trans/results/trans_eQTL_WD_0718_c6_weights_results_full.rds')
 

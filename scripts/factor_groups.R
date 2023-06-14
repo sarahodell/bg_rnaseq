@@ -44,7 +44,7 @@ for(i in 1:10000){
 
 # Get a prop_var matrix from lambdas
 
-prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) x^2/sum(x^2))),stringsAsFactors=F)
+prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) (x)^2/sum((x)^2))),stringsAsFactors=F)
 fwrite(prop_matrix,sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),row.names=T,quote=F,sep='\t')
 
 factors=names(lambda_all_means)

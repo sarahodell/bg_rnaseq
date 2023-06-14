@@ -97,67 +97,69 @@ transeqtl_gwas=function(rep){
 	fgroups=unique(colSums(fkeep))
 	
 	for(g in fgroups){
-		subm=colnames(fkeep[,colSums(fkeep)==g])
+		subm=colnames(fkeep[,colSums(fkeep)==g,drop=F])
 		if(chr==gene_chrom){
   			snp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
   			if(sum(snp %in% subm)!=0){
-  				subm=subm[subm!=snp]
+  				subm=subm[!(subm %in% snp)]
   			}
   		}
-  		subfkeep=fkeep[,subm]
-  		X_list_sub=lapply(X_list,function(x) x[inter,subm])
-  		if(g==16){
-      		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
-      		gwas$Trait=gene
-      		names(gwas)[c(6,10:24)]=founders
-      		names(gwas)[7:9]=c('PC1','PC2','PC3')
-      		gwas=gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
-      		all_gwas=rbind(all_gwas,gwas)
-      	}else{
-      		pattern=apply(subfkeep,MARGIN=2,function(x) str_flatten(c(unlist(founders[x])),'-'))
-    		fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
-    		fpatterns=unique(fdf$fpattern)
-      		for(i in fpatterns){
-        		subm2=fdf[fdf$fpattern==i,]$marker
-        		subf=subfkeep[,subm2,drop=F]
-        		fk=founders[subf[,1]]
-        		nfk=founders[!subf[,1]]
-        		X_list_sub2=X_list_sub[ - which(names(X_list_sub) %in% nfk)]
-        		X_list_sub2=lapply(X_list_sub2,function(x) x[,subm2,drop=F])
+  		if(length(subm)!=0){
+  			subfkeep=fkeep[,subm,drop=F]
+  			X_list_sub=lapply(X_list,function(x) x[inter,subm,drop=F])
+  			if(g==16){
+      			gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
+      			gwas$Trait=gene
+      			names(gwas)[c(6,10:24)]=founders
+      			names(gwas)[7:9]=c('PC1','PC2','PC3')
+      			gwas=gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+      			all_gwas=rbind(all_gwas,gwas)
+      		}else{
+      			pattern=apply(subfkeep,MARGIN=2,function(x) str_flatten(c(unlist(founders[x])),'-'))
+    			fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
+    			fpatterns=unique(fdf$fpattern)
+      			for(i in fpatterns){
+        			subm2=fdf[fdf$fpattern==i,,drop=F]$marker
+        			subf=subfkeep[,subm2,drop=F]
+        			fk=founders[subf[,1]]
+        			nfk=founders[!subf[,1]]
+        			X_list_sub2=X_list_sub[ - which(names(X_list_sub) %in% nfk)]
+        			X_list_sub2=lapply(X_list_sub2,function(x) x[,subm2,drop=F])
 
-        		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub2[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
-        		gwas$Trait=gene
-        		if(!("B73_inra" %in% fk)){
-          			end=10+length(fk)-2
-          			new_gwas=gwas[,1:5]
-          			ncol1=data.frame(matrix(ncol=1,nrow=nrow(gwas)))
-          			names(ncol1)='B73_inra'
-          			new_gwas=cbind(new_gwas,ncol1)
-         	 		new_gwas=cbind(new_gwas,gwas[,7:9])
-          			new_gwas=cbind(new_gwas,gwas[,c(6,10:end)])
-          			names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',fk)
-          			fdrop=nfk[nfk!="B73_inra"]
-          			nacol=data.frame(matrix(ncol=length(fdrop),nrow=nrow(gwas)))
-          			names(nacol)=fdrop
-          			new_gwas=cbind(new_gwas,nacol)
-          			new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
-          			new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
-        		}else{
-          			end=10+length(fk)-2
-          			new_gwas=gwas[,1:5]
-          			new_gwas=cbind(new_gwas,gwas[,6])
-          			new_gwas=cbind(new_gwas,gwas[,7:9])
-          			new_gwas=cbind(new_gwas,gwas[,10:end])
-          			names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',fk[-1])
-          			nacol=data.frame(matrix(ncol=length(nfk),nrow=nrow(gwas)))
-          			names(nacol)=nfk
-          			new_gwas=cbind(new_gwas,nacol)
-          			new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
-          			new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
-          		}
-        		all_gwas=rbind(all_gwas,new_gwas)
+        			gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub2[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
+        			gwas$Trait=gene
+        			if(!("B73_inra" %in% fk)){
+          				end=10+length(fk)-2
+          				new_gwas=gwas[,1:5]
+          				ncol1=data.frame(matrix(ncol=1,nrow=nrow(gwas)))
+          				names(ncol1)='B73_inra'
+          				new_gwas=cbind(new_gwas,ncol1)
+         	 			new_gwas=cbind(new_gwas,gwas[,7:9])
+          				new_gwas=cbind(new_gwas,gwas[,c(6,10:end)])
+          				names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',fk)
+          				fdrop=nfk[nfk!="B73_inra"]
+          				nacol=data.frame(matrix(ncol=length(fdrop),nrow=nrow(gwas)))
+          				names(nacol)=fdrop
+          				new_gwas=cbind(new_gwas,nacol)
+          				new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
+          				new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+        			}else{
+          				end=10+length(fk)-2
+          				new_gwas=gwas[,1:5]
+          				new_gwas=cbind(new_gwas,gwas[,6])
+          				new_gwas=cbind(new_gwas,gwas[,7:9])
+          				new_gwas=cbind(new_gwas,gwas[,10:end])
+          				names(new_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',fk[-1])
+          				nacol=data.frame(matrix(ncol=length(nfk),nrow=nrow(gwas)))
+          				names(nacol)=nfk
+          				new_gwas=cbind(new_gwas,nacol)
+          				new_gwas=cbind(new_gwas,gwas[,(end+1):ncol(gwas)])
+          				new_gwas=new_gwas[,c('Trait','X_ID','s2','ML_logLik','ID.ML','B73_inra','PC1','PC2','PC3',founders[-1],'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')]
+          			}
+        			all_gwas=rbind(all_gwas,new_gwas)
+        		}
         	}
-        }
+  		}
     }
 	all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
 	tmp=all_gwas

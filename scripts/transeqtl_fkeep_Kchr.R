@@ -31,7 +31,7 @@ data$plate=as.factor(data$plate)
 
 #data$y=(data$y-mean(data$y))/sd(data$y)
   #K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
-K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
 rownames(K)=K[,1]
 rownames(K)=gsub("-",".",rownames(K))
 K=as.matrix(K[,-1])
@@ -144,7 +144,7 @@ for(g in fgroups){
     }
 }
 all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
-fwrite(all_gwas,sprintf('eqtl/trans/results/%s_c%s_%s_trans_results.txt',time,chr,factor),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/trans/results/%s_c%s_%s_trans_Kchr_results.txt',time,chr,factor),row.names=F,quote=F,sep='\t')
 
 
 

@@ -78,8 +78,8 @@ all_gwas=data.frame(matrix(ncol=26,nrow=0))
 names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',founders,'n_steps','Df_X','ML_Reduced_logLik','Reduced_Df_X','p_value_ML')
 
 for(g in fgroups){
-	subm=colnames(fkeep[,colSums(fkeep)==g])
-	subfkeep=fkeep[,subm]
+	subm=colnames(fkeep[,colSums(fkeep)==g,drop=F])
+	subfkeep=fkeep[,subm,drop=F]
   	X_list_sub=lapply(X_list,function(x) x[,subm])
   	if(g==16){
   		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
@@ -90,7 +90,7 @@ for(g in fgroups){
     	fdf=data.frame(marker=subm,fpattern=pattern,stringsAsFactors=F)
     	fpatterns=unique(fdf$fpattern)
     	for(i in fpatterns){
-      		subm2=fdf[fdf$fpattern==i,]$marker
+      		subm2=fdf[fdf$fpattern==i,,drop=F]$marker
         	subf=subfkeep[,subm2,drop=F]
         	fk=founders[subf[,1]]
         	nfk=founders[!subf[,1]]

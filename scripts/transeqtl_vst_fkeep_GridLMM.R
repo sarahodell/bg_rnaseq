@@ -28,6 +28,7 @@ plate=metadata[match(phenotype$V1,metadata$dh_genotype),]$plate
 data=data.frame(ID=phenotype$V1,ID2=phenotype$V1,plate=plate,y=phenotype[,factor],stringsAsFactors=F)
 data=data[!is.na(data$y),]
 data$plate=as.factor(data$plate)
+data$y=(data$y-mean(data$y))/sd(data$y)
 
 #data$y=(data$y-mean(data$y))/sd(data$y)
   #K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
@@ -144,7 +145,7 @@ for(g in fgroups){
     }
 }
 all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
-fwrite(all_gwas,sprintf('eqtl/trans/results/%s_c%s_%s_trans_results.txt',time,chr,factor),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/trans/results/%s_c%s_%s_trans_vst_results.txt',time,chr,factor),row.names=F,quote=F,sep='\t')
 
 
 

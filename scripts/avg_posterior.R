@@ -4,7 +4,7 @@ library('generics',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('MegaLMM',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('data.table')
 
-time="WD_0727"
+time="WD_0720"
 #n_ind=79
 #n_ind=246
 #n_k=100
@@ -207,7 +207,7 @@ run_id=sprintf('MegaLMM/MegaLMM_%s_%.0f',time,1)
 r1=fread(sprintf('%s/Lambda_means.txt',run_id),data.table=F)
 rownames(r1)=r1$V1
 r1=r1[,-1]
-r1_probs=paste0('Factor',c(27:n_k))
+r1_probs=paste0('Factor',c(32:n_k))
 r1=r1[!rownames(r1) %in% (r1_probs),]
 r1=t(as.matrix(r1))
 
