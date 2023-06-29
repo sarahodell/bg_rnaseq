@@ -27,7 +27,7 @@ greypalette=gray.colors(5)
 #threshold=threshtable[threshtable$time==time & threshtable$factor==factor,]$threshold
 #print(threshold)
 n_m=4716
-time_factors=list("WD_0712"=8,"WD_0718"=22,"WD_0720"=21,"WD_0727"=17)
+time_factors=list("WD_0712"=15,"WD_0718"=20,"WD_0720"=19,"WD_0727"=17)
 n_factors=68
 adjust=n_m*n_factors
 #threshold=-log10((10^-threshold)/adjust)

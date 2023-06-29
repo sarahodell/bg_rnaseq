@@ -6,41 +6,42 @@ library('dplyr')
 library('ggnewscale')
 
 
-cis=fread('eqtl/results/WD_0712_cis_eQTL_weights_fdr_hits.txt',data.table=F)
-cis$class="cis"
-cis$time="WD_0712"
-cis2=fread('eqtl/results/WD_0720_cis_eQTL_weights_fdr_hits.txt',data.table=F)
-cis2$class="cis"
-cis2$time="WD_0720"
-cis=rbind(cis,cis2)
-names(cis)=c("Trait","SNP","p_value_ML","CHR","BP","value","p_adjusted","class","time")
-cis=cis[,c("Trait","CHR","BP","SNP","value","class","time")]
+#cis=fread('eqtl/results/WD_0712_cis_eQTL_weights_fdr_hits.txt',data.table=F)
+#cis$class="cis"
+#cis$time="WD_0712"
+#cis2=fread('eqtl/results/WD_0720_cis_eQTL_weights_fdr_hits.txt',data.table=F)
+#cis2$class="cis"
+#cis2$time="WD_0720"
+#cis=rbind(cis,cis2)
+#names(cis)=c("Trait","SNP","p_value_ML","CHR","BP","value","p_adjusted","class","time")
+#cis=cis[,c("Trait","CHR","BP","SNP","value","class","time")]
 
-fwrite(cis,'eqtl/results/all_cis_eQTL_weights_fdr_hits.txt',row.names=F,quote=F,sep='\t')
+#fwrite(cis,'eqtl/results/all_cis_eQTL_weights_fdr_hits.txt',row.names=F,quote=F,sep='\t')
 
+#trans=fread('eqtl/results/WD_0727_trans_eQTL_weights_fdr_hits.txt',data.table=F)
+#trans$class="trans"
+#trans$time="WD_0727"
 
-trans=fread('eqtl/results/WD_0727_trans_eQTL_weights_fdr_hits.txt',data.table=F)
-trans$class="trans"
-trans$time="WD_0727"
+#trans2=fread('eqtl/results/WD_0720_trans_eQTL_weights_fdr_hits.txt',data.table=F)
+#trans2$class="trans"
+#trans2$time="WD_0720"
+#trans=rbind(trans,trans2)
 
-trans2=fread('eqtl/results/WD_0720_trans_eQTL_weights_fdr_hits.txt',data.table=F)
-trans2$class="trans"
-trans2$time="WD_0720"
-trans=rbind(trans,trans2)
+#trans3=fread('eqtl/results/WD_0718_trans_eQTL_weights_fdr_hits.txt',data.table=F)
+#trans3$class="trans"
+#trans3$time="WD_0718"
+#trans=rbind(trans,trans3)
 
-trans3=fread('eqtl/results/WD_0718_trans_eQTL_weights_fdr_hits.txt',data.table=F)
-trans3$class="trans"
-trans3$time="WD_0718"
-trans=rbind(trans,trans3)
+#trans4=fread('eqtl/results/WD_0712_trans_eQTL_weights_fdr_hits.txt',data.table=F)
+#trans4$class="trans"
+#trans4$time="WD_0712"
+#trans=rbind(trans,trans4)
 
-trans4=fread('eqtl/results/WD_0712_trans_eQTL_weights_fdr_hits.txt',data.table=F)
-trans4$class="trans"
-trans4$time="WD_0712"
-trans=rbind(trans,trans4)
-
-names(trans)=c("Trait","CHR","BP","SNP","p_adjusted","value","class","time")
-trans=trans[,c("Trait","CHR","BP","SNP","value","class","time")]
-fwrite(trans,'eqtl/results/all_trans_eQTL_weights_fdr_hits.txt',row.names=F,quote=F,sep='\t')
+#names(trans)=c("Trait","CHR","BP","SNP","p_adjusted","value","class","time")
+#trans=trans[,c("Trait","CHR","BP","SNP","value","class","time")]
+#fwrite(trans,'eqtl/results/all_trans_eQTL_weights_fdr_hits.txt',row.names=F,quote=F,sep='\t')
+cis=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits.txt',data.table=F)
+trans=fread('eqtl/results/all_trans_fdr_peaks.txt',data.table=F)
 
 factoreqtl=fread('eqtl/results/Factor2_trans_WD_0727_eQTL_fkeep_vst_fdr_hits.txt',data.table=F)
 factoreqtl$class="factor"
@@ -295,7 +296,7 @@ cistrans=ggplot(df.tmp4,aes(x=midblock_cum,y=midgene_cum)) +
     geom_point(aes(color=time),size=1) + 
     labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
     theme_classic() +
-    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
+    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_blank())
  
 pdf('eqtl/images/cis_trans.pdf')
 print(cistrans)

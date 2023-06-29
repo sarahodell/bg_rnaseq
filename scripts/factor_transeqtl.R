@@ -4,20 +4,89 @@ library('data.table')
 library('ggplot2')
 
 
-df=c()
-f2_27=fread('eqtl/results/Factor2_trans_WD_0727_eQTL_fkeep_hits.txt',data.table=F)
-f2_27$time="WD_0727"
-f14_27=fread('eqtl/results/Factor14_trans_WD_0727_eQTL_fkeep_hits.txt',data.table=F)
-f14_27$time="WD_0727"
 
-f16_18=fread('eqtl/results/Factor16_trans_WD_0718_eQTL_fkeep_hits.txt',data.table=F)
-f16_18$time="WD_0718"
+factoreqtl=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
+factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
+cumtot=2105119857
 
-df=rbind(df,f2_27)
-df=rbind(df,f14_27)
-df=rbind(df,f16_18)
+# For each factor
+#		- How many genes are loaded on them
+#		- Where are the genes located in the genome
+#		- What prop variance is explained by the factor for each gene
+#		- How much variation in the factor is explained by the factor eQTL
+#		- Are there trans-eQTL or cis-eQTL that overlap with the factor-eQTL variant? 
+#		- Are there trans-eQTL or cis-eQTL genes that load on the factor?
 
-fwrite(df,'eqtl/results/factor_transQTL_all.txt',row.names=F,quote=F,sep='\t')
+factoreqtl$time_factor=paste0(factoreqtl$time,'-',factoreqtl$Trait)
+tf=unique(factoreqtl$time_factor)
+for(f in tf){
+	sub=factoreqtl[factoreqtl$time_factor==f,]
+	time=unique(sub$time)
+	factor=unique(sub$factor)
+	df=factordf[factordf$time==time & factordf$Trait==factor,]
+	df$midgene=round(df$gene_start + (df$gene_end-df$gene_start)/2)
+	df$tot=axisdf[match(df$gene_chr,axisdf$gene_chr),]$tot
+	df$tot.x=axisdf[match(df$CHR,axisdf$gene_chr),]$tot
+	BP_cum=unique(df$BP) + unique(df$tot.x)
+	df$midgene_cum=df$midgene + df$tot 
+	prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),data.table=F)
+	print(time)
+	print(factor)
+	fgenes=prop_var[prop_var[,factor]>0.1,]$V1
+	ngenes=length(fgenes)
+	print(sprintf('%.0f Genes loaded on %s',ngenes,factor))
+	
+	p=ggplot(df,aes(x=midgene_cum,y=prop_var)) +
+	geom_vline(xintercept=BP_cum,color="coral") +
+	scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+	ylim(0.1,1) +
+    #scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+    #geom_hline(yintercept=cumtot,colour="darkgrey") +
+    geom_vline(xintercept=cumtot,colour="darkgrey") +
+	geom_point(aes(color=prop_var)) +
+	scale_color_gradient(low = "lightblue", high = "darkblue") +
+	xlab("Position") + ylab("Proportion Variance") +
+	ggtitle(sprintf("Gene Loadings on %s %s, n=%.0f",time,factor,ngenes)) +
+	theme_classic() +
+    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
+ 
+	
+	pdf(sprintf('eqtl/images/%s_%s_plot.pdf',time,factor))
+	print(p)
+	dev.off()
+	# Plot x-axis location
+	# y-axis prop_var
+	# vhline of location of factor eQTL
+
+}
+
+#[1] "WD_0727"
+#[1] "Factor22"
+#[1] "6 Genes loaded on Factor22"
+
+#[1] "WD_0712"
+#[1] "Factor1"
+#[1] "5030 Genes loaded on Factor1"
+
+#[1] "WD_0718"
+#[1] "Factor16"
+#[1] "76 Genes loaded on Factor16"
+
+#[1] "WD_0720"
+#[1] "Factor9"
+#[1] "2725 Genes loaded on Factor9"
+#[1] "WD_0727"
+
+#[1] "Factor14"
+#[1] "955 Genes loaded on Factor14"
+
+#[1] "WD_0727"
+#[1] "Factor2"
+#[1] "2103 Genes loaded on Factor2"
+
+df=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
 
 qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
 fqtl=qtl[qtl$Method=="Founder_probs",]
@@ -29,42 +98,502 @@ for(chr in 1:10){#
   all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
 }
 
-df$block_start=all_founder_blocks[match(df$SNP,all_founder_blocks$focal_snp),]$start
-df$block_end=all_founder_blocks[match(df$SNP,all_founder_blocks$focal_snp),]$end
+df$block_start=all_founder_blocks[match(df$X_ID,all_founder_blocks$focal_snp),]$start
+df$block_end=all_founder_blocks[match(df$X_ID,all_founder_blocks$focal_snp),]$end
 
 fqtl$block_start=all_founder_blocks[match(fqtl$highest_SNP,all_founder_blocks$focal_snp),]$start
 fqtl$block_end=all_founder_blocks[match(fqtl$highest_SNP,all_founder_blocks$focal_snp),]$end
 
 
-#overlap of SNP 5kb upstream or downstream of SNP
+# Overlap of factor eQTL and QTL_F recombination blocks
 env1=df
-#env1$BP_start=env1$BP-5000
-#env1$BP_end=env1$BP+5000
 env1=as.data.table(env1)
 env2=as.data.table(fqtl)
-#env2$end=env2$end-1
 setkey(env2,Chromosome,block_start,block_end)
 comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','block_start','block_end'),nomatch=NULL)
+#### Factor 2 WD_0727 overlaps with qDTA8 in NERAC_2016_WD
 
-#Factor 2 WD_0727 eQTL hit overlaps with qDTA8/qDTS8
-
-### Overlap of factor eQTL with cis-eQTL?
-ciseqtl=fread('eqtl/results/WD_0712_cis_eQTL_fkeep_hits.txt',data.table=F)
-
-ciseqtl$block_start=all_founder_blocks[match(ciseqtl$SNP,all_founder_blocks$focal_snp),]$start
-ciseqtl$block_end=all_founder_blocks[match(ciseqtl$SNP,all_founder_blocks$focal_snp),]$end
-
-#overlap of SNP 5kb upstream or downstream of SNP
+# Overlap of factor eQTL and any QTL support interval
 env1=df
-#env1$BP_start=env1$BP-5000
-#env1$BP_end=env1$BP+5000
 env1=as.data.table(env1)
-env2=as.data.table(ciseqtl)
-#env2$end=env2$end-1
+env2=as.data.table(qtl)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+# WD_0727 Factor 2 overlaps with qDTA8/qDTS8 [1] "NERAC_2016_WD"     "GRANEROS_2015_OPT" "ALL"              
+#[4] "STPAUL_2017_WD"    "BLOIS_2017_OPT"    "SZEGED_2017_OPT"
+
+# Overlap of factor eQTL and any 10% QTL support interval
+qtl10=fread('../GridLMM/Biogemma_10p_QTL.csv',data.table=F)
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(qtl10)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+###Factor 2 WD_0727 eQTL hit overlaps with qTPH8 in GRANEROS_2015_OPT
+
+# Overlap of factor eQTL and St.Paul recomb blocks
+#DTA
+qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
 setkey(env2,CHR,block_start,block_end)
 comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 4 SNPs for male flowering time in EXP_STPAUL overlap with Factor 2 WD_0727
+
+#Just DTA peaks
+qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison5=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# None
+
+#DTS
+qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 4 SNPs for female flowering time in EXP_STPAUL overlap with Factor 2 WD_0727
+
+#Just DTS peaks
+qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison5=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 1 SNPs for female flowering time in EXP_STPAUL overlap with Factor 2 WD_0727
+
+#tkw_15
+qtl2=fread('QTL/tkw_15_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#None
+
+### Overlap of factor eQTL with cis-eQTL?
+ciseqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits.txt',data.table=F)
+ciseqtl$block_start=all_founder_blocks[match(ciseqtl$X_ID,all_founder_blocks$focal_snp),]$start
+ciseqtl$block_end=all_founder_blocks[match(ciseqtl$X_ID,all_founder_blocks$focal_snp),]$end
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(ciseqtl)
+setkey(env2,CHR,block_start,block_end)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
 # No overlap with cis-eQTL
 
+# cis and trans
+trans=fread('eqtl/results/all_trans_fdr_hits.txt',data.table=F)
+trans$block_start=all_founder_blocks[match(trans$X_ID,all_founder_blocks$focal_snp),]$start
+trans$block_end=all_founder_blocks[match(trans$X_ID,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(ciseqtl)
+setkey(env2,CHR,block_start,block_end)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 8 overlaps 
+# cis WD_0712 Zm00001d031961 overlaps with trans Zm00001d047592 WD_0727 and Zm00001d035217 WD_0727
+# cis WD_0720 Zm00001d025017 overlaps with WD_0720 Zm00001d043918
+# cis WD_0718 Zm00001d044657 overlaps with WD_0720 Zm00001d053411, WD_0718 Zm00001d017387, and WD_0718 Zm00001d019724
+# cis WD_0718 Zm00001d032099 overlaps with WD_0720 Zm00001d046714 and WD_0712 Zm00001d031961
+
+# With peaks - it is just  one cis-eQTL Zm00001d032099 (WD0718) overlaps with trans-eQTL for Zm00001d046714 (WD0720)
+
+# trans and factor
+env1=df
+env1=as.data.table(env1)
+env2=as.data.table(trans)
+setkey(env2,CHR,block_start,block_end)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 97 overlapping SNPs for trans and factor eQTL 
+# Factor 1 WD_0712 overlaps with Zm00001d013230 (cytochrome P450), loaded on the factor
+
+# Factor 2 WD_0727 overlaps with one trans-eQTL from WD_0712, Zm00001d035087, not loaded on the factor
+
+# Factor 14 WD_0727 overlaps 21 trans-eQTL
+
+# Factor 16 WD_0718 overlaps with 3 trans-eqTL
+# WD_0727 trans-eQTL Zm00001d023472, Zm00001d042948; WD_0720 Zm00001d016783 - none of which are loaded on the Factor
+
+# Factor 22 in WD0727 overlaps with two trans-eQTL: Zm00001d041712 and Zm00001d009969 - both are loaded on the factor
+
+
+# cis eQTL and QTL
+env1=ciseqtl
+env1=as.data.table(env1)
+env2=as.data.table(fqtl)
+setkey(env2,Chromosome,block_start,block_end)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','block_start','block_end'),nomatch=NULL)
+# None
+
+# Overlap of cis-eQTL and any QTL support interval
+env1=ciseqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+#None
+
+# Overlap of cis eQTL and any 10% QTL support interval
+qtl10=fread('../GridLMM/Biogemma_10p_QTL.csv',data.table=F)
+env1=ciseqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl10)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+#None
+
+# Overlap of factor eQTL and St.Paul recomb blocks
+qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=ciseqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#None
+
+#DTS
+qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=ciseqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#None
+
+#tkw_15
+qtl2=fread('QTL/tkw_15_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=ciseqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#None
+
+# trans eQTL and QTL highest SNP recomb block
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(fqtl)
+setkey(env2,Chromosome,block_start,block_end)
+comparison1=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','block_start','block_end'),nomatch=NULL)
+# 17 genes and 10 QTL
+#  [1] "qDTA3_2" "qDTS3_2" "qTPH7"   "qDTA9"   "qHGM3_1" "qDTS8"   "qDTA8"  
+# [8] "qHGM3_2" "qTKW7_1" "qDTS9"
+
+# Overlap of trans-eQTL and any QTL support interval
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+#2504 overlaps with QTL support intervals
+# 114 trans eQTL overlap with 20 QTL IDs
+
+# Overlap of trans eQTL and any 10% QTL support interval
+qtl10=fread('../GridLMM/Biogemma_10p_QTL.csv',data.table=F)
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl10)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison3=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+#1-29 overlaps with 10% QTL support intervals
+# 170 trans-eQTL overlap with 17 QTL IDs
+
+# Overlap of trans eQTL and St.Paul recomb blocks
+qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison4=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 33 overlaps, 14 genes, 6 SNPs
+#qDTA3_2 and WD_0727 genes Zm00001d038732 and WD_0712 Zm00001d053060
+#qDTA8_1 WD_0712 Zm00001d027535 (8:127Mb)
+#qDTA8_2 (135Mb-137Mb) WD_0712 Zm00001d023869, WD_0720 Zm00001d017387
+#qDTA8_2 (142-148Mb) WD_0718 Zm00001d027184, WD_0720 Zm00001d033138
+# qDTA8_3 (150-151Mb) WD_0718 Zm00001d035087 and WD_0720 Zm00001d007286
+#qDTA9  and WD_0712 Zm00001d046357, WD_0712 Zm00001d034175, WD_0718 Zm00001d028161, WD_0727 Zm00001d026703, and WD_0712 Zm00001d012087
+
+#Just DTA peaks
+qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison5=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#qDTA3_2 and WD_0727 genes Zm00001d038732 and WD_0712 Zm00001d053060
+#qDTA9  and WD_0712 Zm00001d046357, WD_0712 Zm00001d034175, WD_0727 Zm00001d026703, and WD_0712 Zm00001d012087
+#qDTA8_2 (142-148Mb) WD_0718 Zm00001d027184, WD_0720 Zm00001d033138
+
+
+#DTS
+qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# qDTS8_2 (146Mb) WD_0720 Zm00001d033138 and WD_0718 Zm00001d027184, and WD_0720 Zm00001d007286
+
+
+#Just DTS peaks
+qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison5=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#None
+
+#tkw_15
+qtl2=fread('QTL/tkw_15_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# Zm00001d041608 overlaps with qTKW2
+
+
+# What about just trans peaks, not all SNPs? Do QTL and trans-eQTL have the same peak SNPs?
+trans=fread('eqtl/results/all_trans_fdr_peaks.txt',data.table=F)
+trans$block_start=all_founder_blocks[match(trans$X_ID,all_founder_blocks$focal_snp),]$start
+trans$block_end=all_founder_blocks[match(trans$X_ID,all_founder_blocks$focal_snp),]$end
+
+#DTA
+qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# WD_0712 Zm00001d053060 and qDTA3_2
+# WD_0712 Zm00001d046357, WD_0712 Zm00001d034175, WD_0712 Zm00001d012087, WD_0727 Zm00001d026703 and qDTA9
+
+#DTS
+qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+#None
+
+#TKW
+qtl2=fread('QTL/tkw_15_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=trans
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# None
+
+
+
+# Calculate correlation between effect sizes for eQTL and phenotypes in overlapping regions
+# First do this with ones that overlap for the peak
+
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+
+
+K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+rownames(K)=K[,1]
+rownames(K)=gsub("-",".",rownames(K))
+K=as.matrix(K[,-1])
+colnames(K)=rownames(K)
+
+
+phenotypes=fread('phenotypes/EXP_STPAUL_2017_WD_phenotypes.csv',data.table=F)
+
+# First, DTA and trans-eQTL peaks
+pheno="male_flowering_d6"
+cors=c()
+ps=c()
+for(i in 1:nrow(comparison)){
+	row=comparison[i,]
+	time=row$time
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+	gene=row$Trait
+	snp=row$SNP
+	chr=row$CHR
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	inds=rownames(X_list[[1]])
+	inter=intersect(exp$V1,inds)
+
+	effect_sizes=fread(sprintf('QTL/Biogemma_chr%s_male_flowering_d6_x_EXP_STPAUL_2017_WD_vst_founderprobs.txt',chr),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==snp,]
+	effect_size=unlist(effect_size[,c(6:21)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+	colnames(X) = founders
+	rownames(X) = inter
+	
+	results=readRDS(sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results.rds',time,chr))
+	w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
+	results=results[[w]]
+	results=results[results$X_ID==snp,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	ps=c(ps,p)
+	
+	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+	p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder))
+	png(sprintf('QTT/%s_%s_%s_%s_effect_sizes.png',time,gene,snp,pheno))
+	print(p1)
+	dev.off()
+	#subpheno=phenotypes[phenotypes$ID %in% inter,c('ID','female_flowering_d6','male_flowering_d6','tkw_15')]
+	#fdata$dta=subpheno[match(fdata$ID,subpheno$ID),]$male_flowering_d6
+	#fdata$dts=subpheno[match(fdata$ID,subpheno$ID),]$female_flowering_d6
+
+}
+
+comparison$cor=cors
+comparison$pvalue=ps
+
+# trans Peaks and DTA
+# Highest correlations are  with AX-91145110 for Zm00001d034175 (r=-0.5179,p=0.102) and Zm00001d046357 (r=-0.507,p=0.110)
+
+# all trans hits and DTA
+
+
+
+
+####### Fvalue for Factor 2 and DTA
+
+# Factor 2 and DTS r=-0.2436067, p-value = 0.3816
+
+cors=c()
+ps=c()
+
+for(i in 1:nrow(comparison)){
+	row=comparison[i,]
+	time=row$time
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+	gene=row$factor
+	snp=row$SNP
+	chr=row$CHR
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	inds=rownames(X_list[[1]])
+	inter=intersect(exp$V1,inds)
+	
+	effect_sizes=fread(sprintf('QTL/Biogemma_chr%s_female_flowering_d6_x_EXP_STPAUL_2017_WD_vst_founderprobs.txt',chr),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==snp,]
+	effect_size=unlist(effect_size[,founders])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+	colnames(X) = founders
+	rownames(X) = inter
+		
+	results=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results.txt',time,chr,gene),data.table=F)
+	#w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
+	#results=results[[w]]
+	results=results[results$X_ID==snp,]
+	betas=unlist(results[,founders])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	ps=c(ps,p)
+}
+comparison$cor=cors
+comparison$pvalue=ps
+
+# highest correlation with DTS and Factor 2 trans-eQTL is AX-91202104, r=-0.327, p.value=0.253
+
+
+# DTA
+cors=c()
+ps=c()
+
+for(i in 1:nrow(comparison)){
+	row=comparison[i,]
+	time=row$time
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+	gene=row$factor
+	snp=row$SNP
+	chr=row$CHR
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	inds=rownames(X_list[[1]])
+	inter=intersect(exp$V1,inds)
+	
+	effect_sizes=fread(sprintf('QTL/Biogemma_chr%s_male_flowering_d6_x_EXP_STPAUL_2017_WD_vst_founderprobs.txt',chr),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==snp,]
+	effect_size=unlist(effect_size[,founders])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+	colnames(X) = founders
+	rownames(X) = inter
+		
+	results=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results.txt',time,chr,gene),data.table=F)
+	#w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
+	#results=results[[w]]
+	results=results[results$X_ID==snp,]
+	betas=unlist(results[,founders])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	ps=c(ps,p)
+}
+comparison$cor=cors
+comparison$pvalue=ps
+
+# AX-9110697 r=-0.383, p-value=0.176 is strongest correlation
+
+# How do I get a null expectation?
 
 ### Look more closely at WD_0727 Factor 2 3####
 library('data.table')

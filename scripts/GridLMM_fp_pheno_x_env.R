@@ -80,7 +80,7 @@ names(all_gwas)=c('Trait','X_ID','s2','ML_logLik','ID.ML',founders,'n_steps','Df
 for(g in fgroups){
 	subm=colnames(fkeep[,colSums(fkeep)==g,drop=F])
 	subfkeep=fkeep[,subm,drop=F]
-  	X_list_sub=lapply(X_list,function(x) x[,subm])
+  	X_list_sub=lapply(X_list,function(x) x[,subm,drop=F])
   	if(g==16){
   		gwas=run_GridLMM_GWAS(Y,X_cov,X_list_sub[-1],X_list_null,V_setup=V_setup,h2_start=h2_start,method='ML',mc.cores=cores,verbose=F)
       	names(gwas)[6:21]=founders

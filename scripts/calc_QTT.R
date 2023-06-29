@@ -1,62 +1,10 @@
 #!/usr/bin/env Rscript
-args=commandArgs(trailingOnly=T)
-time=as.character(args[[1]])
 
 library('data.table')
 library('ggplot2')
 library('dplyr')
+library('qqman')
 
-# How correlated with phenotype effect sizes are genes within the support interval?
-#times=c("WD_0712","WD_0718",'WD_0720','WD_0727')
-time="WD_0712"
-
-#qtl_genes=fread('metadata/QTL_support_interval_genes.txt',data.table=F)
-#qtl_genes$pheno_env=paste0(qtl_genes$Phenotype,'-',qtl_genes$Environment)
-
-
-# Combine all phenotypes together into one file
-#blups=fread('phenotypes/phenotypes_BLUPs.csv',data.table=F)
-#phenotypes=fread('phenotypes/EXP_STPAUL_2017_WD_phenotypes.csv',data.table=F)
-#phenotypes_full=fread('phenotypes/phenotypes_asi.csv',data.table=F)
-#phenotypes_full$Genotype_code=gsub("-",".",phenotypes_full$Genotype_code)
-#phenotypes_full=phenotypes_full[,c('Loc.Year.Treat','Genotype_code','female_flowering_d6','male_flowering_d6','total_plant_height','harvest_grain_moisture','grain_yield_15','tkw_15','asi')]
-
-#phenotypes$Loc.Year.Treat="EXP_STPAUL_2017_WD"
-#names(phenotypes)[1]="Genotype_code"
-#phenotypes=phenotypes[,c('Loc.Year.Treat','Genotype_code','female_flowering_d6','male_flowering_d6','total_plant_height','harvest_grain_moisture','grain_yield_15','tkw_15','asi')]
-
-
-#phenotypes_full=rbind(phenotypes_full,phenotypes)
-
-#blups$Loc.Year.Treat="ALL"
-#names(blups)=c("Genotype_code",'female_flowering_d6','male_flowering_d6','total_plant_height','harvest_grain_moisture','grain_yield_15','tkw_15','asi','Loc.Year.Treat')
-#blups=blups[,c('Loc.Year.Treat','Genotype_code','female_flowering_d6','male_flowering_d6','total_plant_height','harvest_grain_moisture','grain_yield_15','tkw_15','asi')]
-
-#phenotypes_full=rbind(phenotypes_full,blups)
-
-#fwrite(phenotypes_full,'phenotypes/phenotypes_all.csv',row.names=F,quote=F,sep='\t')
-
-phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
-
-exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
-rownames(exp)=exp$V1
-exp=exp[,-1]
-metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
-
-metadata=metadata[metadata$experiment==time,]
-
-
-geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
-kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
-exp=exp[,kept_genes]
-
-eqtl=fread('eqtl/results/cis_trans_eQTL_hits.txt',data.table=F)
-eqtl=eqtl[eqtl$time==time,]
-exp=exp[,unique(eqtl$Trait)]
-
-genes=names(exp)
-
-#genes=genes[1:5]
 find_qtts=function(x,e,p){
 	xexp=exp[,x,drop=F]
 	
@@ -66,21 +14,55 @@ find_qtts=function(x,e,p){
 	return(test)
 }
 
+# Test all genes as QTTs for phenotypes in ST_PAUL_2017_WD
+all_qtts=data.frame(matrix(ncol=6,nrow=0))
+names(all_qtts)=c('time','pheno','env','gene','r','pvalue')
+
+
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
 envs=unique(phenotypes$Loc.Year.Treat)
 phenos=names(phenotypes)[3:8]
+e="EXP_STPAUL_2017_WD"
 
-all_qtts=data.frame(matrix(ncol=5,nrow=0))
-names(all_qtts)=c('pheno','env','gene','r','pvalue')
+for(time in times){
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+	rownames(exp)=exp$V1
+	exp=exp[,-1]
+	metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+	metadata=metadata[metadata$experiment==time,]
+	metadata=metadata[metadata$read==1,]
+	#geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+	#kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+	#exp=exp[,kept_genes]
 
-for(p in phenos){
-	for(e in envs){
+	#eqtl=fread('eqtl/results/all_eQTL_hits.txt',data.table=F)
+	#eqtl=eqtl[eqtl$class!="factor",]
+	#eqtl=eqtl[eqtl$time==time,]
+	#exp=exp[,unique(eqtl$Trait)]
+	genes=names(exp)
+
+	for(p in phenos){
 		correlations=sapply(genes,function(x) find_qtts(x,e,p))
-		line=data.frame(pheno=p,env=e,gene=genes,r=unlist(correlations['estimate',]),pvalue=unlist(correlations['p.value',]),stringsAsFactors=F)
+		line=data.frame(time=time,pheno=p,env=e,gene=genes,r=unlist(correlations['estimate',]),pvalue=unlist(correlations['p.value',]),stringsAsFactors=F)
 		all_qtts=rbind(all_qtts,line)
 	}
 }
 
-fwrite(all_qtts,sprintf('eqtl/results/%s_QTTs.txt',time),row.names=F,quote=F,sep='\t')
+all_qtts=all_qtts[order(all_qtts$pvalue),]
+rownames(all_qtts)=seq(1,nrow(all_qtts))
+all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
+sig=all_qtts[all_qtts$padjust<=0.05,]
+
+png('QTT/allgene_QTT_qqplot.png')
+print(qqman::qq(all_qtts$pvalue))
+dev.off()
+
+#genes=genes[1:5]
+
+
+
+fwrite(all_qtts,'eqtl/results/all_cis_trans_QTTs.txt',row.names=F,quote=F,sep='\t')
 
 
 ntests=nrow(all_qtts)
@@ -100,20 +82,18 @@ threshold=0.05/ntests
 # Zm00001d025017 and flowering time -0.172, grain_yield_15, -0.15
 
 # 5% FDR
-all_qtts=all_qtts[order(all_qtts$pvalue),]
-all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
-sig=all_qtts[all_qtts$padjust<=0.05,]
+
     #no significant QTTs for WD_0712
 
 #sig=qtl_genes[sum(qtl_genes[,c(27,29,31,33)]<=threshold) > 0,]
 #which.main
 #fwrite(qtl_genes,'eqtl/QTL_GeneExp_correlations.txt',row.names=F,quote=F,sep='\t')
 
-times=c("WD_0712","WD_0718",'WD_0720','WD_0727')
-all_qtts=c()
-for(t in times){
-	qtt=fread(sprintf('eqtl/results/%s_QTTs.txt',t),data.table=F)
-	qtt$time=t
-	all_qtts=rbind(all_qtts,qtt)
-}
+#times=c("WD_0712","WD_0718",'WD_0720','WD_0727')
+#all_qtts=c()
+#for(t in times){
+#	qtt=fread(sprintf('eqtl/results/%s_QTTs.txt',t),data.table=F)
+#	qtt$time=t
+#	all_qtts=rbind(all_qtts,qtt)
+#}
 

@@ -1,6 +1,7 @@
 args=commandArgs(trailingOnly=T)
 pheno=as.character(args[[1]])
 env=as.character(args[[2]])
+thresh=as.numeric(args[[3]])
 
 
 library('ggplot2')
@@ -115,7 +116,9 @@ n_m=4716
 n_phenos=7
 n_envs=8
 adjust=n_m*n_phenos*n_envs
-threshold=-log10(0.05/adjust)
+threshtable=fread(sprintf('../GridLMM/threshold_%.2f_table.txt',thresh),data.table=F)
+threshold=threshtable[threshtable$method=="founder_probs" & threshtable$environment=="STPAUL_2017_WD" & threshtable$phenotype==pheno,]$threshold
+#threshold=-log10(0.05/adjust)
 print(threshold)
 
 
@@ -146,10 +149,10 @@ a2<-gg.manhattan2(subdf,threshold,
 sigs2=subdf[subdf$value>=threshold,]
 
 if(dim(sigs2)[1]!=0){#png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
-  	png(sprintf('QTL/images/%s_%s_QTL_scan_manhattan.png',pheno,env),width=2000,height=1500)
+  	png(sprintf('QTL/images/%s_%s_QTL_scan_%.2f_manhattan.png',pheno,env,thresh),width=2000,height=1500)
   	print(a2)
   	dev.off()
-  	fwrite(sigs2,sprintf('QTL/%s_%s_QTL_scan_hits.txt',pheno,env),row.names=F,quote=F,sep='\t')
+  	fwrite(sigs2,sprintf('QTL/%s_%s_QTL_scan_%2f_hits.txt',pheno,env,thresh),row.names=F,quote=F,sep='\t')
 
 }
 

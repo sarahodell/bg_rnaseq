@@ -4,14 +4,14 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A.txt
 #SBATCH -t 48:00:00
-#SBATCH --ntasks=5
-#SBATCH --mem 16G
+#SBATCH --ntasks=16
+#SBATCH --mem 64G
 
 module load plink
 
 #/home/sodell/bin/./plink --threads 5 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list MegaLMM/WD_0727_Factor2_snplist.txt --ld-window-r2 0.01 --out MegaLMM/Factor2_rsquared
 
-/home/sodell/bin/./plink --threads 5 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list MegaLMM/WD_0727_Factor14_snplist.txt --ld-window-r2 0.01 --out MegaLMM/Factor14_rsquared
+/home/sodell/bin/./plink --threads 16 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list eqtl/data/snplist.txt --ld-window-r2 0.01 --out eqtl/data/SNP_LD
 
 #plink --bfile Biogemma_DHLines_600K_Genotypes_binary --freqx --nonfounders --out ../ld_decay/Biogemma_DHLine_allele_freq
 
