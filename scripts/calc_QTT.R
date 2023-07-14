@@ -96,4 +96,25 @@ threshold=0.05/ntests
 #	qtt$time=t
 #	all_qtts=rbind(all_qtts,qtt)
 #}
+sig=c()
+
+comp=fread('QTT/cis_eQTL_STPAUL_QTL_overlaps.txt',data.table=F)
+for(i in 1:nrow(comp)){
+	test=comp[i,]
+	gene=test$Trait
+	time=test$time
+	chr=test$CHR
+	env="EXP_STPAUL_2017_WD"
+	pheno=test$phenotype
+	qsnp=test$SNP
+	xid=test$X_ID
+	null=fread(sprintf('QTT/permute/%s_%s_%s_random_permutation.txt',gene,pheno,env))
+	cutoff=quantile(null$pvalue,0.05)
+	pvalue=test$pvalue
+	if(pvalue<=cutoff){
+		sig=c(sig,i)
+	}
+
+}
+compsig=comp[sig,]
 

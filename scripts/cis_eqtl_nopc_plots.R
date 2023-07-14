@@ -25,7 +25,7 @@ greypalette=gray.colors(5)
 
 df=c()
 for(c in 1:10){
-  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_plate_results.txt',time,c))
+  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_quantnorm_results_FIXED.txt',time,c))
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
   d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
@@ -38,6 +38,10 @@ df=df[!is.na(df$p_value_ML),]
 df$value=-log10(df$p_value_ML)
 #df$value=-log10(p_adjusted)
 
+
+png(sprintf('eqtl/images/%s_cis_quantnomr_qqplot.png',time))
+print(qqman::qq(df$p_value_ML))
+dev.off()
 
 df=df[,c('Trait','X_ID','p_value_ML','CHR','BP','value')]
 names(df)=c('Gene','SNP','p_value_ML','CHR','BP','value')

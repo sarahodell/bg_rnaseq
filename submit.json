@@ -10,6 +10,7 @@
     "trim_reads":
     {
   "mem" : "23G",
+  "ntasks" : "3", 
   "p" : "bigmemm"
     },
     "get_ref" :
@@ -19,7 +20,7 @@
     },
     "run_fastqc" :
     {
-	"mem" : "15G",
+	"mem" : "7G",
 	"p" : "bigmemm"
     },
     "run_multiqc" :
@@ -72,7 +73,8 @@
     "mark_duplicates" :
     {
       "mem" : "38G",
-    	"p" : "bigmemm"
+    	"p" : "bigmemh",
+    	"t" : "24:00:00"
     },
     "index_bam" :
     {

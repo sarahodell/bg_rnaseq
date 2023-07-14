@@ -14,14 +14,15 @@ rownames(mat)=mat$Gene_ID
 mat=mat[,-1]
 genes=rownames(mat)
 mat=t(mat)
-meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+#meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
 meta=meta[meta$experiment==time,]
 snames=rownames(mat)
 gnames=meta[match(snames,meta$sample_name),]$dh_genotype
 mat=as.data.frame(mat,stringsAsFactors=F)
 mat$gnames=gnames
-mat=mat[mat$gnames !="",]
-plate=meta[match(mat$gnames,meta$dh_genotype),]$plate
+mat=mat[mat$gnames!="",]
+plate=meta[match(mat$gnames,meta$dh_genotype),]$plate.x
 
 gnames=mat$gnames
 
@@ -51,9 +52,14 @@ d0=DGEList(mat)
 d0=calcNormFactors(d0)
 
 summary(d0$samples$lib.size/1e6)
+
 # WD_0712
 #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 # 0.8537  1.4340  2.2420  3.4881  4.0930 17.5589
+
+# updated WD_0712
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.7894  1.4776  2.2734  3.6769  4.1900 17.5589 
 
 #WD_0712
 #cutoff=5 #WD_0712
@@ -63,6 +69,9 @@ summary(d0$samples$lib.size/1e6)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 #0.9159  2.3909  2.9809  3.5351  3.9585 19.0705
 
+#updated WD_0718
+#  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.9159  2.3899  2.9855  3.5358  3.9623 19.0705 
 #cutoff=5# maybe higher cutoff for WD_0718?
 #nind=15
 
@@ -70,15 +79,22 @@ summary(d0$samples$lib.size/1e6)
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 #0.7989  1.5374  2.0579  2.8556  2.9763 31.1158
 
-#cutoff=5 # WD_0720
-#nind=15
+#updated WD_0720
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.7989  1.5837  2.0606  2.8380  2.9733 31.1158 
+
+cutoff=5 # WD_0720
+nind=15
 
 #WD_0727
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
 #0.8286  1.3695  1.8596  2.9590  3.2023 20.2946
 
-cutoff=5
-nind=15
+# updated WD_0727
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.8286  1.3336  1.7634  2.9056  3.1186 20.2946
+#cutoff=5
+#nind=15
 
 maxes=apply(cpm(d0),1,max)
 # fewer than 2 samples with cpm higher than cutoff
@@ -96,16 +112,16 @@ snames=colnames(mat)
 #founder=design_matrix$founder
 genotype=coldata$genotype
 mm=model.matrix(~1+plate,coldata)
-png(sprintf('images/voom_%s.png',time))
+png(sprintf('images/voom_%s_2.png',time))
 y=voom(d,mm,plot=T)
 dev.off()
-saveRDS(y,sprintf('eqtl/normalized/%s_voom_results.rds',time))
+saveRDS(y,sprintf('eqtl/normalized/%s_voom_results_2.rds',time))
 norm=as.data.frame(y$E)
-fwrite(norm,sprintf('eqtl/normalized/%s_voom_normalized_gene_counts.txt',time),row.names=T,quote=F,sep='\t')
+fwrite(norm,sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_2.txt',time),row.names=T,quote=F,sep='\t')
 weights=as.data.frame(y$weights)
 rownames(weights)=rownames(norm)
 names(weights)=names(norm)
-fwrite(weights,sprintf('eqtl/normalized/%s_voom_weights.txt',time),row.names=T,quote=F,sep='\t')
+fwrite(weights,sprintf('eqtl/normalized/%s_voom_weights_2.txt',time),row.names=T,quote=F,sep='\t')
 
 ym=as.matrix(y$E)
 ym=t(ym)
@@ -117,14 +133,14 @@ var_explained <- pca$sdev^2/sum(pca$sdev^2)
 pc_mm=pcs[,1:3]
 pc_mm$sample=rownames(pc_mm)
 pc_mm$plate=coldata[match(pc_mm$sample,coldata$genotype),]$plate
-fwrite(pc_mm,sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),row.names=T,quote=F,sep='\t')
+fwrite(pc_mm,sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),row.names=T,quote=F,sep='\t')
 
 
 p1=ggplot(aes(x=PC1,y=PC2),data=pc_mm) + geom_point(aes(color=plate)) +
  xlab(sprintf('PC1 %.2f %%',var_explained[1]*100)) +
  ylab(sprintf('PC2 %.2f %%',var_explained[2]*100))
 
-png(sprintf('images/PC1_PC2_%s.png',time))
+png(sprintf('images/PC1_PC2_%s_2.png',time))
 print(p1)
 dev.off()
 
@@ -145,10 +161,12 @@ dev.off()
 #EB.09S.H.00086 -118.16719  32.183642  -2.490881 EB.09S.H.00086     7
 #EB.09S.H.00116  -93.67894  -5.223644  54.689449 EB.09S.H.00116     7
 #EB.09S.H.00460  -89.83154 -23.936969 -57.914722 EB.09S.H.00460     7
-drop_ind=c('EB.09S.H.00041')
+#drop_ind=c('EB.09S.H.00041')
+drop_ind=c('EB.10H.H.00025')
 norm=norm[,!names(norm)%in% drop_ind]
+
 norm=as.data.frame(t(norm),stringsAsFactors=F)
-fwrite(norm,'eqtl/normalized/WD_0712_voom_normalized_gene_counts_formatted.txt',row.names=T,quote=F,sep='\t')
+fwrite(norm,'eqtl/normalized/WD_0712_voom_normalized_gene_counts_formatted_FIXED.txt',row.names=T,quote=F,sep='\t')
 
 #WD_0718 Outliers
 #pc_mm[pc_mm$PC1<= -50,]
@@ -165,35 +183,33 @@ fwrite(norm,'eqtl/normalized/WD_0712_voom_normalized_gene_counts_formatted.txt',
 #fwrite(norm,'eqtl/WD_0718_voom_normalized_gene_counts.txt',row.names=F,quote=F,sep='\t')
 
 drop_ind=c('EB.09S.H.00377')
+
+#drop_ind=c('EB.10H.H.00043')
 norm=norm[,!names(norm)%in% drop_ind]
+
 norm=as.data.frame(t(norm),stringsAsFactors=F)
-fwrite(norm,'eqtl/normalized/WD_0718_voom_normalized_gene_counts_formatted.txt',row.names=T,quote=F,sep='\t')
+fwrite(norm,'eqtl/normalized/WD_0718_voom_normalized_gene_counts_formatted_FIXED.txt',row.names=T,quote=F,sep='\t')
 
 #WD_0720 Outliers
-#pc_mm[pc_mm$PC1<= -50,]
-#PC1         PC2        PC3         sample
-#EB.09S.H.00046  61.16307  -0.2512135   8.889537 EB.09S.H.00046
-#EB.09S.H.00426  56.36212  -6.5179449  10.831254 EB.09S.H.00426
-#EB.09S.H.00232 107.18539   7.4407999   2.972346 EB.09S.H.00232
-#EB.09S.H.00522  76.23616 -28.4171671  -8.110822 EB.09S.H.00522
-#EB.09S.H.00352  57.45358  -5.2428410 -23.967687 EB.09S.H.00352
-#EB.09S.H.00335  62.76113 -32.8794166   3.866188 EB.09S.H.00335
-#EB.09S.H.00436 108.92156  10.5387683  -1.827189 EB.09S.H.00436
-#EB.09S.H.00326  50.23079 -22.0292170   6.386933 EB.09S.H.00326
-#EB.09S.H.00004  77.85751  -2.9357783 -14.904087 EB.09S.H.00004
-#EB.09S.H.00108 120.74085   8.6337794  -9.916408 EB.09S.H.00108
-#EB.09S.H.00133  99.98044 -49.1580966  -2.700268 EB.09S.H.00133
 
-#drop_ind=c('EB.09S.H.00133')
+#pc_mm[pc_mm$PC1>= 100,]
+#                    PC1       PC2          PC3         sample plate
+#EB.09S.H.00373 132.6266 -20.23686  -0.08339753 EB.09S.H.00373    16
+#EB.09S.H.00519 132.3031 -22.01188  -7.92784132 EB.09S.H.00519    14
+#EB.09S.H.00428 140.9779 -18.18513 -21.16529231 EB.09S.H.00428    14
+#EB.09S.H.00093 123.0088  49.48852  -7.67474676 EB.09S.H.00093    14
+
+
+
 #norm=norm[,!names(norm)%in% drop_ind]
 norm=as.data.frame(t(norm),stringsAsFactors=F)
-fwrite(norm,'eqtl/normalized/WD_0720_voom_normalized_gene_counts_formatted.txt',row.names=T,quote=F,sep='\t')
+fwrite(norm,'eqtl/normalized/WD_0720_voom_normalized_gene_counts_formatted_FIXED.txt',row.names=T,quote=F,sep='\t')
 
 
 #norm=norm[,!names(norm)%in% drop_ind]
 #fwrite(norm,'eqtl/WD_0720_voom_normalized_gene_counts.txt',row.names=F,quote=F,sep='\t')
 norm=as.data.frame(t(norm),stringsAsFactors=F)
-fwrite(norm,'eqtl/normalized/WD_0727_voom_normalized_gene_counts_formatted.txt',row.names=T,quote=F,sep='\t')
+fwrite(norm,'eqtl/normalized/WD_0727_voom_normalized_gene_counts_formatted_FIXED.txt',row.names=T,quote=F,sep='\t')
 
 
 #mm=model.matrix(~1 + genotype)
@@ -279,7 +295,7 @@ ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits.txt',data.table=F)
 ciseqtl=ciseqtl[ciseqtl$time==time,]
 
 drop_ind=c('EB.09S.H.00041','EB.09S.H.00133','EB.10H.H.00087')
-norm=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+norm=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
 
 
 plot_list=list()
@@ -294,9 +310,15 @@ for(i in 1:nrow(ciseqtl)){
     ex=ex[order(ex$exp),]
     rownames(ex)=seq(1,nrow(ex))
     ex$ID_f=factor(ex$ID,levels=c(unique(ex$ID)))
-    subex=subset(ex, ID %in% drop_ind)
-    p=ggplot(aes(x=ID_f,y=exp),data=ex) + geom_point() +
-    geom_point(data=subex, colour="red") +
+    #subex=subset(ex, ID %in% drop_ind)
+    X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
+    colnames(X) = founders
+    rownames(X) = dimnames(X_list[[1]])[[1]]
+    X=X[inter,]
+    founders=apply(X,MARGIN=1,function(x) names(x[which.max(x)]))
+    ex$founder=founders[match(ex$ID,names(founders))]
+    p=ggplot(aes(x=ID_f,y=exp),data=ex) + 
+    geom_point(aes(color=founder)) +
      xlab('Sample') +
      ylab('Expression (log2CPM)') + geom_hline(yintercept=1)
     plot_list[[count]]=p
@@ -304,7 +326,7 @@ for(i in 1:nrow(ciseqtl)){
   }
 }
 
-pdf('images/filtered_eqtl_by_ind.pdf')
+pdf('images/founder_eqtl_by_ind.pdf')
 for(i in 1:length(plot_list)){
   print(plot_list[[i]])
 }

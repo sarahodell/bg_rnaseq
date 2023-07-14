@@ -4,11 +4,11 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 96:00:00
-#SBATCH --array=10-11
+#SBATCH --array=0-11%6
 #SBATCH --ntasks=60
 #SBATCH --mem=60G
 
-module load R/4.2.2
+module load R
 
 times=( "WD_0712" "WD_0712" "WD_0712" "WD_0718" "WD_0718" "WD_0718" "WD_0720" "WD_0720" "WD_0720" "WD_0727" "WD_0727" "WD_0727")
 runs=( 1 2 3 1 2 3 1 2 3 1 2 3 )

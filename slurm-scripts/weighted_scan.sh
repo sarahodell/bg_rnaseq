@@ -8,7 +8,7 @@
 #SBATCH --ntasks=22
 #SBATCH --mem 64G
 
-module load R/4.2.2
+module load R
 
 #Re-do 31, 32, and 38
 #time="WD_0712"

@@ -31,13 +31,13 @@ genetable=genetable[genetable$CHROM==chr,]
 genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
-phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
-metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
-pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+metadata=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
 
-geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
-kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
-phenotypes=phenotypes[,c('V1',kept_genes)]
+#geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+#kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+#phenotypes=phenotypes[,c('V1',kept_genes)]
 
 
 metadata=metadata[metadata$experiment==time,]
@@ -64,7 +64,7 @@ founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
-allweights=fread(sprintf('eqtl/normalized/%s_voom_weights.txt',time),data.table=F)
+allweights=fread(sprintf('eqtl/normalized/%s_voom_weights_2.txt',time),data.table=F)
 allweights=allweights[,c('V1',inter)]
 
 
@@ -202,6 +202,6 @@ for(g in 1:length(genes)){
 }
 
 all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
-fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),row.names=F,quote=F,sep='\t')
 
 

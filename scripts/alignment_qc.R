@@ -15,20 +15,23 @@ library('ggplot2')
 #Histogram of number of samples that have at least 10 (across genes)
 #allfiles=list.files('star/batch_2','bg_*_data/multiqc_fastqc.txt',recursive=T)
 
+# change to whatever file is 
+meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
 
-meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+#meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+dirs=c('18048-85-lane12-16','batch_2','18048-85-04-11','18048-85-01-03','batch_1','batch_2','redos')
 
-dirs=c('18048-85-lane12-16','batch_2','18048-85-04-11','18048-85-01-03','batch_1')
+#dirs=c('18048-85-lane12-16','batch_2','18048-85-04-11','18048-85-01-03','batch_1')
 all_files=c()
 #d=dirs[2] #batch_2 only
   #sample=unique(samples[samples$batch==d,]$sample_name)
 for(d in dirs){
-  pass2=Sys.glob(sprintf('star/%s/*_pass2',d))
+  pass2=Sys.glob(sprintf('star/update/%s/*-pass2',d))
   pass2_s1=sapply(seq(1,length(pass2)),function(x) strsplit(pass2[x],'/')[[1]][[3]])
-  pass2_s2=sapply(seq(1,length(pass2)),function(x) strsplit(pass2_s1[x],'_pass2')[[1]][[1]])
+  pass2_s2=sapply(seq(1,length(pass2)),function(x) strsplit(pass2_s1[x],'-pass2')[[1]][[1]])
   sample=unique(pass2_s2)
   for(s in sample){
-    path=sprintf('star/%s/%s_pass2/ReadsPerGene.out.tab',d,s)
+    path=sprintf('star/update/%s/%s_pass2/ReadsPerGene.out.tab',d,s)
     file=fread(path,data.table=F)
     if(s==sample[1] & d==dirs[1]){
       #column 3 is the first strand gene counts, dont know if this is what we want
@@ -48,7 +51,7 @@ for(d in dirs){
   }
 }
 
-all_files=fread('star/all_Reads_per_Gene.txt',data.table=F)
+all_files=fread('star/update/all_Reads_per_Gene.txt',data.table=F)
 
 x=dim(all_files)[1]
 y=dim(all_files)[2]

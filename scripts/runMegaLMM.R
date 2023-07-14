@@ -8,7 +8,7 @@ cores=as.numeric(args[[3]])
 #installed in R/4.1.0
 #devtools::install_github('deruncie/MegaLMM',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
 library('generics',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
-library('rlang',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+#library('rlang',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('vctrs',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('glue',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('tibble',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
@@ -17,20 +17,20 @@ library('pillar',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 
 library('MegaLMM',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('data.table')
-library('preprocessCore')
+library('preprocessCore',lib='/home/sodell/R/x86_64-conda-linux-gnu/4.2')
 
 #options(warn=s2)
 #Read in data
 #exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
-exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
 
-meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
 meta=meta[meta$experiment==time,]
 meta=meta[meta$read==1,]
 #testing
 #exp=exp[,1:100]
 
-run_id=sprintf('MegaLMM/MegaLMM_%s_%s',time,run)
+run_id=sprintf('MegaLMM/MegaLMM_%s_%s_FIXED',time,run)
 iterations=50000
 n_iter = 1000 # how many samples to collect at once?
 runs=50
@@ -51,9 +51,9 @@ rownames(exp)=exp$V1
 
 Y = exp[,-1]
 
-geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
-kept_genes=geneh2s[geneh2s$h2>0 & geneh2s$h2<1,]$gene
-Y=Y[,kept_genes]
+#geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+#kept_genes=geneh2s[geneh2s$h2>0 & geneh2s$h2<1,]$gene
+#Y=Y[,kept_genes]
 #sub=c("Zm00001d006725","Zm00001d010819","Zm00001d044194","Zm00001d051020","Zm00001d043515")
 #sub=c(sub,sample(colnames(Y),95))
 
@@ -66,7 +66,7 @@ Y=Y[,kept_genes]
 
 data = key
 names(data)=c('ID')
-plate=meta[match(data$ID,meta$dh_genotype),]$plate
+plate=meta[match(data$ID,meta$dh_genotype),]$plate.x
 data$plate=as.factor(plate)
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)

@@ -1,11 +1,11 @@
 rule rnaseqc:
     input:
-        bam = "final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam",
+        bam = "final_bams/update/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam",
         gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.gtf"
     output:
-        "qc/rnaseqc/{batch}/{sample}_stats/qualimapReport.html"
+        "qc/rnaseqc/update/{batch}/{sample}_stats/qualimapReport.html"
     params:
-        pdir = "qc/rnaseqc/{batch}",
+        pdir = "qc/rnaseqc/update/{batch}",
         sampdir = "qc/rnaseqc/{batch}/{sample}_stats",
         mem = "63G",
         qualimap = "/share/apps/qualimap-2.1.1/qualimap.jar"

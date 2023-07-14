@@ -1,18 +1,26 @@
 import csv
 import os
-import pandas as pd
-import numpy as np
+import numpy
+import pandas
 import glob, sys
+import random
 
 configfile: "config.yaml"
 
 DATA_PATH="raw_reads/"
 
-SAMPLE_TABLE=pd.read_csv('metadata/BG_completed_sample_list.txt',sep='\t')
+#SAMPLE_TABLE=pandas.read_csv('metadata/updated_file_genotype_info_FIXED_genotypes_fastq.csv',sep=',')
+
+#SAMPLE_TABLE=pandas.read_csv('metadata/updated_file_genotype_info_FIXED_genotypes_star.csv')
+
+SAMPLE_TABLE=pandas.read_csv('metadata/BG_completed_sample_list_FIXED.txt',sep='\t')
 #SAMPLES=SAMPLE_TABLE["sample_name"]
 #SAMPLES=list(SAMPLES)
 #SAMPLES=np.unique(SAMPLES)
-SAMPLE_TABLE["shortcut"] = SAMPLE_TABLE["batch"] + "/" + SAMPLE_TABLE["sample_name"]
+#SAMPLE_TABLE["shortcut"] = SAMPLE_TABLE["seq_name"]
+
+#SAMPLE_TABLE["shortcut"] = SAMPLE_TABLE["batch"] + "/" + SAMPLE_TABLE["sample_name"]
+
 #drop_samples=["BG-P13-well-72_S170_L007","BG-P24-well-86_S182_L002","BG-P23-well-10_S10_L001",
 #"BG-P12-well-32_S33_L006","BG-P12-well-32_S33_L006","18048FL-06-01-67_S67_L001",
 #"18048FL-06-01-56_S56_L001","18048Fl-06-03-18_S210_L003","18048FL-06-02-89_S185_L002",
@@ -44,16 +52,17 @@ SAMPLE_TABLE["shortcut"] = SAMPLE_TABLE["batch"] + "/" + SAMPLE_TABLE["sample_na
 #SAMPLE_TABLE = SAMPLE_TABLE[~SAMPLE_TABLE.batch.isin(drop_samples)]
 #SAMPLE_TABLE=SAMPLE_TABLE.tail(n=361)
 
-R1_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['read']==1]
+SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['read']==1]
 
-SAMPLES=R1_TABLE["sample_name"]
+SAMPLES=SAMPLE_TABLE["sample_name"]
 SAMPLES=list(SAMPLES)
 SHORT_SAMPLES=[s[:-1] for s in SAMPLES]
-R1_TABLE['short_sample']=SHORT_SAMPLES
-R1_TABLE['slane']=R1_TABLE.lane.apply(str)
-DIRECTORIES=list(R1_TABLE["batch"])
-LANES=list(R1_TABLE["lane"])
-SLANES=list(R1_TABLE["slane"])
+SAMPLE_TABLE['short_sample']=SHORT_SAMPLES
+SAMPLE_TABLE['slane']=SAMPLE_TABLE.lane.apply(str)
+DIRECTORIES=list(SAMPLE_TABLE["batch"])
+LANES=list(SAMPLE_TABLE["lane"])
+#SLANES=list(R1_TABLE["slane"])
+
 #UNIQUE_LANES=list(np.unique(SLANES))
 # 18048-85-01-03/BG-P13-well-72_S170_L007 only R2
 #18048-85-lane12-16/BG-P24-well-86_S182_L002 only R1
@@ -73,10 +82,15 @@ SLANES=list(R1_TABLE["slane"])
 #LANES = [7,8]
 #TEST
 #SAMPLES=["18048FL-06-01-01_S1_L001","18048FL-06-01-01_S1_L001","18048FL-06-01-02_S2_L001","18048FL-06-01-02_S2_L001"]
-SAMPLES=SAMPLES[:10]
-DIRECTORIES=DIRECTORIES[1:10]
-print("Running alignment on these samples:")
-print(SAMPLES)
+#SAMPLES=SAMPLES[:10]
+#DIRECTORIES=DIRECTORIES[1:10]
+print("Running alignment on this many samples:")
+print(len(SAMPLES))
+#SAMPLES=SAMPLE_TABLE["sample_name"]
+
+#IND=random.choices(range(0,(len(SAMPLES)-1)),k=10)
+#SAMPLES=SAMPLES[IND]
+#DIRECTORIES=DIRECTORIES[IND]
 
 #ALIGNMENT_TOOL="STAR"
 
@@ -93,25 +107,27 @@ rule all:
   input:
     #expand("raw_reads/{dir}/{sample}_R1_001.fastq.gz",zip,dir=DIRECTORIES,sample=SAMPLES),
     #expand("raw_reads/{dir}/{sample}_R2_001.fastq.gz",zip,dir=DIRECTORIES,sample=SAMPLES),
-    #expand("raw_reads/{dir}/{sample}_R1_001.fastq.gz",zip, dir=DIRECTORIES, sample=SAMPLES),
-    #expand("raw_reads/{dir}/{sample}_R2_001.fastq.gz",zip, dir=DIRECTORIES, sample=SAMPLES),
-    #expand("/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz",batch=DIRECTORIES,sample=SAMPLES),
-    #expand("/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz",batch=DIRECTORIES,sample=SAMPLES),
-    #expand("qc/fastqc/{batch}/{sample}_R1_001.pe.qc_fastqc.zip",batch=DIRECTORIES,sample=SAMPLES),
-    #expand("qc/fastqc/{batch}/{sample}_R2_001.pe.qc_fastqc.zip",batch=DIRECTORIES,sample=SAMPLES),
-    #expand("qc/fastqc/{batch}/{sample}_R1_001.pe.qc_fastqc.html",batch=DIRECTORIES,sample=SAMPLES),
-    #expand("qc/fastqc/{batch}/{sample}_R2_001.pe.qc_fastqc.html",batch=DIRECTORIES,sample=SAMPLES),
-    #expand("qc/bg_{batch}_multiqc.html",zip,batch=DIRECTORIES,allow_missing=True),
-    "pseudos/decoys.txt",
-    "founders_transcript_index/sa.bin",
-    expand("salmon_quant/{batch}/{sample}_transcripts_quant/quant.sf",batch=DIRECTORIES,sample=SAMPLES)
+    #expand("raw_reads/{dir}/{sample}-R1-001.fastq.gz",zip, dir=DIRECTORIES, sample=SAMPLES),
+    #expand("raw_reads/{dir}/{sample}-R2-001.fastq.gz",zip, dir=DIRECTORIES, sample=SAMPLES),
+    #expand("/group/runciegrp/Data/Illumina/bg/trimmed/update/{batch}/{sample}-R1-001.pe.qc.fastq.gz",zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("/group/runciegrp/Data/Illumina/bg/trimmed/update/{batch}/{sample}-R2-001.pe.qc.fastq.gz",zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("qc/fastqc/update/{batch}/{sample}-R1-001.pe.qc_fastqc.zip",zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("qc/fastqc/update/{batch}/{sample}-R2-001.pe.qc_fastqc.zip",zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("qc/fastqc/update/{batch}/{sample}-R1-001.pe.qc_fastqc.html",zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("qc/fastqc/update/{batch}/{sample}-R2-001.pe.qc_fastqc.html",zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("qc/update/bg-{batch}-extra-multiqc.html",zip,batch=DIRECTORIES)
+    #"pseudos/decoys.txt",
+    #"founders_transcript_index/sa.bin",
+    #expand("salmon_quant/{batch}/{sample}_transcripts_quant/quant.sf",batch=DIRECTORIES,sample=SAMPLES)
     #expand("salmon_quant/{sample}_transcripts_quant/quant.sf",sample=SAMPLES)
-    #'star/pass1/sjdbList.out.tab',
-    #expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',batch=DIRECTORIES,sample=SAMPLES),
-    #"star/pass2/sjdbList.out.tab",
-    #expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam',batch=DIRECTORIES,sample=SAMPLES),
-    #expand("/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai",batch=DIRECTORIES,sample=SAMPLES)
-#    expand("qc/rnaseqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
+    'star/pass1/sjdbList.out.tab',
+    expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',zip,batch=DIRECTORIES,sample=SAMPLES),
+    "star/pass2/sjdbList.out.tab",
+    expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam',zip,batch=DIRECTORIES,sample=SAMPLES),
+    expand("/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai",zip,batch=DIRECTORIES,sample=SAMPLES),
+    expand('/home/sodell/projects/biogemma/expression/htseq/{batch}/{sample}_HTSeq_union_gtf_no_gene_ID.log',zip,batch=DIRECTORIES,sample=SAMPLES)#,
+    #expand('/home/sodell/projects/biogemma/expression/htseq/update/{batch}/{sample}_HTSeq.csv',zip,batch=DIRECTORIES,sample=SAMPLES)
+#    expand("qc/rnaseqc/{sample}-stats/qualimapReport.html",sample=SAMPLES),
 #    expand("qc/bamqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
 #    "qc/multisampleBamQcReport.html"
 #    expand('{sample}_HTSeq_union_gff3_no_gene_ID.log', sample=SAMPLES),
@@ -120,8 +136,8 @@ rule all:
 
 #include: "rules/trimmomatic.smk"
 #include: "rules/fastqc.smk"
-#include: "rules/star.smk"
-include: "rules/salmon.smk"
+include: "rules/star.smk"
+#include: "rules/salmon.smk"
 #include: "rules/qualimap.smk"
-#include: "rules/htseq.smk"
+include: "rules/htseq.smk"
 #include: "rules/kallisto.smk"

@@ -10,10 +10,12 @@
 
 module load R
 
+#env="EXP_STPAUL_2017_WD"
+#pheno="tkw_15"
 pheno="$(sed "${SLURM_ARRAY_TASK_ID}q;d" QTL/pheno_env.txt | cut -f1 -d,)"
 env="$(sed "${SLURM_ARRAY_TASK_ID}q;d" QTL/pheno_env.txt | cut -f2 -d,)"
 
 echo $pheno
 echo $env
 
-Rscript scripts/manhattan_plots.R $pheno $env
+Rscript scripts/manhattan_plots.R $pheno $env 0.01

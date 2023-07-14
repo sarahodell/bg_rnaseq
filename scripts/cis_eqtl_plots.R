@@ -25,7 +25,7 @@ greypalette=gray.colors(5)
 
 df=c()
 for(c in 1:10){
-  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_results.txt',time,c))
+  d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_results_FIXED.txt',time,c))
   #d=d[complete.cases(d),]
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
@@ -154,12 +154,12 @@ a2<-gg.manhattan2(df2,threshold,
 
 
 
-png(sprintf('eqtl/cis/images/ciseQTL_weights_manhattan_%s.png',time),width=2000,height=1500)
+png(sprintf('eqtl/cis/images/ciseQTL_weights_manhattan_%s_FIXED.png',time),width=2000,height=1500)
 print(a2)
 dev.off()
 
-sigs=df[df$value>=threshold,]
-fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_weights_hits.txt',time),row.names=F,quote=F,sep='\t')
+#sigs=df[df$value>=threshold,]
+#fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_weights_hits.txt',time),row.names=F,quote=F,sep='\t')
 
 df=df[order(df$p_value_ML),]
 rownames(df)=seq(1,nrow(df))
@@ -183,9 +183,9 @@ a2<-gg.manhattan2(df2,threshold,
 
 
 
-png(sprintf('eqtl/cis/images/ciseQTL_weights_fdr_manhattan_%s.png',time),width=2000,height=1500)
+png(sprintf('eqtl/cis/images/ciseQTL_weights_fdr_manhattan_%s_FIXED.png',time),width=2000,height=1500)
 print(a2)
 dev.off()
 
-sigs=df[df$value>=threshold,]
-fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_weights_fdr_hits.txt',time),row.names=F,quote=F,sep='\t')
+#sigs=df[df$value>=threshold,]
+#fwrite(sigs,sprintf('eqtl/results/%s_cis_eQTL_weights_fdr_hits.txt',time),row.names=F,quote=F,sep='\t')

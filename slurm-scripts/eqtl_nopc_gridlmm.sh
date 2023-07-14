@@ -4,7 +4,7 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 96:00:00
-#SBATCH --array=31-40
+#SBATCH --array=1-40
 #SBATCH --ntasks=4
 #SBATCH --mem 4G
 
@@ -17,4 +17,4 @@ chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f2 -d,)"
 echo $time
 echo $chr
 
-Rscript scripts/ciseqtl_plate_GridLMM.R $time $chr 4
+Rscript scripts/ciseqtl_vst_GridLMM.R $time $chr 4

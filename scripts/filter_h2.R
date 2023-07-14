@@ -14,7 +14,7 @@ library('ggplot2')
 library('parallel')
 library('MASS')
 
-exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
+exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
 #sub=fread(sprintf('test_samples/%s_test_%ssamples.txt',time,n),data.table=F)
 key=exp[,c('V1'),drop=F]
 rownames(exp)=exp$V1
@@ -34,9 +34,9 @@ inter=intersect(rownames(K),rownames(Y))
 K=K[inter,inter]
 Y=Y[inter,]
 
-pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
 
-allweights=fread(sprintf('eqtl/normalized/%s_voom_weights.txt',time),data.table=F)
+allweights=fread(sprintf('eqtl/normalized/%s_voom_weights_2.txt',time),data.table=F)
 allweights=allweights[,c('V1',inter)]
 
 
@@ -149,7 +149,7 @@ results=mclapply(n_reps,calc_h2,mc.cores=cores)
 d=rbindlist(results)
 d=as.data.frame(d)
 #saveRDS(results,sprintf('eqtl/data/founder_ld_c%.0f_c%.0f.rds',c1,c2))
-fwrite(d,sprintf('eqtl/data/%s_SNP_resid_h2.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(d,sprintf('eqtl/data/%s_SNP_resid_h2_2.txt',time),row.names=F,quote=F,sep='\t')
 
 #intermed=herit[herit$h2 > 0,]
 #rownames(intermed)=seq(1,nrow(intermed))

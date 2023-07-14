@@ -25,8 +25,9 @@ rule pass1:
     input:
         #lambda wc: "trimmed/"+R1_TABLE[R1_TABLE.batch == wc.batch].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R1_001.pe.qc.fastq.gz",
         #lambda wc: "trimmed/"+R1_TABLE[R1_TABLE.batch == wc.batch].batch+"/"+R1_TABLE[R1_TABLE.sample_name == wc.sample].sample_name+"_R2_001.pe.qc.fastq.gz"
-        '/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz',
-        '/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz'
+        R1L1='/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R1_001.pe.qc.fastq.gz',
+        R1L2='/group/runciegrp/Data/Illumina/bg/trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz',
+        pass1="star/pass1/sjdbList.out.tab"
         #R2L1 = 'trimmed/{batch}/{sample}_R2_001.pe.qc.fastq.gz',
     output:
         '/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab'
@@ -44,7 +45,7 @@ rule pass1:
         shell("if [ -d {params.tmpdir} ]; then rm -rf {params.tmpdir}; fi")
         shell("STAR --runThreadN {threads} \
         --genomeDir {params.passdir} \
-        --readFilesIn {input} \
+        --readFilesIn {input.R1L1} {input.R1L2} \
         --sjdbOverhang 100 \
         --outFilterMultimapScoreRange 1 \
         --outFilterMultimapNmax 20 \
@@ -69,7 +70,7 @@ rule genome_index2:
     input:
         fa = "/group/jrigrp/Share/assemblies/Zea_mays.B73_RefGen_v4.dna.toplevel.fa",
         gtf = "/group/jrigrp/Share/annotations/Zea_mays.B73_RefGen_v4.46.gtf",
-        SJfiles = expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',zip,batch=DIRECTORIES,sample=SAMPLES)
+        SJfiles = expand('/group/runciegrp/Data/Illumina/bg/star/update/{batch}/{sample}_pass1/SJ.out.tab',zip,batch=DIRECTORIES,sample=SAMPLES)
     output:
         "star/pass2/sjdbList.out.tab"
     params:
@@ -86,6 +87,7 @@ rule genome_index2:
         --genomeFastaFiles {input.fa} \
         --sjdbGTFfile {input.gtf} \
         --sjdbFileChrStartEnd {input.SJfiles} \
+        --limitSjdbInsertNsj 1500000 \
         --sjdbOverhang 100")
         shell("rm -rf _STARtmp")
 
@@ -128,6 +130,7 @@ rule pass2:
         --outFilterMismatchNmax 10 \
         --alignIntronMax 500000 \
         --alignMatesGapMax 1000000 \
+        --limitSjdbInsertNsj 1500000 \
         --sjdbScore 2 \
         --alignSJDBoverhangMin 1 \
         --genomeLoad NoSharedMemory \
@@ -166,7 +169,8 @@ rule mark_duplicates:
         shell("STAR --runThreadN {threads} \
 	    --runMode inputAlignmentsFromBAM \
         --bamRemoveDuplicatesType UniqueIdentical \
-        --limitBAMsortRAM 32000000000 \
+        --limitBAMsortRAM 30000000000 \
+         --limitSjdbInsertNsj 1500000 \
         --readFilesCommand samtools view \
         --readFilesType SAM PE \
         --outSAMattrRGline ID:{params.id}\tSM:{params.id}\tLB:None\tPL:Illumina \
