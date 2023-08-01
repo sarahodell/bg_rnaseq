@@ -11,9 +11,9 @@ DATA_PATH="raw_reads/"
 
 #SAMPLE_TABLE=pandas.read_csv('metadata/updated_file_genotype_info_FIXED_genotypes_fastq.csv',sep=',')
 
-#SAMPLE_TABLE=pandas.read_csv('metadata/updated_file_genotype_info_FIXED_genotypes_star.csv')
+SAMPLE_TABLE=pandas.read_csv('metadata/updated_file_genotype_info_FIXED_genotypes_star.csv')
 
-SAMPLE_TABLE=pandas.read_csv('metadata/BG_completed_sample_list_FIXED.txt',sep='\t')
+#SAMPLE_TABLE=pandas.read_csv('metadata/BG_completed_sample_list_FIXED_2.txt',sep='\t')
 #SAMPLES=SAMPLE_TABLE["sample_name"]
 #SAMPLES=list(SAMPLES)
 #SAMPLES=np.unique(SAMPLES)
@@ -52,7 +52,7 @@ SAMPLE_TABLE=pandas.read_csv('metadata/BG_completed_sample_list_FIXED.txt',sep='
 #SAMPLE_TABLE = SAMPLE_TABLE[~SAMPLE_TABLE.batch.isin(drop_samples)]
 #SAMPLE_TABLE=SAMPLE_TABLE.tail(n=361)
 
-SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['read']==1]
+#SAMPLE_TABLE=SAMPLE_TABLE.loc[SAMPLE_TABLE['read']==1]
 
 SAMPLES=SAMPLE_TABLE["sample_name"]
 SAMPLES=list(SAMPLES)
@@ -120,12 +120,14 @@ rule all:
     #"founders_transcript_index/sa.bin",
     #expand("salmon_quant/{batch}/{sample}_transcripts_quant/quant.sf",batch=DIRECTORIES,sample=SAMPLES)
     #expand("salmon_quant/{sample}_transcripts_quant/quant.sf",sample=SAMPLES)
-    'star/pass1/sjdbList.out.tab',
-    expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',zip,batch=DIRECTORIES,sample=SAMPLES),
-    "star/pass2/sjdbList.out.tab",
-    expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam',zip,batch=DIRECTORIES,sample=SAMPLES),
-    expand("/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai",zip,batch=DIRECTORIES,sample=SAMPLES),
-    expand('/home/sodell/projects/biogemma/expression/htseq/{batch}/{sample}_HTSeq_union_gtf_no_gene_ID.log',zip,batch=DIRECTORIES,sample=SAMPLES)#,
+    #'star/pass1/sjdbList.out.tab',
+    #expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass1/SJ.out.tab',zip,batch=DIRECTORIES,sample=SAMPLES),
+    #"star/pass2/sjdbList.out.tab",
+    #expand('/group/runciegrp/Data/Illumina/bg/star/{batch}/{sample}_pass2/Aligned.sortedByCoord.out.bam',zip,batch=DIRECTORIES,sample=SAMPLES),
+    #expand("/group/runciegrp/Data/Illumina/bg/final_bams/{batch}/{sample}.Aligned.sortedByCoord.MKDup.Processed.out.bam.bai",zip,batch=DIRECTORIES,sample=SAMPLES)#,
+    expand("qc/bamqc/update/{batch}/{sample}_stats/qualimapReport.html",zip,batch=DIRECTORIES,sample=SAMPLES),
+    "qc/bamqc/update/multisampleBamQcReport.html"
+    #expand('/home/sodell/projects/biogemma/expression/htseq/{batch}/{sample}_HTSeq_union_gtf_no_gene_ID.log',zip,batch=DIRECTORIES,sample=SAMPLES)#,
     #expand('/home/sodell/projects/biogemma/expression/htseq/update/{batch}/{sample}_HTSeq.csv',zip,batch=DIRECTORIES,sample=SAMPLES)
 #    expand("qc/rnaseqc/{sample}-stats/qualimapReport.html",sample=SAMPLES),
 #    expand("qc/bamqc/{sample}_stats/qualimapReport.html",sample=SAMPLES),
@@ -136,8 +138,8 @@ rule all:
 
 #include: "rules/trimmomatic.smk"
 #include: "rules/fastqc.smk"
-include: "rules/star.smk"
+#include: "rules/star.smk"
 #include: "rules/salmon.smk"
-#include: "rules/qualimap.smk"
-include: "rules/htseq.smk"
+include: "rules/qualimap.smk"
+#nclude: "rules/htseq.smk"
 #include: "rules/kallisto.smk"

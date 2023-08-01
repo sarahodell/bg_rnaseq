@@ -111,6 +111,8 @@ for(g in fgroups){
     }
 }
 
+
+# How to I test if ID.ML 
 #X_list_ordered=lapply(X_list,function(x) x[i,])
 
 

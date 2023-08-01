@@ -13,9 +13,14 @@ module load R
 time="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f1 -d,)"
 chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f2 -d,)"
 
+
 #times=( "WD_0718" "WD_0720" "WD_0727" "WD_0712" )
 #time=${times[$SLURM_ARRAY_TASK_ID]}
 echo $time
 echo $chr
-#Rscript scripts/ciseqtl_weights_update.R $time $chr 1
-Rscript scripts/ciseqtl_weights.R $time $chr 4
+#Rscript scripts/ciseqtl_weights.R $time $chr 4
+Rscript scripts/get_residuals.R $time $chr 4
+
+
+#Rscript scripts/ciseqtl_weights.R $time 5 4
+#Rscript scripts/ciseqtl_weights.R $time 9 4

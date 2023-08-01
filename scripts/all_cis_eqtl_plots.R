@@ -12,32 +12,60 @@ library('qqman')
 library('readr')
 library('ggrepel')
 library('RColorBrewer')
+library('qvalue')
 
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 df=c()
 for(time in times){
+	print(time)
+	ngenes=0
 	for(c in 1:10){
-  		d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_results_FIXED.txt',time,c))
-  		d$time=time
-  		pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
-  		d$CHR=c
-  		d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
-  		d=d[,c('Trait','X_ID','p_value_ML','CHR','BP','time')]
-  		df=rbind(df,d)
+		d=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_results_FIXED.txt',time,c))
+		d$time=time
+		pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
+		d$CHR=c
+		d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
+		d=d[,c('Trait','X_ID','p_value_ML','CHR','BP','time')]
+		df=rbind(df,d)
+		
+		ngenes=ngenes+length(unique(d$Trait))
 	}
+	print(ngenes)
 }
 df=as.data.frame(df,stringsAsFactors=F)
 
 df=df[!is.na(df$p_value_ML),]
 df=df[order(df$p_value_ML),]
 rownames(df)=seq(1,nrow(df))
-df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
-#df$value=-log10(df$p_adjusted)
-df$value=-log10(df$p_value_ML)
+qvalues=qvalue(df$p_value_ML,fdr.level=0.05)
+summary(qvalues)
+#Call:
+#qvalue(p = df$p_value_ML, fdr.level = 0.05)
 
-#threshold=-log10(0.05)
+#pi0:	0.1312547	
+
+#Cumulative number of significant calls:
+
+#          <1e-04 <0.001 <0.01 <0.025 <0.05  <0.1    <1
+#p-value    27596  32577 39927  43967 47513 51804 73084
+#q-value    29817  36520 47441  54334 61222 69736 73084
+#local FDR  24449  29084 36097  40053 43921 48686 73084
+write.qvalue(qvalues,'eqtl/results/cis_qvalues.txt',sep='\t')
+
+
+pdf('eqtl/cis/images/qvalue_diagnostics.pdf')
+hist(qvalues)
+plot(qvalues)
+dev.off()
+
+df$p_adjusted=qvalues$qvalues
+#df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
+df$value=-log10(df$p_adjusted)
+#df$value=-log10(df$p_value_ML)
+
+threshold=-log10(0.05)
 adjust=nrow(df)
-threshold=-log10(0.01/adjust)
+#threshold=-log10(0.01/adjust)
 sig=df[df$value>=threshold,]
 sig=sig[order(sig$CHR,sig$BP),]
 
@@ -46,8 +74,8 @@ print(qqman::qq(df$p_value_ML))
 dev.off()
 
 
-#fwrite(sig,'eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
-fwrite(sig,'eqtl/results/all_cis_eQTL_weights_1bonf_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
+fwrite(sig,'eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
+#fwrite(sig,'eqtl/results/all_cis_eQTL_weights_1bonf_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
@@ -62,7 +90,7 @@ gg.manhattan2 <- function(fdf, threshold, col, ylims,bounds){
   group_by(CHR) %>%
   summarise(chr_len=max(BP)) %>%
   mutate(tot=cumsum(chr_len)-chr_len) %>%
-  select(-chr_len) %>%
+  #select(-chr_len) %>%
   left_join(fdf, ., by=c("CHR"="CHR")) %>%
   arrange(CHR, BP) %>%
   mutate( BPcum=as.numeric(BP+tot)) #%>%
@@ -93,16 +121,15 @@ gg.manhattan2 <- function(fdf, threshold, col, ylims,bounds){
 for(time in times){
 	subdf=df[df$time==time,]
 	ymax=round(max(subdf$value))+1
-	#threshold=-log10(0.05)
+	threshold=-log10(0.05)
 
 	title=sprintf("cis-eQTL at timepoint %s",time)
 	a2<-gg.manhattan2(fdf=subdf,threshold,
              col=greypalette,
              ylims=c(0,ymax)) + labs(caption = title)
 
-	#png(sprintf('eqtl/cis/images/ciseQTL_weights_fdr_manhattan_%s_FIXED.png',time),width=2000,height=1500)
-
-	png(sprintf('eqtl/cis/images/ciseQTL_weights_1bonf_manhattan_%s_FIXED.png',time),width=2000,height=1500)
+	png(sprintf('eqtl/cis/images/ciseQTL_weights_fdr_manhattan_%s_FIXED.png',time),width=2000,height=1500)
+	#png(sprintf('eqtl/cis/images/ciseQTL_weights_1bonf_manhattan_%s_FIXED.png',time),width=2000,height=1500)
 	print(a2)
 	dev.off()
 }

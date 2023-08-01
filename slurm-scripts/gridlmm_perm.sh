@@ -4,7 +4,7 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/%A_%a.out
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/%A_%a.error
 #SBATCH -t 24:00:00
-#SBATCH --array=1-560%50
+#SBATCH --array=455
 #SBATCH --ntasks=8
 #SBATCH --mem=8G
 

@@ -12,17 +12,18 @@ library('stringr')
 library('parallel')
 library('MASS')
 
-
+#comp=fread('QTT/QTL_cis_eQTL_overlap.txt',data.table=F)
 comp=fread('QTT/cis_eQTL_STPAUL_QTL_overlaps.txt',data.table=F)
 test=comp[row,]
 #test
 gene=test$Trait
 time=test$time
 chr=test$CHR
-env="EXP_STPAUL_2017_WD"
+env=test$environment
 pheno=test$phenotype
 qsnp=test$SNP
 xid=test$X_ID
+qtlid=test$ID
 
 # Read in Kinship Matrix
 K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
@@ -37,16 +38,23 @@ genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
 exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
-metadata=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+#metadata=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+metadata=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
+
 pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
 
 metadata=metadata[metadata$experiment==time,]
-metadata=metadata[metadata$read==1,]
+#metadata=metadata[metadata$read==1,]
 
 genos=exp$V1
 ######
+adj_chr=c(5,9)
+if(chr %in% adj_chr){
+	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
 
-X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+}else{
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+}
 inds=rownames(X_list[[1]])
 inter=intersect(genos,inds)
 X_list=lapply(X_list,function(x) x[inter,])
@@ -60,7 +68,7 @@ genos=rownames(exp)
 
 K=K[inter,inter]
 
-plate=metadata[match(genos,metadata$dh_genotype),]$plate.x
+plate=metadata[match(genos,metadata$dh_genotype),]$plate
 df=data.frame(ID=genos,plate=plate,stringsAsFactors=F)
 df$plate=as.factor(df$plate)
 
@@ -123,7 +131,8 @@ eqtl_perm=function(draw){
     gwas$Trait=gene
 	betas=unlist(gwas[,c(6,10:24)])
 	wn=which(!is.na(betas))[1]
-	betas[-wn]=betas[-wn]+betas[wn] 
+	betas[-wn]=betas[-wn]+betas[wn]
+	names(betas)=fkeep
 	return(betas)
 }
 
@@ -176,9 +185,9 @@ perm_cor=function(rep){
 	draw=sample(inter,length(inter))
 	eqtl_betas=eqtl_perm(draw)
 	qtl_betas=qtl_perm(draw)
-	test=cor.test(eqtl_betas,qtl_betas,use="complete.obs")
-	r=test$estimate
-	p=test$p.value
+	ctest=cor.test(eqtl_betas,qtl_betas,use="complete.obs")
+	r=ctest$estimate
+	p=ctest$p.value
 	line=data.frame(rep=rep,r=r,pvalue=p,stringsAsFactors=F)
 	return(line)
 }
@@ -190,4 +199,4 @@ results=mclapply(n_reps,perm_cor,mc.cores=cores)
 }))
 d=rbindlist(results)
 d=as.data.frame(d)
-fwrite(d,sprintf('QTT/permute/%s_%s_%s_random_permutation.txt',gene,pheno,env))
+fwrite(d,sprintf('QTT/permute/%s_%s_%s_%s_random_permutation.txt',gene,time,pheno,env))

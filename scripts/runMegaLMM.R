@@ -9,7 +9,7 @@ cores=as.numeric(args[[3]])
 #devtools::install_github('deruncie/MegaLMM',lib='/home/sodell/R/x86_64-pc-linux-gnu-library/4.1')
 library('generics',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 #library('rlang',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
-library('vctrs',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+#library('vctrs',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('glue',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('tibble',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
 library('tidyselect',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
@@ -24,9 +24,10 @@ library('preprocessCore',lib='/home/sodell/R/x86_64-conda-linux-gnu/4.2')
 #exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_vst_residuals.txt',time),data.table=F)
 exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
 
-meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+#meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+meta=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
 meta=meta[meta$experiment==time,]
-meta=meta[meta$read==1,]
+#meta=meta[meta$read==1,]
 #testing
 #exp=exp[,1:100]
 
@@ -66,7 +67,7 @@ Y = exp[,-1]
 
 data = key
 names(data)=c('ID')
-plate=meta[match(data$ID,meta$dh_genotype),]$plate.x
+plate=meta[match(data$ID,meta$dh_genotype),]$plate
 data$plate=as.factor(plate)
 
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)

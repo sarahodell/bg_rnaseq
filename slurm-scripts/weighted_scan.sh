@@ -3,8 +3,8 @@
 #SBATCH -J weighted
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
-#SBATCH -t 96:00:00
-#SBATCH --array=1-40
+#SBATCH -t 120:00:00
+#SBATCH --array=31,35,37-39
 #SBATCH --ntasks=22
 #SBATCH --mem 64G
 

@@ -220,3 +220,80 @@ for(c in 1:10){
 	
 	
 }
+
+chr="5"
+old_snp="AX-91671957" 
+new_snp="AX-91671943"
+
+chr="9"
+old_snp="AX-91423034"
+new_snp="AX-91381401"
+#chr 5 "AX-91671957" replaced with "AX-91671943"
+X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+markers=dimnames(X_list[[1]])[[2]]
+X_list2=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+
+which(!(dimnames(X_list2[[1]])[[2]] %in% markers))
+# 5 is 279
+# 9 is 64
+testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
+
+l=which(unlist(lapply(testsnps, function(x) old_snp %in% x$focal_snps)))
+
+for (i in l){
+	testsnps[[i]]$focal_snps=new_snp
+}
+saveRDS(testsnps,sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
+
+chr="5"
+old_snp="AX-91671957" 
+new_snp="AX-91671943"
+
+chr="9"
+old_snp="AX-91423034"
+new_snp="AX-91381401"
+
+founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+founder_blocks[founder_blocks$focal_snp==old_snp,]$focal_snp=new_snp
+new_pos=pmap[pmap$marker==new_snp,]$pos
+founder_blocks[founder_blocks$focal_snp==new_snp,]$start=new_pos
+fwrite(founder_blocks,sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),row.names=F,quote=F,sep='\t')
+
+
+# Make a table of founder prob sites and their ranges
+chroms=c("1","2","3","4","5","6","7","8","9","10")
+chroms=c("5","9")
+for(chr in chroms){
+	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+	snps=colnames(X_list[[1]])
+	founder_blocks=c()
+	for(snp in snps){
+		m=pmap[pmap$marker==snp,]$pos
+		fdropped=readRDS(sprintf('../genotypes/probabilities/geno_probs/dropped/bg%s_dropped_markers_genoprobs.rds',chr))
+		dropped_markers=fdropped[[which(unlist(lapply(fdropped,function(x) x$marker==snp)))]]$linked
+		if(!is.null(dropped_markers)){
+			sub=pmap[pmap$marker %in% dropped_markers,]
+			rownames(sub)=seq(1,dim(sub)[1])
+			right=which.max(sub$pos)
+			left_bound=m
+			right_bound=sub[right,]$pos
+		}else{
+			left_bound=m
+			right_bound=m+1
+		}
+		if(snp==snps[1]){
+			founder_blocks=c(chr,snp,left_bound,right_bound)
+		}else{
+			founder_blocks=rbind(founder_blocks,c(chr,snp,left_bound,right_bound))
+		}
+	}
+	founder_blocks=as.data.frame(founder_blocks,stringsAsFactors=F)
+	names(founder_blocks)=c("chr","focal_snp","start","end")
+	founder_blocks$chr=as.numeric(founder_blocks$chr)
+	founder_blocks$start=as.numeric(founder_blocks$start)
+	founder_blocks$end=as.numeric(founder_blocks$end)
+	fwrite(founder_blocks,sprintf('metadata/founder_recomb_blocks_c%s.txt',chr),row.names=F,quote=F,sep='\t')
+}

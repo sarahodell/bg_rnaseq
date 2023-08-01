@@ -9,12 +9,16 @@ library('dplyr')
 library('ggplot2')
 # Make gene expression count matrix of all samples
 #timep="WD_0712"
-mat=fread(sprintf('star/%s_gene_counts.txt',time),data.table=F)
+time="WD_0727"
+mat=fread(sprintf('star/%s_updated_gene_counts.txt',time),data.table=F)
 rownames(mat)=mat$Gene_ID
+mat=mat[5:nrow(mat),]
 mat=mat[,-1]
 genes=rownames(mat)
 mat=t(mat)
-meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+meta=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
+
+#meta=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
 #meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
 meta=meta[meta$experiment==time,]
 snames=rownames(mat)
@@ -22,7 +26,7 @@ gnames=meta[match(snames,meta$sample_name),]$dh_genotype
 mat=as.data.frame(mat,stringsAsFactors=F)
 mat$gnames=gnames
 mat=mat[mat$gnames!="",]
-plate=meta[match(mat$gnames,meta$dh_genotype),]$plate.x
+plate=meta[match(mat$gnames,meta$dh_genotype),]$plate
 
 gnames=mat$gnames
 
@@ -54,20 +58,16 @@ d0=calcNormFactors(d0)
 summary(d0$samples$lib.size/1e6)
 
 # WD_0712
-#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-# 0.8537  1.4340  2.2420  3.4881  4.0930 17.5589
-
-# updated WD_0712
-# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 0.7894  1.4776  2.2734  3.6769  4.1900 17.5589 
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.8677  1.4455  2.2734  3.4449  3.6523 17.5589 
 
 #WD_0712
-#cutoff=5 #WD_0712
-#nind=10
+cutoff=5 #WD_0712
+nind=15
 
 #WD_0718
-#Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-#0.9159  2.3909  2.9809  3.5351  3.9585 19.0705
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.9011  2.2289  2.7520  3.1207  3.7236 10.1522
 
 #updated WD_0718
 #  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
@@ -77,24 +77,23 @@ summary(d0$samples$lib.size/1e6)
 
 #WD_0720
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-#0.7989  1.5374  2.0579  2.8556  2.9763 31.1158
+#0.8933  1.6238  2.0577  2.7422  2.9605 13.3744 
 
-#updated WD_0720
-#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 0.7989  1.5837  2.0606  2.8380  2.9733 31.1158 
+#cutoff=5 # WD_0720
+#nind=15
 
-cutoff=5 # WD_0720
-nind=15
+#WD_0725
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+#0.8923  1.5518  1.9795  3.2689  3.8135 41.6707  
+
+#cutoff=5 # WD_075
+#nind=15
 
 #WD_0727
-#Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-#0.8286  1.3695  1.8596  2.9590  3.2023 20.2946
-
-# updated WD_0727
 #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 0.8286  1.3336  1.7634  2.9056  3.1186 20.2946
-#cutoff=5
-#nind=15
+# 0.8357  1.3540  1.7517  2.7997  2.9597 12.0689
+cutoff=5
+nind=15
 
 maxes=apply(cpm(d0),1,max)
 # fewer than 2 samples with cpm higher than cutoff
@@ -143,6 +142,9 @@ p1=ggplot(aes(x=PC1,y=PC2),data=pc_mm) + geom_point(aes(color=plate)) +
 png(sprintf('images/PC1_PC2_%s_2.png',time))
 print(p1)
 dev.off()
+
+norm=as.data.frame(t(norm),stringsAsFactors=F)
+fwrite(norm,sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),row.names=T,quote=F,sep='\t')
 
 #### Drop outliers and format
 
@@ -259,7 +261,7 @@ dev.off()
 #
 ######
 # Original filtering
-mat=fread(sprintf('star/%s_gene_counts.txt',time),data.table=F)
+mat=fread(sprintf('star/%s_updated_gene_counts.txt',time),data.table=F)
 rownames(mat)=mat$Gene_ID
 mat=mat[,-1]
 meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)

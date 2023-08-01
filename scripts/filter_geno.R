@@ -13,7 +13,15 @@ founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra",
            "EP1_inra","D105_inra","W117_inra","B96","DK63",
            "F492","ND245","VA85")
  
-Xlist1=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%.0f_filtered_genotype_probs.rds',c1))
+ 
+adj_chr=c(5,9)
+if(c1 %in% adj_chr){
+	Xlist1=readRDS(sprintf('phenotypes/bg%.0f_adjusted_genoprobs.rds',c1))
+
+}else{
+	Xlist1=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%.0f_filtered_genotype_probs.rds',c1))
+
+}
 pmap1=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c1),data.table=F)
 pmap1=pmap1[order(pmap1$pos),]
 rownames(pmap1)=seq(1,nrow(pmap1))
@@ -21,7 +29,13 @@ pmap1=pmap1[pmap1$marker %in% dimnames(Xlist1[[1]])[[2]],]
 Xlist1=lapply(Xlist1, function(x) x[,pmap1$marker])
 size1=dim(Xlist1[[1]])[2]
 
-Xlist2=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%.0f_filtered_genotype_probs.rds',c2))
+if(c2 %in% adj_chr){
+	Xlist2=readRDS(sprintf('phenotypes/bg%.0f_adjusted_genoprobs.rds',c2))
+
+}else{
+	Xlist2=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%.0f_filtered_genotype_probs.rds',c2))
+
+}
 pmap2=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c2),data.table=F)
 pmap2=pmap2[order(pmap2$pos),]
 rownames(pmap2)=seq(1,nrow(pmap2))

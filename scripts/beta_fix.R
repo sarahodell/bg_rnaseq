@@ -4,6 +4,76 @@ time=as.character(args[[1]])
 
 library('data.table')
 
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+for(time in times){
+	all_resids=c()
+	phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	rownames(phenotypes)=phenotypes$V1
+	phenotypes=phenotypes[,-1]
+	metadata=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
+	#pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
+	metadata=metadata[metadata$experiment==time,]
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	genos=rownames(phenotypes)
+	inds=rownames(X_list[[1]])
+	inter=intersect(genos,inds)
+	#data=data.frame(ID=rownames(phenotypes),y=phenotypes[,gene],stringsAsFactors=F)
+	#data=data[!is.na(data$y),]
+	#data$PC1=pcs[match(data$ID,pcs$V1),]$PC1
+	#data$PC2=pcs[match(data$ID,pcs$V1),]$PC2
+	#data$PC3=pcs[match(data$ID,pcs$V1),]$PC3
+	#rownames(data)=data$ID
+	data=phenotypes[inter,]
+    #data$ID=rw
+    #data=data[,c('ID','ID2','y','PC1','PC2','PC3')]
+	for(c in 1:10){
+		all_res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_residuals_FIXED.txt',time,c),data.table=F)
+		res_var=apply(all_res[,-1],MARGIN=2,function(x) var(x))
+
+		fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_BVs_FIXED.txt',time,c),row.names=F,quote=F,sep='\t')
+		k=which(is.na(res_var))
+ 		if(length(k)!=0){
+    k=k+1
+    k=unname(k)
+    res=res[,-c(k)]
+  }
+  if(chr==1){
+    all_res=res
+  }else{
+    all_res=cbind(all_res,res[,-1])
+  }
+	
+	}
+}
+
+all_res=c()
+for(chr in 1:10){
+  res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_residuals.txt',time,chr),data.table=F)
+  
+}
+fwrite(all_res,sprintf('eqtl/results/cis_eQTL_%s_all_fkeep_residuals.txt',time),row.names=F,quote=F,sep='\t')
+
+
+# Fix testsnps file
+for(c in 1:10){
+	testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%.0f.rds',c))
+	l=which(unlist(lapply(testsnps,function(x) length(x$focal_snps)>1 & length(unique(x$focal_snps))==1)))
+	print(length(l))
+	if(length(l)!=0){
+		for(i in l){
+			res=testsnps[[i]]$focal_snps
+			snp=unique(res)
+			testsnps[[i]]$focal_snps=snp
+		}
+		saveRDS(testsnps,sprintf('eqtl/data/gene_focal_snps_c%.0f.rds',c))
+	}	
+}
+
+
+
+
+
+
 allcis=c()
 times=c('WD_0712','WD_0718','WD_0720','WD_0727')
 for(t in times){
@@ -26,11 +96,12 @@ for(t in times){
 #betas=cbind(info,betas2)
 #names(betas)=c('Gene_ID','SNP',paste0('beta.',seq(1,16)))
 #fwrite(betas,sprintf('eqtl/results/eQTL_%s_all_betas.txt',time),row.names=F,quote=F,sep='\t')
+time="WD_0727"
 
 all_res=c()
 for(chr in 1:10){
-  res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_fkeep_residuals.txt',time,chr),data.table=F)
-  res_var=apply(res[,-1],MARGIN=2,function(x) var(x))
+  res=fread(sprintf('eqtl/cis/results/eQTL_%s_c%.0f_weights_residuals_FIXED.txt',time,chr),data.table=F)
+  res_var=apply(res[,-1],MARGIN=2,function(x) var(x,na.rm=T))
   k=which(is.na(res_var))
   if(length(k)!=0){
     k=k+1
@@ -43,7 +114,7 @@ for(chr in 1:10){
     all_res=cbind(all_res,res[,-1])
   }
 }
-fwrite(all_res,sprintf('eqtl/results/cis_eQTL_%s_all_fkeep_residuals.txt',time),row.names=F,quote=F,sep='\t')
+fwrite(all_res,sprintf('eqtl/results/cis_eQTL_%s_all_residuals_FIXED.txt',time),row.names=F,quote=F,sep='\t')
 
 #residuals
 exp=fread(sprintf('eqtl/results/cis_eQTL_%s_all_fkeep_residuals.txt',time),data.table=F)

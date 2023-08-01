@@ -17,11 +17,16 @@ library('stringr')
 #drop=list('Factor19'="EB.09S.H.00429",'Factor38'="EB.09S.H.00424",
 #'Factor48'="EB.09S.H.00494",'Factor49'="EB.09S.H.00402")
 
-phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means_FIXED.txt',time),data.table=F)
+phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time),data.table=F)
 
-if(time=="WD_0712" & factor=="Factor12"){
+if(time=="WD_0712" & factor=="Factor5"){
 	drop_ind="EB.09S.H.00417"
-	phenotype[phenotype$V1==drop_ind,factor]=-1.91841
+	phenotype[phenotype$V1==drop_ind,factor]=-1.4175
+}
+
+if(time=="WD_0712" & factor=="Factor23"){
+	drop_ind="EB.09S.H.00005"
+	phenotype[phenotype$V1==drop_ind,factor]=1.9960830
 }
 
 #factor_results=c()
@@ -156,7 +161,7 @@ for(g in fgroups){
     }
 }
 all_gwas=as.data.frame(all_gwas,stringsAsFactors=F)
-fwrite(all_gwas,sprintf('eqtl/trans/results/%s_c%s_%s_trans_results_FIXED.txt',time,chr,factor),row.names=F,quote=F,sep='\t')
+fwrite(all_gwas,sprintf('eqtl/trans/results/%s_residuals_c%s_%s_trans_results_FIXED.txt',time,chr,factor),row.names=F,quote=F,sep='\t')
 
 
 

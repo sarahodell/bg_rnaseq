@@ -101,7 +101,7 @@ gg.manhattan2=function(df, threshold, col, ylims,bounds){
 df=c()
 for(c in 1:10){
 	print(c)
-	d=fread(sprintf('QTL/updated/Biogemma_chr%.0f_%s_x_%s_updated_founderprobs.txt',c,pheno,env),data.table=F)
+	d=fread(sprintf('QTL/adjusted/Biogemma_chr%.0f_%s_x_%s_adjusted_founderprobs.txt',c,pheno,env),data.table=F)
 	#d=as.data.frame(do.call(rbind, dlist))
 	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
 	d$CHR=c
@@ -116,7 +116,7 @@ n_m=4716
 n_phenos=7
 n_envs=8
 adjust=n_m*n_phenos*n_envs
-threshtable=fread(sprintf('QTL/updated_threshold_%.2f_table.txt',thresh),data.table=F)
+threshtable=fread(sprintf('QTL/adjusted_threshold_%.2f_table.txt',thresh),data.table=F)
 threshold=threshtable[threshtable$method=="founder_probs" & threshtable$environment==env & threshtable$phenotype==pheno,]$threshold
 
 #threshold=-log10(0.05/adjust)
@@ -150,10 +150,10 @@ a2<-gg.manhattan2(subdf,threshold,
 sigs2=subdf[subdf$value>=threshold,]
 
 if(dim(sigs2)[1]!=0){#png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
-  	png(sprintf('QTL/updated/images/%s_%s_QTL_scan_%.2f_manhattan.png',pheno,env,thresh),width=2000,height=1500)
+  	png(sprintf('QTL/adjusted/images/%s_%s_QTL_scan_%.2f_manhattan.png',pheno,env,thresh),width=2000,height=1500)
   	print(a2)
   	dev.off()
-  	fwrite(sigs2,sprintf('QTL/updated/%s_%s_QTL_scan_%2f_hits.txt',pheno,env,thresh),row.names=F,quote=F,sep='\t')
+  	fwrite(sigs2,sprintf('QTL/adjusted/%s_%s_QTL_scan_%2f_hits.txt',pheno,env,thresh),row.names=F,quote=F,sep='\t')
 
 }
 

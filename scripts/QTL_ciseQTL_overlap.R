@@ -6,34 +6,386 @@ library('dplyr')
 #time="WD_0718"
 #ciseqtl=fread('eqtl/results/all_cis_eQTL_vst_hits.txt',data.table=F)
 #eqtl=fread('eqtl/results/all_eQTL_fdr_hits.txt',data.table=F)
-eqtl=fread('eqtl/results/all_cis_eQTL_weights_bonf_hits_FIXED.txt',data.table=F)
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+eqtl$gene_time_SNP = paste0(eqtl$Trait,'-',eqtl$time,'-',eqtl$X_ID)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+
+# check that the genes with more than one SNP local eQTL that the effect sizes are correlated - of course they are, but check
+
 #sub=fread('eqtl/results/all_cis_trans_fdr_hits.txt',data.table=F)
 #factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
 
+eqtl %>% group_by(time) %>% count()
+# A tibble: 4 × 2
+# Groups:   time [4]
+#  time        n
+#  <chr>   <int>
+#1 WD_0712 10674
+#2 WD_0718 15081
+#3 WD_0720 16381
+#4 WD_0727 16114
 
-#eqtl=fead('head')
-#times=c("WD_0712","WD_0720","WD_0727")
-#all_cis_eqtl=c()
-#for(t in times){
-#  ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_fkeep_hits.txt',t),data.table=F)
-#  ciseqtl$time=t
-#  all_cis_eqtl=rbind(all_cis_eqtl,ciseqtl)
-#}
-#fwrite(all_cis_eqtl,'eqtl/results/all_cis_eQTL_fkeep_hits2.txt',row.names=F,quote=F,sep='\t')
-
-#ciseqtl=fread('eqtl/results/all_cis_eQTL_fkeep_hits2.txt',data.table=F)
-
-#ciseqtl=all_cis_eqtl
-#ciseqtl=fread(sprintf('eqtl/results/%s_cis_eQTL_vst_hits.txt',time),data.table=F)
+gtime= eqtl %>% group_by(Trait) %>% summarize(length(unique(time)))
 
 all_founder_blocks=c()
 for(chr in 1:10){#
   founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
   all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
 }
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
 
-#eqtl$block_start=all_founder_blocks[match(eqtl$SNP,all_founder_blocks$focal_snp),]$start
-#eqtl$block_end=all_founder_blocks[match(eqtl$SNP,all_founder_blocks$focal_snp),]$end
+#### Within the Founder LD r2=0.5 cutoff interval
+qtl=fread('QTL/all_adjusted_QTL_peaks.txt',data.table=F)
+qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
+qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+# Overlap within every QTL ID
+
+comparison2 %>% group_by(ID) %>% summarize(length(unique(Trait)))
+# A tibble: 23 × 2
+#   ID      `length(unique(Trait))`
+#   <chr>                     <int>
+# 1 qDT33_2                     130
+# 2 qDTA3_1                      14
+# 3 qDTA3_2                     163
+# 4 qDTA7                         9
+# 5 qDTA8                       435
+# 6 qDTA9                        62
+# 7 qDTS3_1                       1
+# 8 qDTS3_2                     228
+# 9 qDTS8                       320
+#10 qDTS9                        57
+
+
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,CHR,block_start,block_end)
+comparison1=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+# 18 of 23 QTL have cis-eQTL in the same LD window
+# A tibble: 18 × 2
+#   ID      `length(unique(Trait))`
+#   <chr>                     <int>
+# 1 qDT33_2                       4
+# 2 qDTA3_1                       3
+# 3 qDTA3_2                      54
+# 4 qDTA8                        84
+# 5 qDTA9                        11
+# 6 qDTS3_1                       1
+# 7 qDTS3_2                       9
+# 8 qDTS8                        67
+# 9 qDTS9                         8
+#10 qHGM1                         2
+#11 qHGM3_1                       1
+#12 qHGM3_2                      15
+#13 qHGM7                         2
+#14 qTKW2                         4
+#15 qTKW7_1                       9
+#16 qTKW7_2                       2
+#17 qTPH6                         1
+#18 qTPH8                         2
+
+# Just in EXP_STPAUL_2017_WD
+
+ inenv %>% group_by(ID) %>% summarize(length(unique(Trait)))
+# A tibble: 4 × 2
+#  ID      `length(unique(Trait))`
+#  <chr>                     <int>
+#1 qDTA3_2                      11
+#2 qDTA8                         8
+#3 qDTA9                         7
+#4 qDTS8                        23
+
+
+### DO any of these have correlated effect sizes?
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+plot_list=list()
+count=1
+adj_chr=c(5,9)
+cors=c()
+pvals=c()
+for(i in 1:nrow(inenv)){
+	row=inenv[i,]
+	pheno=row$phenotype
+	env=row$environment
+	chr=row$CHR
+	gene=row$Trait
+	snp=row$SNP
+	time=row$time
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	gene=row$Trait
+	snp=row$SNP
+	chr=row$CHR
+	if(chr %in% adj_chr){
+		X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+	}else{
+		X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+
+	}
+	inds=rownames(X_list[[1]])
+	inter=intersect(exp$V1,inds)
+	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno,env),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==snp,]
+	effect_size=unlist(effect_size[,c(6:21)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+	colnames(X) = founders
+	rownames(X) = inter
+	
+	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
+	#w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
+	#results=results[[w]]
+	results=results[results$X_ID==snp& results$Trait==gene,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	pvals=c(pvals,p)
+	
+	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+	if(p<=0.1){
+		p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder))
+		plot_list[[count]]=p1
+		count=count+1
+	}
+	
+}
+inenv$r=cors
+inenv$pvalue=pvals
+
+ids=unique(inenv$ID)
+for(i in ids){
+	sub=inenv[inenv$ID==i,]
+	loc=which.max(abs(sub$r))
+	hval=sub[loc,]$i.value
+	hr=sub[loc,]$r
+	h1=ggplot(sub,aes(x=i.value)) + geom_histogram() + geom_vline(xintercept) +
+	ggtitle(sprintf('eQTL qvalues within %s',i)) + theme(label=sprintf('%s r=%.2f'))
+}
+
+
+pdf('QTT/QTL_eQTL_effect_size_correlations.png')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+##### Within the same LD block
+
+##### cis-eQTL overlap with QTL in EXP_STPAUL_2017
+interval=c()
+highest=c()
+# Overlap of cis eQTL and St.Paul recomb blocks peaks
+# in the QTL interval
+qtl2=fread('QTL/adjusted/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+comparison2$phenotype="male_flowering_d6"
+interval=comparison2
+
+# 766 instances of overlap, 281 genes
+comparison2 %>% group_by(SNP) %>% count()
+# A tibble: 4 × 2
+# Groups:   SNP [4]
+#  SNP               n
+#  <chr>         <int>
+#1 AX-91100761     176 # qDTA8_1
+#2 AX-91145110      60	qDTA9
+#3 AX-91771656     502	qDTA8_2
+#4 PZE-103093413    28	qDTA3_2
+
+# for the highest QTL peak
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+comparison2$phenotype="male_flowering_d6"
+#78 instances of overlap of 28 genes
+highest=comparison2
+comparison2 %>% group_by(SNP) %>% count()
+
+# A tibble: 4 × 2
+# Groups:   SNP [4]
+#  SNP               n
+#  <chr>         <int>
+#1 AX-91100761    13 # qDTA8_1
+#2 AX-91145110    25 qDTA9
+#3 AX-91771656    12	qDTA8_2
+#4 PZE-103093413  28	qDTA3_2
+
+#DTS
+qtl2=fread('QTL/adjusted/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+comparison2$phenotype="female_flowering_d6"
+# 244 instances of overlap, 92 genes
+comparison2 %>% group_by(SNP) %>% count()
+# A tibble: 2 × 2
+# Groups:   SNP [2]
+#  SNP             n
+#  <chr>       <int>
+#1 AX-91772415   141 qDTA8_2
+#2 PZA01038.1    103 qDTA8_1
+
+interval=rbind(interval,comparison2)
+
+
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,block_start,block_end)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
+comparison2$phenotype="female_flowering_d6"
+# 52 overlaps of 23 genes
+highest=rbind(highest,comparison2)
+
+comparison2 %>% group_by(SNP) %>% count()
+# A tibble: 2 × 2
+# Groups:   SNP [2]
+#  SNP             n
+#  <chr>       <int>
+#1 AX-91772415     3 qDTA8_2
+#2 PZA01038.1     49 qDTA8_1
+
+#tkw_15
+qtl2=fread('QTL/adjusted/tkw_15_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
+qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
+qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl2)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+# 9 overlaps with 4 genes
+comparison2$phenotype="tkw_15"
+
+interval=rbind(interval,comparison2)
+highest=rbind(highest,comparison2)
+
+
+fwrite(highest,'QTT/cis_eQTL_STPAUL_QTL_peak_overlaps.txt',row.names=F,quote=F,sep='\t')
+fwrite(interval,'QTT/cis_eQTL_STPAUL_QTL_overlaps.txt',row.names=F,quote=F,sep='\t')
+
+
+# Other phenotypes
+
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+envs=unique(phenotypes$Loc.Year.Treat)
+phenos=names(phenotypes)[3:9]
+thresh=0.10
+all_qtl=c()
+for(p in phenos){
+	for(e in envs){
+		hitfile=sprintf('QTL/adjusted/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh)
+		if(file.exists(hitfile)){
+			df=fread(hitfile,data.table=F)
+			df$phenotype=p
+			df$environment=e
+			all_qtl=rbind(all_qtl,df)
+		}
+	}
+}
+all_qtl=all_qtl[,c("phenotype","environment","CHR","BP","SNP","leftmost","alt_rightmost","leftmost_SNP","rightmost_SNP","rightmost","value")]
+#fwrite(all_qtl,'QTL/all_adjusted_QTL_peaks.txt',row.names=F,quote=F,sep='\t')
+
+# Pleiotropic QTL
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+
+all_qtl=fread('QTL/all_adjusted_QTL_peaks.txt',data.table=F)
+
+####### qDTS3_2 and qHGM3_2 ####### 
+chr="3"
+pheno1="female_flowering_d6"
+env1="ALL"
+pheno2="harvest_grain_moisture"
+env2="ALL"
+qtl1="qDTS3_2"
+qtl2="qHGM3_2"
+
+snp1="PZE-103084819"
+snp2="PZE-103084819"
+#r=0.6841095
+
+####### #qDTA7 and qTKW7_1 ####### 
+chr="7"
+pheno1="male_flowering_d6"
+env1="GRANEROS_2015_OPT"
+pheno2="tkw_15"
+env2="BLOIS_2017_OPT"
+qtl1="qDTA7"
+qtl2="qTKW7_1"
+
+snp1="AX-91715233"
+#snp2="SYN16002"
+#r=0.1599592
+snp2="AX-91714901"
+#r=0.5285355
+
+####### #qHGM7 and qTKW7_2 in GRANEROS ####### 
+chr="7"
+pheno1="harvest_grain_moisture"
+env1="GRANEROS_2015_OPT"
+pheno2="tkw_15"
+env2="GRANEROS_2015_OPT"
+
+snp1="AX-91053569"
+snp2="AX-91053569"
+qtl1="qHGM7"
+qtl2="qTKW7_2"
+#r=0.2688263
+
+##########
+res1=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno1,env1),data.table=F)
+peaks1=fread(sprintf('QTL/adjusted/%s_%s_QTL_scan_0.10_peaks.txt',pheno1,env1),data.table=F)
+peaks1=peaks1[peaks1$CHR==chr,]
+
+
+res2=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno2,env2),data.table=F)
+peaks2=fread(sprintf('QTL/adjusted/%s_%s_QTL_scan_0.10_peaks.txt',pheno2,env2),data.table=F)
+peaks2=peaks2[peaks2$CHR==chr,]
+
+
+
+res1=res1[res1$X_ID==snp1,]
+beta1=unlist(res1[,founders])
+beta1[-1]=beta1[-1]+beta1[1]
+res2=res2[res2$X_ID==snp2,]
+beta2=unlist(res2[,founders])
+beta2[-1]=beta2[-1]+beta2[1]
+
+r=cor(beta1,beta2,use="complete.obs")
+
+df=data.frame(founder=founders,beta1=beta1,beta2=beta2)
+p1=ggplot(df,aes(x=beta1,y=beta2,color=founder)) + geom_point() +
+xlab(sprintf('%s %s effect size',env1,qtl1)) + ylab(sprintf('%s %s effect size',env2,qtl2)) + ggtitle(sprintf("Founder Effect Size Correlation r = %.2f",r))
+
+png(sprintf('QTL/images/%s_%s_effect_sizes.png',qtl1,qtl2))
+print(p1)
+dev.off()
+####
 
 
 qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
@@ -42,9 +394,6 @@ genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F
 
 fqtl$block_start=all_founder_blocks[match(fqtl$highest_SNP,all_founder_blocks$focal_snp),]$start
 fqtl$block_end=all_founder_blocks[match(fqtl$highest_SNP,all_founder_blocks$focal_snp),]$end
-
-eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
-eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
 
 
 #Look 5kb upstream or downstream of gene
@@ -55,122 +404,6 @@ eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),
 #ciseqtl$window_START=ciseqtl$BP-5000
 #ciseqtl$window_END=ciseqtl$BP+5000
 # Or use the founder LD block? I think this one is more accurate
-full_comparison=c()
-all_comparison=c()
-
-envcomp=c()
-#overlap of recomb blocks of eQTL variants with support intervals of QTL
-env1=eqtl
-#env1$BP_start=env1$BP-5000
-#env1$BP_end=env1$BP+5000
-env1=as.data.table(env1)
-env2=as.data.table(qtl)
-#env2$end=env2$end-1
-setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
-comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
-#  8444 overlaps cis-eQTL variants overlap with support intervals of QTL
-# 602 genes overlapping with 20 QTL (all of them)
-
-#overlap of recomb blocks of eQTL genes with support intervals of QTL
-env1=eqtl
-#env1$BP_start=env1$BP-5000
-#env1$BP_end=env1$BP+5000
-env1=as.data.table(env1)
-env2=as.data.table(fqtl)
-#env2$end=env2$end-1
-setkey(env2,Chromosome,block_start,block_end)
-comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),,by.y=c('Chromosome','block_start','block_end'),nomatch=NULL)
-envcomp=rbind(envcomp,comparison2)
-# 123 overlaps  cis-eQTL genes overlap with support intervals of QTL
-# 42 genes and 9 QTL (out of 14)
-
-# Overlap of cis eQTL and any 10% QTL support interval
-qtl10=fread('../GridLMM/Biogemma_10p_QTL.csv',data.table=F)
-env1=eqtl
-env1=as.data.table(env1)
-env2=as.data.table(qtl10)
-setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
-comparison=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
-#3191 overlaps with 10% QTL
-#972 genes overlapping with 17 QTL out of 18 
-
-# Overlap of cis eQTL and St.Paul recomb blocks
-qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
-qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
-qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
-env1=eqtl
-env1=as.data.table(env1)
-env2=as.data.table(qtl2)
-setkey(env2,CHR,block_start,block_end)
-comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
-#142 overlaps; 78 genes for all 4 QTL
-comparison2$phenotype="male_flowering_d6"
-
-all_comparison=rbind(all_comparison,comparison2)
-
-# Overlap of cis eQTL and St.Paul recomb blocks peaks
-qtl2=fread('QTL/male_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
-qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
-qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
-env1=eqtl
-env1=as.data.table(env1)
-env2=as.data.table(qtl2)
-setkey(env2,CHR,block_start,block_end)
-comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
-comparison2$phenotype="male_flowering_d6"
-
-#20 overlaps; 14 genes for all 4 QTL (qDTA3_2,qDTA8_1,qDTA8_2,qDTA9)
-full_comparison=rbind(full_comparison,comparison2)
-
-#DTS
-qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
-qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
-qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
-env1=eqtl
-env1=as.data.table(env1)
-env2=as.data.table(qtl2)
-setkey(env2,CHR,block_start,block_end)
-comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
-#54 overlaps; 28 genes for 2 QTL (qDTS8_1,qDTS8_2)
-comparison2$phenotype="female_flowering_d6"
-
-all_comparison=rbind(all_comparison,comparison2)
-
-#DTS peaks
-qtl2=fread('QTL/female_flowering_d6_EXP_STPAUL_2017_WD_QTL_scan_0.10_peaks.txt',data.table=F)
-qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
-qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
-env1=eqtl
-env1=as.data.table(env1)
-env2=as.data.table(qtl2)
-setkey(env2,CHR,block_start,block_end)
-comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
-#2 overlaps; 2 genes with 1 QTL (out of 2) qDTS8_1
-# Zm00001d010871 (WD_0727) and Zm00001d010849 (WD_0720)
-comparison2$phenotype="female_flowering_d6"
-
-full_comparison=rbind(full_comparison,comparison2)
-
-#tkw_15
-qtl2=fread('QTL/tkw_15_EXP_STPAUL_2017_WD_QTL_scan_0.100000_hits.txt',data.table=F)
-qtl2$block_start=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$start
-qtl2$block_end=all_founder_blocks[match(qtl2$SNP,all_founder_blocks$focal_snp),]$end
-env1=eqtl
-env1=as.data.table(env1)
-env2=as.data.table(qtl2)
-setkey(env2,CHR,block_start,block_end)
-comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
-#3 overlaps; 2 genes overlap with 1 QTL
-# 1 gene in two timepoints Zm00001d002644 in WD0718 and WD0727 (not QTL peak)
-# Zm00001d002641 in WD0727 (not QTL peak) (not QTL peak)
-comparison2$phenotype="tkw_15"
-
-all_comparison=rbind(all_comparison,comparison2)
-
-
-fwrite(full_comparison,'QTT/cis_eQTL_STPAUL_QTL_peak_overlaps.txt',row.names=F,quote=F,sep='\t')
-fwrite(all_comparison,'QTT/cis_eQTL_STPAUL_QTL_overlaps.txt',row.names=F,quote=F,sep='\t')
-
 
 # Calculate correlation between effect sizes for eQTL and phenotypes in overlapping regions
 # First do this with ones that overlap for the peak

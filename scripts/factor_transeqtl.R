@@ -2,9 +2,486 @@
 
 library('data.table')
 library('ggplot2')
+library('dplyr')
+
+factoreqtl=fread('eqtl/results/all_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+
+# Plot out individuals by F-value colored by founder at SNP
+#snp="AX-91833136"
+#time="WD_0712"
+#factor="Factor12"
+#chr="10"
+
+snp="AX-91511569"
+time="WD_0718"
+factor="Factor4"
+chr="2"
+
+F_values=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means_FIXED.txt',time),data.table=F)
+
+summary(F_values[,factor])
+
+interactors=c("Zm00001d020430","Zm00001d012584",
+"Zm00001d031064",
+"Zm00001d031451",
+"Zm00001d039267",
+"Zm00001d052890",
+#GRMZM2G017586
+"Zm00001d002364",
+"Zm00001d002799",
+"Zm00001d027900",
+"Zm00001d002799",
+"Zm00001d002799",
+"Zm00001d005692",
+"Zm00001d006551",
+"Zm00001d010634",
+"Zm00001d012527",
+"Zm00001d013443",
+"Zm00001d014858",
+"Zm00001d014995",
+"Zm00001d015421",
+"Zm00001d044232",
+"Zm00001d015549",
+"Zm00001d016793",
+"Zm00001d018571",
+"Zm00001d020025",
+"Zm00001d020409",
+"Zm00001d020492",
+"Zm00001d021019",
+"Zm00001d021019",
+"Zm00001d024324",
+"Zm00001d024679",
+"Zm00001d026398",
+"Zm00001d026542",
+"Zm00001d027846",
+"Zm00001d031044",
+"Zm00001d031717",
+"Zm00001d034417",
+"Zm00001d032024",
+"Zm00001d032265",
+"Zm00001d033267",
+"Zm00001d034298",
+"Zm00001d034601",
+"Zm00001d035604",
+"Zm00001d035604",
+"Zm00001d037221",
+"Zm00001d037221",
+"Zm00001d037605",
+"Zm00001d037605",
+"Zm00001d037605",
+"Zm00001d037605",
+"Zm00001d037605",
+"Zm00001d038357",
+"Zm00001d038843",
+"Zm00001d039260",
+"Zm00001d042777",
+"Zm00001d042907",
+"Zm00001d042907",
+"Zm00001d043950",
+"Zm00001d047017",
+"Zm00001d049364")
+interactors=unique(interactors)
+# of the 59 genes, 19 are loaded on the factor
+ginter=intersect(genetable$Gene_ID,prop_var$V1)
+ginter=ginter[!(ginter %in% interactors)]
+totsum=c()
+for(i in 1:500){
+	draw=sample(ginter,49)
+	sums=sum(draw %in% f4genes$V1)
+	totsum=c(totsum,sums)
+}
+# Not more than you'd expect by chance
+
+# Does this overlap with ciseQTL
+factoreqtl=fread('eqtl/results/all_factor_fdr_peaks_FIXED.txt',data.table=F)
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+# Look only in time
+eqtl=eqtl[eqtl$time==time,]
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+factoreqtl$block_start=all_founder_blocks[match(factoreqtl$X_ID,all_founder_blocks$focal_snp),]$start
+factoreqtl$block_end=all_founder_blocks[match(factoreqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(factoreqtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison1=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+# 46 cis-eQTL in this region in time WD_0718
+# 36 cis-eQTL in this region in time WD_0712
+
+# Do any of them have correlated effect sizes?
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+plot_list=list()
+count=1
+#adj_chr=c(5,9)
+cors=c()
+pvals=c()
+for(i in 1:nrow(comparison1)){
+	row=comparison1[i,]
+	env=row$environment
+	chr=row$CHR
+	factor=row$Trait
+	gene=row$i.Trait
+	fsnp=row$X_ID
+	esnp=row$i.X_ID
+	etime=row$time
+	
+	effect_sizes=fread(sprintf('eqtl/trans/results/%s_residuals_c%.0f_%s_trans_results_FIXED.txt',time,chr,factor),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==fsnp,]
+	effect_size=unlist(effect_size[,c(founders)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	
+	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',etime,chr),data.table=F)
+	results=results[results$X_ID==esnp & results$Trait==gene,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	pvals=c(pvals,p)
+	
+	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+	if(abs(r)>0.5){
+		p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder)) +
+		xlab("eQTL effect size (log2cpm)") + ylab("Factor trans-eQTL effect size") +
+		ggtitle(sprintf("%s and %s, %s, r=%.2f",gene,factor,time,r))
+		plot_list[[count]]=p1
+		count=count+1
+	}
+	
+}
+
+comparison1$r=cors
+comparison1$pvalue=pvals
+
+fwrite(comparison1,'eqtl/results/factor_cis_eQTL_overlap.txt',row.names=F,quote=F,sep='\t')
+
+pdf('eqtl/images/factor_cis_eQTL_effect_size_correlations.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
+# Does this overlap with QTL
+
+
+qtl=fread('QTL/all_adjusted_QTL_peaks.txt',data.table=F)
+qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
+qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
+env1=factoreqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+# No overlap
+
+
+####### Residuals ########
+factoreqtl=fread('eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',data.table=F)
+#factoreqtl=fread('eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+
+# Plot out individuals by F-value colored by founder at SNP
+#snp="AX-91833136"
+#time="WD_0712"
+#factor="Factor12"
+#chr="10"
+
+snp="AX-91511569"
+time="WD_0718"
+factor="Factor4"
+chr="2"
+
+F_values=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means_FIXED.txt',time),data.table=F)
+
+summary(F_values[,factor])
 
 
 
+# Does this overlap with ciseQTL
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+factoreqtl$block_start=all_founder_blocks[match(factoreqtl$X_ID,all_founder_blocks$focal_snp),]$start
+factoreqtl$block_end=all_founder_blocks[match(factoreqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+
+# Look only in time
+times=unique(factoreqtl$time)
+for(time in times){
+	teqtl=eqtl[eqtl$time==time,]
+	feqtl=factoreqtl[factoreqtl$time==time,]
+	env1=teqtl
+	env1=as.data.table(env1)
+	env2=as.data.table(feqtl)
+	setkey(env2,CHR,leftmost,alt_rightmost)
+	comparison1=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+	if(nrow(comparison1)!=0){
+		# WD_0718  37 Genes 
+		# Do any of them have correlated effect sizes?
+		plot_list=list()
+		count=1
+		#adj_chr=c(5,9)
+		cors=c()
+		pvals=c()
+		for(i in 1:nrow(comparison1)){
+			row=comparison1[i,]
+			env=row$environment
+			chr=row$CHR
+			factor=row$Trait
+			gene=row$i.Trait
+			fsnp=row$X_ID
+			esnp=row$i.X_ID
+			effect_sizes=fread(sprintf('eqtl/trans/results/%s_residuals_c%.0f_%s_trans_results_FIXED.txt',time,chr,factor),data.table=F)
+			effect_size=effect_sizes[effect_sizes$X_ID==fsnp,]
+			effect_size=unlist(effect_size[,c(founders)])
+			wn=which(!is.na(effect_size))[1]
+			effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+			
+			results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
+			results=results[results$X_ID==esnp & results$Trait==gene,]
+			betas=unlist(results[,c(6,10:24)])
+			wn=which(!is.na(betas))[1]
+			betas[-wn]=betas[-wn]+betas[wn]
+	
+			test=cor.test(effect_size,betas,use="complete.obs")
+			r=test$estimate
+			p=test$p.value
+			cors=c(cors,r)
+			pvals=c(pvals,p)
+	
+			df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+			if(abs(r)>0.5){
+				p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder)) +
+				xlab("eQTL effect size (log2cpm)") + ylab("Factor trans-eQTL effect size") +
+				ggtitle(sprintf("%s and %s, %s, r=%.2f",gene,factor,time,r))
+				plot_list[[count]]=p1
+				count=count+1
+			}
+		}
+		comparison1$r=cors
+		comparison1$pvalue=pvals
+
+		fwrite(comparison1,sprintf('eqtl/results/%s_resid_factor_cis_eQTL_overlap.txt',time),row.names=F,quote=F,sep='\t')
+		pdf(sprintf('eqtl/images/%s_resid_factor_cis_eQTL_effect_size_correlations.pdf',time))
+		for(i in 1:length(plot_list)){
+			print(plot_list[[i]])
+		}
+		dev.off()
+	}
+}
+
+
+
+
+
+
+
+
+# Does this overlap with QTL
+
+
+qtl=fread('QTL/all_adjusted_QTL_peaks.txt',data.table=F)
+qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
+qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
+env1=factoreqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+# No overlap
+
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+plot_list=list()
+count=1
+#adj_chr=c(5,9)
+cors=c()
+pvals=c()
+for(i in 1:nrow(comparison1)){
+	row=comparison1[i,]
+	pheno=row$phenotype
+	env=row$environment
+	chr=row$CHR
+	gene=row$Trait
+	snp=row$SNP
+	id=row$ID
+	time=row$time
+	#exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	gene=row$Trait
+	snp=row$SNP
+	chr=row$CHR
+	#if(chr %in% adj_chr){
+	#	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+	#}else{
+	#	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	#
+	#}
+	#inds=rownames(X_list[[1]])
+	#inter=intersect(exp$V1,inds)
+	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno,env),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==snp,]
+	effect_size=unlist(effect_size[,c(6:21)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	#X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+	#colnames(X) = founders
+	#rownames(X) = inter
+	
+	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
+	#w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
+	#results=results[[w]]
+	results=results[results$X_ID==snp& results$Trait==gene,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	pvals=c(pvals,p)
+	
+	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+	if(abs(r)>0.5){
+		p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder)) +
+		xlab("eQTL effect size (log2cpm)") + ylab("QTL effect size") +
+		ggtitle(sprintf("%s %s and %s %s, r=%.2f",gene,time,id,env,r))
+		plot_list[[count]]=p1
+		count=count+1
+	}
+	
+}
+
+comparison1$r=cors
+comparison1$pvalue=pvals
+
+fwrite(comparison1,'QTT/QTL_cis_eQTL_overlap.txt',row.names=F,quote=F,sep='\t')
+
+
+# WD_0712 Factor 12
+ #   Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-7.23787 -0.10174  0.09730  0.01619  0.46738  1.52755 
+
+#WD_0718 Factor 4
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#-5.4374 -1.1530  0.3931  0.1327  1.5628  4.2934 
+
+df=F_values[,c('V1',factor)]
+
+df=df[order(df[,factor]),]
+rownames(df)=seq(1,nrow(df))
+df$ID_f=factor(df$V1,levels=c(unique(df$V1)))
+rownames(df)=df$V1
+adj_chr=c("5","9")
+if(chr %in% adj_chr){
+	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+
+}else{
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+}
+
+X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
+
+colnames(X) = founders
+rownames(X) = dimnames(X_list[[1]])[[1]]
+X=X[rownames(df),]
+founder_id=apply(X,MARGIN=1,function(x) names(x[which.max(x)]))
+df$founder=founder_id[match(df$V1,names(founder_id))]
+names(df)=c('V1' ,'factor','ID_f','founder')
+p=ggplot(aes(x=ID_f,y=factor),data=df) + 
+    geom_point(aes(color=founder)) +
+     xlab('Sample') +
+     ylab('F-value') + geom_hline(yintercept=0)
+
+pdf(sprintf('eqtl/trans/images/%s_%s_F_by_ind.pdf',time,factor))
+print(p)
+dev.off()
+
+
+# What are the effect sizes for these Factors?
+# Do they overlap with any cis-eQTL? Are their effect sizes correlated?
+
+# If we drop out EB.09S.H.00417, is the factor trans-eQTL still significant?
+
+
+##### Residuals #######
+
+
+
+factoreqtl=fread('eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
+
+snp="AX-91833136"
+time="WD_0712"
+factor="Factor5"
+chr="10"
+# Outlier
+
+snp="AX-91393272"
+time="WD_0712"
+factor="Factor5"
+chr="3"
+# Outlier
+
+time="WD_0712"
+factor="Factor23"
+snp="PZE-104044271"
+chr="4"
+# Outlier
+
+snp="AX-90733794"
+time="WD_0718"
+factor="Factor4"
+chr="2"
+
+time="WD_0720"
+factor="Factor19"
+snp="AX-91628035"
+chr="4"
+
+time="WD_0720"
+factor="Factor17"
+snp="AX-91066014"
+chr="4"
+
+
+F_values=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time),data.table=F)
+
+summary(F_values[,factor])
+
+
+
+##################
 factoreqtl=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
 factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)

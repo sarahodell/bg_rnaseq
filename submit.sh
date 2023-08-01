@@ -8,14 +8,14 @@ module load conda/base
 conda activate /home/sodell/.conda/envs/snakemake-tutorial
 
 #module load fastqc
-#module load deprecated/multiqc/bio3 
-module load star
-module load samtools
+module load deprecated/multiqc/bio3 
+#module load star
+#module load samtools
 
 #module load java
 #module load jdk
 #module load bcftools
-#module load qualimap/2.1.1
+module load qualimap
 #
 #module load HTSeq/0.9.1
 #module load salmon

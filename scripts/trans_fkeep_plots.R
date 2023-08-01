@@ -27,7 +27,7 @@ greypalette=gray.colors(5)
 #threshold=threshtable[threshtable$time==time & threshtable$factor==factor,]$threshold
 #print(threshold)
 n_m=4716
-time_factors=list("WD_0712"=15,"WD_0718"=20,"WD_0720"=19,"WD_0727"=17)
+time_factors=list("WD_0712"=27,"WD_0718"=20,"WD_0720"=19,"WD_0727"=17)
 n_factors=68
 adjust=n_m*n_factors
 #threshold=-log10((10^-threshold)/adjust)
@@ -36,7 +36,7 @@ print(threshold)
 df=c()
 for(c in 1:10){
   #d=fread(sprintf('eqtl/trans/results/%s_c%s_pheno_residuals_factor_trans_eQTL.txt',time,c))
-  d=fread(sprintf('eqtl/trans/results/%s_c%.0f_%s_trans_Kchr_results.txt',time,c,factor))
+  d=fread(sprintf('eqtl/trans/results/%s_c%.0f_%s_trans_results_FIXED.txt',time,c,factor))
   pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
   d$CHR=c
   d$BP=pmap[match(d$X_ID,pmap$marker),]$pos
@@ -169,23 +169,23 @@ ymax=round(max(subdf$value))+1
 #threshold=-log10(0.05)
 #threshold=-log10(0.05/(nrow(df)))
 
-title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
+#title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
 #title=sprintf("Residual trans-eQTL for %s at timepoint %s",factor,time)
-a2<-gg.manhattan2(subdf,threshold,
-             col=greypalette,
-             ylims=c(0,ymax)) + labs(caption = title)
+#a2<-gg.manhattan2(subdf,threshold,
+#             col=greypalette,
+#             ylims=c(0,ymax)) + labs(caption = title)
 
 
-sigs2=subdf[subdf$value>=threshold,]
+#sigs2=subdf[subdf$value>=threshold,]
 
-if(dim(sigs2)[1]!=0){
+#if(dim(sigs2)[1]!=0){
   #png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
-  png(sprintf('eqtl/trans/images/%s_trans_eQTL_fkeep_Kchr_manhattan_%s.png',factor,time),width=2000,height=1500)
-  print(a2)
-  dev.off()
-  fwrite(sigs2,sprintf('eqtl/results/%s_trans_%s_eQTL_fkeep_Kchr_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+#  png(sprintf('eqtl/trans/images/%s_trans_eQTL_fkeep_manhattan_%s_FIXED.png',factor,time),width=2000,height=1500)
+#  print(a2)
+#  dev.off()
+#  fwrite(sigs2,sprintf('eqtl/results/%s_trans_%s_eQTL_fkeep_hits_FIXED.txt',factor,time),row.names=F,quote=F,sep='\t')
   #fwrite(sigs2,sprintf('eqtl/results/%s_pheno_residuals_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
-}
+#}
 
 
 df=df[order(df$p_value_ML),]
@@ -207,7 +207,6 @@ ymax=round(max(subdf$value))+1
 threshold=-log10(0.05/n_factors)
 print(threshold)
 #threshold=-log10(0.05/(nrow(df)))
-
 title=sprintf("trans-eQTL for %s at timepoint %s",factor,time)
 #title=sprintf("Residual trans-eQTL for %s at timepoint %s",factor,time)
 a2<-gg.manhattan2(subdf,threshold,
@@ -219,10 +218,10 @@ sigs2=subdf[subdf$value>=threshold,]
 
 if(dim(sigs2)[1]!=0){
   #png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
-  png(sprintf('eqtl/trans/images/%s_trans_eQTL_fkeep_fdr_manhattan_%s.png',factor,time),width=2000,height=1500)
+  png(sprintf('eqtl/trans/images/%s_trans_eQTL_fkeep_fdr_manhattan_%s_FIXED.png',factor,time),width=2000,height=1500)
   print(a2)
   dev.off()
-  fwrite(sigs2,sprintf('eqtl/results/%s_trans_%s_eQTL_fkeep_fdr_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
+  fwrite(sigs2,sprintf('eqtl/results/%s_trans_%s_eQTL_fkeep_fdr_hits_FIXED.txt',factor,time),row.names=F,quote=F,sep='\t')
   #fwrite(sigs2,sprintf('eqtl/results/%s_pheno_residuals_trans_%s_eQTL_hits.txt',factor,time),row.names=F,quote=F,sep='\t')
 }
 

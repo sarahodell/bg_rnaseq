@@ -3,12 +3,12 @@
 library('data.table')
 library('ggplot2')
 
-time="WD_0727"
+time="WD_0712"
 
 #data=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_factor_correlations.txt',time),data.table=F)
-data=fread(sprintf('MegaLMM/MegaLMM_%s_factor_correlations.txt',time),data.table=F)
+data=fread(sprintf('MegaLMM/MegaLMM_%s_factor_correlations_FIXED.txt',time),data.table=F)
 
-lambda_all_means=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means.txt',time),data.table=F)
+lambda_all_means=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means_FIXED.txt',time),data.table=F)
 #lambda_all_means=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_all_Lambda_means.txt',time),data.table=F)
 rownames(lambda_all_means)=lambda_all_means$V1
 lambda_all_means=lambda_all_means[,-1]
@@ -20,13 +20,37 @@ for(i in 1:nrow(data)){
 strong=which(count==3)
 sdata=data[strong,]
 
+prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) (x)^2/sum((x)^2))),stringsAsFactors=F)
+fwrite(prop_matrix,sprintf('MegaLMM/MegaLMM_%s_prop_variance_FIXED.txt',time),row.names=T,quote=F,sep='\t')
+
+###### Residuals
+
+
+data=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_factor_correlations_FIXED.txt',time),data.table=F)
+
+lambda_all_means=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_Lambda_means_FIXED.txt',time),data.table=F)
+#lambda_all_means=fread(sprintf('MegaLMM/pheno_MegaLMM_residuals_%s_all_Lambda_means.txt',time),data.table=F)
+rownames(lambda_all_means)=lambda_all_means$V1
+lambda_all_means=lambda_all_means[,-1]
+
+count=c()
+for(i in 1:nrow(data)){
+  count=c(count,sum(abs(data[i,c(4:6)])>=0.9,na.rm=T))
+}
+strong=which(count==3)
+sdata=data[strong,]
+
+prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) (x)^2/sum((x)^2))),stringsAsFactors=F)
+fwrite(prop_matrix,sprintf('MegaLMM/MegaLMM_%s_residuals_prop_variance_FIXED.txt',time),row.names=T,quote=F,sep='\t')
+
+
 
 lambda=lambda_all_means[,'Factor2',drop=F]
 lambda$lambda2=lambda$Factor2**2
 sublambda=lambda[lambda$lambda2>=0.1,]
 lgenes=rownames(lambda[lambda$lambda2>=0.1,])
 lgenes=data.frame(genes=lgenes,stringsAsFactors=F)
-fwrite(lgenes,'WD_0727_Factor2_lambda2_genelist.txt',row.names=F,quote=F,sep='\t',col.names=F)
+fwrite(lgenes,sprintf('%s_Factor2_lambda2_genelist_FIXED.txt',time),row.names=F,quote=F,sep='\t',col.names=F)
 
 true_nft=length(intersect(ft_genelist$V4,lgenes$genes))
 
@@ -44,8 +68,15 @@ for(i in 1:10000){
 
 # Get a prop_var matrix from lambdas
 
-prop_matrix=as.data.frame(t(apply(lambda_all_means,MARGIN=1,function(x) (x)^2/sum((x)^2))),stringsAsFactors=F)
-fwrite(prop_matrix,sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),row.names=T,quote=F,sep='\t')
+ how many genes are loaded on each factor?
+
+ngenes=apply(prop_matrix,MARGIN=2,function(x)sum(x>0.1))
+# how many genes are loaded on multiple factors? avg number?
+genesper=apply(prop_matrix,MARGIN=1,function(x)sum(x>0.1))
+#summary(genesper)
+# WD_0712
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  0.000   2.000   3.000   2.599   3.000   7.000
 
 factors=names(lambda_all_means)
 factor_groups=vector("list",length=length(factors))

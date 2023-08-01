@@ -10,7 +10,7 @@ genetable$LENGTH=genetable$END-genetable$START
 genetable=genetable[order(genetable$CHROM,genetable$START),]
 rownames(genetable)=seq(1,nrow(genetable))
 
-annotation=fread('annotations/GO/maize.B73.AGPv4.aggregate.withancestors.csv',data.table=F)
+annotation=fread('GO/maize.B73.AGPv4.aggregate.withancestors.csv',data.table=F)
 annotation=merge(annotation,genetable,by.x="Gene",by.y="Gene_ID")
 annotation=annotation[order(annotation$CHROM,annotation$START),]
 
@@ -21,7 +21,7 @@ log_inverse=function(x){
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 all_go=c()
 for(time in times){
-	data=fread(sprintf('MegaLMM/MegaLMM_%s_factor_correlations.txt',time),data.table=F)
+	data=fread(sprintf('MegaLMM/MegaLMM_%s_factor_correlations_FIXED.txt',time),data.table=F)
 	count=c()
 	for(i in 1:nrow(data)){
   		count=c(count,sum(abs(data[i,c(4:6)])>=0.9,na.rm=T))
@@ -32,13 +32,13 @@ for(time in times){
 	pheno_factors=sdata$r1_factor_1
 	genes=unique(annotation$Gene)
 	
-	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
-	rownames(exp)=exp$ID
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	rownames(exp)=exp$V1
 	exp=exp[,-1]
 
-	geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
-	kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
-	exp=exp[,c(kept_genes)]
+	#geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
+	#kept_genes=geneh2s[geneh2s$h2>0 ,]$gene
+	#exp=exp[,c(kept_genes)]
 	unlog=data.frame(lapply(exp,log_inverse),stringsAsFactors=F)
 	avg_exp = apply(unlog,2,mean)
 	names(avg_exp)=names(exp)
@@ -48,26 +48,26 @@ for(time in times){
 	avg_logexp[is.infinite(avg_logexp)]=0
 	
 	all_genes=intersect(unique(genetable$Gene_ID),unique(annotation$Gene))
-	tp_genes=kept_genes
+	#tp_genes=kept_genes
 
 	genelength=genetable[match(all_genes,genetable$Gene_ID),]$LENGTH
 	names(genelength)=all_genes
 
-	deg=ifelse(all_genes %in% tp_genes,1,0)
-	names(deg)=all_genes
-	go=nullp(DEgenes=deg,bias.data=genelength,plot.fit=F)
-	GO.full=goseq(go,gene2cat=annotation[,c('Gene','GO')],use_genes_without_cat=TRUE,test.cats=c("GO:BP"))
-	GO.full=as.data.frame(GO.full,stringsAsFactors=F)
-	GO.full$adjusted_p=p.adjust(GO.full$over_represented_pvalue,method="fdr")
-	enriched_GO.full=GO.full[GO.full$adjusted_p<0.05,]
+	#deg=ifelse(all_genes %in% tp_genes,1,0)
+	#names(deg)=all_genes
+	#go=nullp(DEgenes=deg,bias.data=genelength,plot.fit=F)
+	#GO.full=goseq(go,gene2cat=annotation[,c('Gene','GO')],use_genes_without_cat=TRUE,test.cats=c("GO:BP"))
+	#GO.full=as.data.frame(GO.full,stringsAsFactors=F)
+	#GO.full$adjusted_p=p.adjust(GO.full$over_represented_pvalue,method="fdr")
+	#enriched_GO.full=GO.full[GO.full$adjusted_p<0.05,]
 	
 
-	full_cats=unique(enriched_GO.full$category)
+	#full_cats=unique(enriched_GO.full$category)
 	######### GOSeq ########
 
 	
 	pdf(sprintf('images/%s_nullp_plots.pdf',time))
-	prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),data.table=F)
+	prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance_FIXED.txt',time),data.table=F)
 	# How much variation is enough? 
 	subvar=prop_var[,c('V1',pheno_factors)]
 	cutoff=0.1
@@ -86,7 +86,7 @@ for(time in times){
   			GO.samp=as.data.frame(GO.samp,stringsAsFactors=F)
   			GO.samp$factor=f
   			GO.samp$time=time
-  			GO.samp$in_full=GO.samp$category %in% full_cats
+  			#GO.samp$in_full=GO.samp$category %in% full_cats
   			all_go=rbind(all_go,GO.samp)
   		}else{
   			print("No genes loaded")
@@ -99,12 +99,82 @@ for(time in times){
 
 
 all_go=as.data.frame(all_go,stringsAsFactors=F)
-fwrite(all_go,sprintf('MegaLMM/GO/MegaLMM_%.2f_GOSeq_all.txt',cutoff),row.names=F,quote=F,sep='\t')
+fwrite(all_go,sprintf('GO/MegaLMM_%.2f_GOSeq_all_FIXED.txt',cutoff),row.names=F,quote=F,sep='\t')
 
 all_go$adjusted_p=p.adjust(all_go$over_represented_pvalue,method="fdr")
 enriched_GO=all_go[all_go$adjusted_p<0.05,]
-fwrite(enriched_GO,sprintf('MegaLMM/GO/MegaLMM_%.2f_GOSeq_enriched.txt',cutoff),row.names=F,quote=F,sep='\t')
+fwrite(enriched_GO,sprintf('GO/MegaLMM_%.2f_GOSeq_enriched_FIXED.txt',cutoff),row.names=F,quote=F,sep='\t')
 
+########### Residuals ##############
+
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+all_go=c()
+for(time in times){
+	data=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_factor_correlations_FIXED.txt',time),data.table=F)
+	count=c()
+	for(i in 1:nrow(data)){
+  		count=c(count,sum(abs(data[i,c(4:6)])>=0.9,na.rm=T))
+	}
+	strong=which(count==3)
+	sdata=data[strong,]
+
+	pheno_factors=sdata$r1_factor_1
+	genes=unique(annotation$Gene)
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	rownames(exp)=exp$V1
+	exp=exp[,-1]
+
+	unlog=data.frame(lapply(exp,log_inverse),stringsAsFactors=F)
+	avg_exp = apply(unlog,2,mean)
+	names(avg_exp)=names(exp)
+	avg_exp[avg_exp<1]=0
+	# re-log the input data
+	avg_logexp=log2(avg_exp)
+	avg_logexp[is.infinite(avg_logexp)]=0
+	
+	all_genes=intersect(unique(genetable$Gene_ID),unique(annotation$Gene))
+	#tp_genes=kept_genes
+
+	genelength=genetable[match(all_genes,genetable$Gene_ID),]$LENGTH
+	names(genelength)=all_genes
+	
+	pdf(sprintf('images/%s_residuals_nullp_plots.pdf',time))
+	prop_var=fread(sprintf('MegaLMM/MegaLMM_residuals_%s_prop_variance_FIXED.txt',time),data.table=F)
+	# How much variation is enough? 
+	subvar=prop_var[,c('V1',pheno_factors)]
+	cutoff=0.1
+
+	nullp_list=vector("list",length(pheno_factors))
+	genes=names(avg_exp)
+	for(f in pheno_factors){
+  		test=subvar[subvar[,f]>=cutoff,]$V1
+  		if(length(test)>0){
+  			deg=ifelse(genes %in% test,1,0)
+  			names(deg)=genes
+  			inter=intersect(test,genes[which(genes %in% test)])
+  			test=inter
+  			go=nullp(DEgenes=deg,bias.data=avg_logexp,plot.fit=T)
+  			GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],use_genes_without_cat=TRUE,test.cats=c("GO:BP"))
+  			GO.samp=as.data.frame(GO.samp,stringsAsFactors=F)
+  			GO.samp$factor=f
+  			GO.samp$time=time
+  			all_go=rbind(all_go,GO.samp)
+  		}else{
+  			print("No genes loaded")
+  			print(time)
+  			print(f)
+  		}	
+  	}
+  	dev.off()
+}
+
+
+all_go=as.data.frame(all_go,stringsAsFactors=F)
+fwrite(all_go,sprintf('GO/MegaLMM_residuals_%.2f_GOSeq_all_FIXED.txt',cutoff),row.names=F,quote=F,sep='\t')
+
+all_go$adjusted_p=p.adjust(all_go$over_represented_pvalue,method="fdr")
+enriched_GO=all_go[all_go$adjusted_p<0.05,]
+fwrite(enriched_GO,sprintf('GO/MegaLMM_residuals_%.2f_GOSeq_enriched_FIXED.txt',cutoff),row.names=F,quote=F,sep='\t')
 
 
 

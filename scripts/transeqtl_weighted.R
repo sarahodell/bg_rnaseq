@@ -26,7 +26,9 @@ genes=unique(genetable$Gene_ID)
 # Read in phenotypes
 # Grab the phenotype of interest and drop the genotypes not in the K matrix
 phenotypes=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
-metadata=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
+metadata=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
+
+#metadata=fread('metadata/BG_completed_sample_list_FIXED.txt',data.table=F)
 pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
 
 #geneh2s=fread(sprintf('eqtl/data/lme4qtl_%s_h2s.txt',time),data.table=F)
@@ -34,14 +36,21 @@ pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
 #phenotypes=phenotypes[,c('V1',kept_genes)]
 
 metadata=metadata[metadata$experiment==time,]
-metadata=metadata[metadata$read==1,]
+#metadata=metadata[metadata$read==1,]
 #data = phenotypes[,c('V1'),drop=F]
 #names(data)=c('ID')
 
 genos=phenotypes$V1
 ######
+adj_chr=c("5","9")
+if(chr %in% adj_chr){
+	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
 
-X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+}else{
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	#chr 5 "AX-91671957" replaced with "AX-91671943"
+}
+#X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
 inds=rownames(X_list[[1]])
 #dhs=metadata[match(samples,metadata$sample_name),]$dh_genotype
 inter=intersect(genos,inds)

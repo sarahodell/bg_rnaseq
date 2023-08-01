@@ -18,4 +18,4 @@ env="$(sed "${SLURM_ARRAY_TASK_ID}q;d" QTL/pheno_env.txt | cut -f2 -d,)"
 echo $pheno
 echo $env
 
-Rscript scripts/manhattan_plots.R $pheno $env 0.01
+Rscript scripts/manhattan_plots.R $pheno $env 0.10
