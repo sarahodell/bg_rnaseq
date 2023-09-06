@@ -37,7 +37,7 @@ df=as.data.frame(df,stringsAsFactors=F)
 df=df[!is.na(df$p_value_ML),]
 df=df[order(df$p_value_ML),]
 rownames(df)=seq(1,nrow(df))
-qvalues=qvalue(df$p_value_ML,fdr.level=0.05)
+qvalues=qvalue(df$p_value_ML,fdr.level=0.1)
 summary(qvalues)
 #Call:
 #qvalue(p = df$p_value_ML, fdr.level = 0.05)
@@ -53,17 +53,19 @@ summary(qvalues)
 write.qvalue(qvalues,'eqtl/results/cis_qvalues.txt',sep='\t')
 
 
-pdf('eqtl/cis/images/qvalue_diagnostics.pdf')
-hist(qvalues)
-plot(qvalues)
-dev.off()
+#pdf('eqtl/cis/images/qvalue_diagnostics.pdf')
+#hist(qvalues)
+#plot(qvalues)
+#dev.off()
 
 df$p_adjusted=qvalues$qvalues
+#df$lfdr=qvalues$lfdr
 #df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
-df$value=-log10(df$p_adjusted)
-#df$value=-log10(df$p_value_ML)
 
-threshold=-log10(0.05)
+df$value=-log10(df$p_adjusted)
+#df$value=-log10(df$lfdr)
+
+threshold=-log10(0.1)
 adjust=nrow(df)
 #threshold=-log10(0.01/adjust)
 sig=df[df$value>=threshold,]
@@ -74,7 +76,7 @@ print(qqman::qq(df$p_value_ML))
 dev.off()
 
 
-fwrite(sig,'eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
+fwrite(sig,'eqtl/results/all_cis_eQTL_weights_lfdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 #fwrite(sig,'eqtl/results/all_cis_eQTL_weights_1bonf_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 
 
@@ -121,14 +123,14 @@ gg.manhattan2 <- function(fdf, threshold, col, ylims,bounds){
 for(time in times){
 	subdf=df[df$time==time,]
 	ymax=round(max(subdf$value))+1
-	threshold=-log10(0.05)
+	threshold=-log10(0.1)
 
 	title=sprintf("cis-eQTL at timepoint %s",time)
 	a2<-gg.manhattan2(fdf=subdf,threshold,
              col=greypalette,
              ylims=c(0,ymax)) + labs(caption = title)
 
-	png(sprintf('eqtl/cis/images/ciseQTL_weights_fdr_manhattan_%s_FIXED.png',time),width=2000,height=1500)
+	png(sprintf('eqtl/cis/images/ciseQTL_weights_lfdr_manhattan_%s_FIXED.png',time),width=2000,height=1500)
 	#png(sprintf('eqtl/cis/images/ciseQTL_weights_1bonf_manhattan_%s_FIXED.png',time),width=2000,height=1500)
 	print(a2)
 	dev.off()

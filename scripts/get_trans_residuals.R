@@ -14,14 +14,24 @@ library('stringr')
 library('parallel')
 library('MASS')
 
+
+# What proportion of distal residuals is explained by trans-eQTL
+# What proportion phenotypic variation is explained by trans-eQTL?
 #time="WD_0720"
 #chr="10"
 #library('GenomicFeatures') # write a script to get a table of start and stop sites of genes from the gtf file
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
-all_gwas=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
-all_gwas=all_gwas %>% group_by(Trait) %>% slice(which.min(p_value_ML))
+trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+trans=trans[trans$time==time & trans$CHR==chr,]
+trans$gene_snp=paste0(trans$gene,'-',trans$SNP)
+all_gwas=fread(sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results_filtered_FIXED.txt',time,chr),data.table=F)
+#all_gwas=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
+#all_gwas=all_gwas %>% group_by(Trait) %>% slice(which.min(p_value_ML))
+all_gwas$gene_snp=paste0(all_gwas$Trait,'-',all_gwas$X_ID)
+all_gwas=all_gwas[all_gwas$gene_snp %in% trans$gene_snp,]
 all_gwas=as.data.frame(all_gwas)
-all_betas=all_gwas[,c('Trait','X_ID',founders)]
+all_betas=all_gwas[,c('Trait','X_ID','gene_snp',founders)]
+
 #options(warn=2)
 # Read in Kinship Matrix
 K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
@@ -73,7 +83,7 @@ get_resids<-function(row){
 	data=data[!is.na(data$y),]
 	rownames(data)=data$ID
 	data=data[inter,]
-	
+	gene_snp=test$gene_snp
 	snp=test$X_ID
 	X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
 	colnames(X) = founders
@@ -91,12 +101,12 @@ get_resids<-function(row){
 	intercept=names(betas)[wn]
 	full_betas[names(full_betas)!=intercept]=full_betas[intercept]+full_betas[names(full_betas)!=intercept]
 	bv=X %*% full_betas
-	colnames(bv)=gene
+	colnames(bv)=gene_snp
 	X_r=data$y-bv
-	colnames(X_r)=gene
-	prop_var=var(bv[,gene],na.rm=T)/var(data$y,na.rm=T)
-	line2=data.frame(gene=gene,time=time,snp=snp,prop_var=prop_var,stringsAsFactors=F)
-	return(list(X_r,line2,bv))
+	colnames(X_r)=gene_snp
+	prop_var=var(bv[,gene_snp],na.rm=T)/var(data$y,na.rm=T)
+	line2=data.frame(gene=gene,time=time,chr=chr,snp=snp,prop_var=prop_var,stringsAsFactors=F)
+	return(list(line2,bv))
 }
 
 #n_reps=1:10
@@ -106,18 +116,15 @@ print(system.time({
 results=mclapply(n_reps,get_resids,mc.cores=cores)
 }))
 
-all_res=do.call(cbind,lapply(results,function(x) x[[1]]))
-all_res=as.data.frame(all_res,stringsAsFactors=F)
-rownames(all_res)=inter
-fwrite(all_res,sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_residuals_FIXED.txt',time,chr),row.names=T,quote=F,sep='\t')
 
-all_props=do.call(rbind,lapply(results,function(x) x[[2]]))
+#all_props=rbindlist(results)
+all_props=do.call(rbind,lapply(results,function(x) x[[1]]))
 all_props=as.data.frame(all_props,stringsAsFactors=F)
-fwrite(all_props,sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_prop_var_FIXED.txt',time,chr),row.names=F,quote=F,sep='\t')
+fwrite(all_props,sprintf('eqtl/trans/results/eQTL_%s_c%s_weights_prop_var_FIXED.txt',time,chr),row.names=F,quote=F,sep='\t')
 
-all_bv=do.call(cbind,lapply(results,function(x) x[[3]]))
+all_bv=do.call(cbind,lapply(results,function(x) x[[2]]))
 all_bv=as.data.frame(all_bv,stringsAsFactors=F)
-fwrite(all_bv,sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_bv_FIXED.txt',time,chr),row.names=T,quote=F,sep='\t')
+fwrite(all_bv,sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_bv_FIXED.txt',time,chr),row.names=T,quote=F,sep='\t')
 
 
 

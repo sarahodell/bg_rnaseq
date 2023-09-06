@@ -3,6 +3,129 @@
 library('data.table')
 library('ggplot2')
 
+
+
+
+# What Factors match up for whole and residual MegaLMM?
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+
+df=c()
+for(time in times){
+	lambda_r=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_Lambda_means_FIXED.txt',time),data.table=F)
+	rownames(lambda_r)=lambda_r$V1
+	lambda=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means_FIXED.txt',time),data.table=F)
+	rownames(lambda)=lambda$V1
+	ginter=intersect(lambda$V1,lambda_r$V1)
+	lambda=lambda[ginter,]
+	lambda_r=lambda_r[ginter,]
+	factors=names(lambda)[-1]
+	factors_r=names(lambda_r)[-1]
+	#factorsm=which.max(c(length(factors),length(factors_r)))
+	#if(factorsm==1){
+	#	factorlist=factors
+	#}else{
+	#	factorlist=factors_r
+	#}
+	for(factor in factors){
+		r1=lambda[,c('V1',factor)]
+		rownames(r1)=r1$V1
+		fmax_cor=0
+		fmax=0
+		for(i in factors_r){
+			column=lambda_r[,i]
+			r=cor(r1[,factor],column)
+			if(abs(r)>abs(fmax_cor)){
+				fmax_cor=r
+				fmax=i
+			}
+		}
+		line=data.frame(time=time,factor=factor,factor_r=fmax,fmax_cor=fmax_cor,stringsAsFactors=F)
+		df=rbind(df,line)
+	}
+}
+
+
+fwrite(df,'MegaLMM/MegaLMM_whole_residual_factor_pairs.txt',row.names=F,quote=F,sep='\t')
+
+df2=c()
+# What factors match up across time points?
+for(t1 in 1:3){
+	time1=times[t1]
+	for(t2 in (t1+1):4){
+		time2=times[t2]
+		lambda1=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means_FIXED.txt',time1),data.table=F)
+		rownames(lambda1)=lambda1$V1
+		lambda2=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means_FIXED.txt',time2),data.table=F)
+		rownames(lambda2)=lambda2$V1
+		ginter=intersect(lambda1$V1,lambda2$V1)
+		lambda1=lambda1[ginter,]
+		lambda2=lambda2[ginter,]
+		
+		factors1=names(lambda1)[-1]
+		factors2=names(lambda2)[-1]
+
+		for(factor in factors1){
+			r1=lambda1[,c('V1',factor)]
+			rownames(r1)=r1$V1
+			fmax_cor=0
+			fmax=0
+			for(i in factors2){
+				column=lambda2[,i]
+				r=cor(r1[,factor],column)
+				if(abs(r)>abs(fmax_cor)){
+					fmax_cor=r
+					fmax=i
+				}
+			}
+			line=data.frame(time1=time1,factor1=factor,time2=time2,factor2=fmax,fmax_cor=fmax_cor,stringsAsFactors=F)
+			df2=rbind(df2,line)
+		}
+	}
+}
+
+fwrite(df2,'MegaLMM/MegaLMM_timepoint_factor_pairs.txt',row.names=F,quote=F,sep='\t')
+
+
+# Across timepoints for residuals
+df3=c()
+# What factors match up across time points?
+for(t1 in 1:3){
+	time1=times[t1]
+	for(t2 in (t1+1):4){
+		time2=times[t2]
+		lambda1=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_Lambda_means_FIXED.txt',time1),data.table=F)
+		rownames(lambda1)=lambda1$V1
+		lambda2=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_Lambda_means_FIXED.txt',time2),data.table=F)
+		rownames(lambda2)=lambda2$V1
+		ginter=intersect(lambda1$V1,lambda2$V1)
+		lambda1=lambda1[ginter,]
+		lambda2=lambda2[ginter,]
+		
+		factors1=names(lambda1)[-1]
+		factors2=names(lambda2)[-1]
+
+		for(factor in factors1){
+			r1=lambda1[,c('V1',factor)]
+			rownames(r1)=r1$V1
+			fmax_cor=0
+			fmax=0
+			for(i in factors2){
+				column=lambda2[,i]
+				r=cor(r1[,factor],column)
+				if(abs(r)>abs(fmax_cor)){
+					fmax_cor=r
+					fmax=i
+				}
+			}
+			line=data.frame(time1=time1,factor1=factor,time2=time2,factor2=fmax,fmax_cor=fmax_cor,stringsAsFactors=F)
+			df3=rbind(df3,line)
+		}
+	}
+}
+
+fwrite(df3,'MegaLMM/MegaLMM_timepoint_residuals_factor_pairs.txt',row.names=F,quote=F,sep='\t')
+
+
 chr="8"
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 genetable=genetable[genetable$CHROM==chr,]

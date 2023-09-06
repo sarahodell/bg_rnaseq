@@ -5,8 +5,8 @@
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/%A_%a.error
 #SBATCH -t 48:00:00
 #SBATCH --array=1-560%50
-#SBATCH --ntasks=1
-#SBATCH --mem=3G
+#SBATCH --ntasks=4
+#SBATCH --mem=4G
 
 module load R
 
@@ -27,8 +27,7 @@ echo $env
 echo $chr
 
 #Rscript scripts/GridLMM_fp_updated.R $pheno $env $chr 1
-#Rscript scripts/GridLMM_fp_adjusted.R $pheno $env $chr 1
-Rscript scripts/GridLMM_fp_unscaled.R $pheno $env $chr 1
+Rscript scripts/GridLMM_MITE_only.R $pheno $env $chr 4
 
 #Rscript scripts/GridLMM_fp_pheno_x_env.R $pheno $env $chr 1
 #if [ $env == "ALL" ]

@@ -173,13 +173,14 @@ qtl$pheno_env_ID=paste0(qtl$phenotype,'-',qtl$environment,'-',qtl$ID)
 
 all_perms=c()
 for(pei in pheno_env_ids){
-	bootstrap=sapply(seq(1,100),function(x) random_ten(pei))
-	perms=data.frame(pei=pei,rep=seq(1,100),max_r=bootstrap,stringsAsFactors=F)
+	bootstrap=sapply(seq(1,300),function(x) random_ten(pei))
+	perms=data.frame(pei=pei,rep=seq(1,300),max_r=bootstrap,stringsAsFactors=F)
 	all_perms=rbind(all_perms,perms)
 }
 fwrite(all_perms,'QTT/top10_eqtl_permutations.txt',row.names=F,quote=F,sep='\t')
 names(all_perms)=c('pei','rep','perm_max_r')
 
+all_perms=fread('QTT/top10_eqtl_permutations.txt',data.table=F)
 n=10
 top_r=c()
 for(pei in pheno_env_ids){
@@ -219,15 +220,29 @@ top_r=top_r[order(top_r$max_r),]
 rownames(top_r)=seq(1,nrow(top_r))
 top_r$pei_f=factor(top_r$pheno_env_ID,levels=c(unique(top_r)$pheno_env_ID))
 
+max_r_f=sort(unique(top_r$max_r2))
+top_r$max_r2=top_r$max_r**2
+top_r$max_r_f=factor(top_r$max_r2,levels=c(max_r_f))
 
-p2=ggplot(aes(x=max_r,y=perm_max_r,group=max_r),data=all_perms)  + 
-geom_boxplot(fill="blue", alpha=0.2)+
-geom_point(data=top_r,aes(x=max_r,y=top10_r),color="red",size=2) +
-xlab("QTL") + 
-ylab("Highest correlation gene of 10 most significant eQTL (|r|)") + geom_abline(slope=1)
+all_perms$max_r2=all_perms$max_r**2
+all_perms$max_r_f=factor(all_perms$max_r2,levels=c(max_r_f))
 
 
-png('QTT/images/eQTL_r_by_sig_perm.png')
+all_perms$max_r100=round(all_perms$max_r2*100)
+
+top_r$max_r100=round(top_r$max_r2*100)
+
+p2=ggplot(all_perms,aes(x=max_r100,y=perm_max_r**2,group=max_r100))  + 
+scale_x_continuous(limits=c(0,100),breaks=c(seq(0,100,10)),labels=c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9",'1.0')) +
+scale_y_continuous(limits=c(0,1),breaks=c(seq(0,1,0.1)),labels=c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9",'1.0')) +
+geom_boxplot(position =position_dodge(0),alpha=0.2) +
+geom_point(data=top_r,aes(x=max_r100,y=top10_r**2),color="red",size=2) +
+xlab("Highest correlation eQTL (r^2)") + 
+ylab("Highest correlation of 10 most significant eQTL (r^2)") + geom_abline(slope=0.01) +
+ggtitle("Correlation of QTL effect sizes with overlapping eQTL")
+
+
+pdf('QTT/images/eQTL_r_by_sig_perm.pdf')
 print(p2)
 dev.off()
 
@@ -372,3 +387,177 @@ for(i in 1:length(plot_list)){
 }
 dev.off()
 
+
+#### For eQTL within QTL, how does correlation plot with location
+comparison2=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
+comparison2$pheno_env_ID=paste0(comparison2$phenotype,'-',comparison2$environment,'-',comparison2$ID)
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+compmerge=merge(comparison2,genetable,by.x='Trait',by.y="Gene_ID")
+compmerge$midgene=compmerge$START + ((compmerge$END-compmerge$START)/2)
+pheno_env_ids=unique(compmerge$pheno_env_ID)
+
+plot_list=list()
+count=1
+for(pei in pheno_env_ids){
+	subdf=compmerge[compmerge$pheno_env_ID==pei,]
+	#maxr=max(ab)
+	#times=unique(subdf$time)
+	p1=ggplot(subdf, aes(xmin = START/1e6, xmax = END/1e6, ymin = r-0.02, ymax = r+0.02)) + 
+  	geom_rect(stat = "identity") + facet_grid(rows = vars(time)) +
+#	p1=ggplot(subdf,aes(x=midgene/1e6,y=r)) + geom_bar(aes(x=STARt/1e6,)) + xlab("Physical position (bp)") +
+	ylab("Correlation of eQTL") + ggtitle(sprintf("%s eQTL correlation",pei)) +
+	ylim(-1,1) + geom_hline(yintercept=0,color="black")
+	plot_list[[count]]=p1
+	count=count+1
+
+}
+
+pdf('QTT/images/eQTL_cor_by_pos.pdf')
+for(i in 1:length(plot_list)){
+  print(plot_list[[i]])
+}
+dev.off()
+
+
+
+########### trans-eQLT STPUAL corrleatio
+
+qtl=fread('QTL/all_adjusted_QTL_all_methods.txt',data.table=F)
+qtl$pheno_env_ID=paste0(qtl$phenotype,'-',qtl$environment,'-',qtl$ID)
+qtl=qtl[qtl$method=="Founder_probs",]
+subcomp=fread('QTT/QTL_trans_eQTL_EXPSTPAUL_overlap.txt',data.table=F)
+trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+
+prop_var=c()
+for(i in 1:nrow(subcomp)){
+	row=subcomp[i,]
+	time=row$time
+	chr=row$CHR
+	pv=fread(sprintf('eqtl/trans/results/eQTL_%s_c%s_weights_prop_var_FIXED.txt',time,chr),data.table=F)
+	gene=row$gene
+	esnp=row$SNP
+	p=pv[pv$snp==esnp & pv$gene==gene,]$prop_var
+	prop_var=c(prop_var,p)
+}
+subcomp$prop_var=prop_var
+subcomp$qtl_prop_var=qtl[match(subcomp$pheno_env_ID,qtl$pheno_env_ID),]$prop_var
+
+
+genecount=subcomp %>% group_by(pheno_env_ID) %>% count()
+pheno_env_ids=unique(subcomp$pheno_env_ID)
+
+get_cor=function(row1,d2){
+	row2=qtl[d2,]
+	pheno=row2$phenotype
+	env=row2$environment
+	chr1=row1$CHR
+	chr2=row2$CHR
+	gene=row1$gene
+	esnp=row1$SNP
+	qsnp=row2$SNP
+	id=row2$ID
+	time=row1$time
+	
+	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr2,pheno,env),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
+	effect_size=unlist(effect_size[,c(6:21)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	
+	results=fread(sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results_filtered_FIXED.txt',time,chr1),data.table=F)
+	results=results[results$X_ID==esnp & results$Trait==gene,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	return(test$estimate)
+}
+
+
+random_ten=function(pei){
+	d2=which(qtl$pheno_env_ID==pei)
+	ndraws=genecount[genecount$pheno_env_ID==pei,]$n
+	draw=sample(seq(1,nrow(trans)),ndraws)
+	subeqtl=trans[draw,]
+	n=min(10,ndraws)
+	top10=subeqtl %>% slice_max(value, n = n)
+	top10=as.data.frame(top10,stringsAsFactors=F)
+	all_r=sapply(seq(1,n),function(x) get_cor(top10[x,],d2))
+	highest_r=max(abs(all_r))
+	return(highest_r)
+}
+
+qtl$pheno_env_ID=paste0(qtl$phenotype,'-',qtl$environment,'-',qtl$ID)
+
+all_perms=c()
+for(pei in pheno_env_ids){
+	bootstrap=sapply(seq(1,300),function(x) random_ten(pei))
+	perms=data.frame(pei=pei,rep=seq(1,300),max_r=bootstrap,stringsAsFactors=F)
+	all_perms=rbind(all_perms,perms)
+}
+fwrite(all_perms,'QTT/top10_eqtl_permutations.txt',row.names=F,quote=F,sep='\t')
+names(all_perms)=c('pei','rep','perm_max_r')
+
+all_perms=fread('QTT/top10_eqtl_permutations.txt',data.table=F)
+n=10
+top_r=c()
+
+
+pheno_env_ids=unique(subcomp$pheno_env_ID)
+
+for(pei in pheno_env_ids){
+	subdf=subcomp[subcomp$pheno_env_ID==pei,]
+	subdf=subdf[order(subdf$value),]
+	rownames(subdf)=seq(1,nrow(subdf))
+	subdf$rank=seq(nrow(subdf),1)
+	max_loc=which.max(abs(subdf$r))
+	max_r=max(abs(subdf$r))
+	top10=subdf %>% slice_max(value, n = n)
+	top10=as.data.frame(top10)
+	#top10_r=top10_r[order(top10_r$i.value),]
+	#top10_r$rank=seq(1,10)
+	top10_r_loc=unlist(which.max(abs(top10$r)))
+	top_rank=top10[top10_r_loc,]$rank
+	top10_r=abs(top10[top10_r_loc,]$r)
+	newline=data.frame(pheno_env_ID=pei,max_r=max_r,top10_r=top10_r,max_rank=top_rank,stringsAsFactors=F)
+	top_r=rbind(top_r,newline)
+}
+
+all_perms$max_r=top_r[match(all_perms$pei,top_r$pheno_env_ID),]$max_r
+
+
+
+p2=ggplot(aes(x=max_r,y=top10_r),data=top_r)  + xlab("Highest correlation eQTL (|r|)") + 
+ylab("Highest correlation gene of 10 most significant eQTL (|r|)") + geom_abline(slope=1)
+
+png('QTT/images/eQTL_r_by_sig.png')
+print(p2)
+dev.off()
+
+
+plot_list=list()
+count=1
+for(pei in pheno_env_ids){
+	subdf=subcomp[subcomp$pheno_env_ID==pei,]
+	qtlp=unique(subdf$value)
+	p1=ggplot(aes(x=abs(r),y=value),data=subdf) + geom_point() + xlab("eQTL correlation with QTL effect size (|r|)") + 
+	ylab("log10(q-value) of eQTL") + ggtitle(sprintf('%s overlapping eQTL (log10(pvalue)= %.2f)',pei,qtlp))
+	plot_list[[count]]=p1
+	count=count+1
+}
+
+pdf('QTT/images/trans_eQTL_r_by_qvalue.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
+max_r= subcomp %>% group_by(pheno_env_ID) %>% slice(which.max(abs(r)))
+max_r=as.data.frame(max_r)
+
+p3=ggplot(aes(x=abs(r),y=qtl_prop_var),data=max_r) + geom_point(aes(color=prop_var)) + xlab('Max eQTL correlation |r|') +
+ylab("Proportion of phenotypic variance explained by QTL")
+png('QTT/images/trans_eQTL_r_by_ID_propvar.png')
+print(p3)
+dev.off()

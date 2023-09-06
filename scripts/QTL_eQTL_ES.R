@@ -100,6 +100,93 @@ for(i in 1:length(plot_list)){
 }
 dev.off()
 
+
+### Looking just at qDT33_2
+
+qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
+qtl=qtl[qtl$ID=="qDTS3_2" & qtl$Method=="Founder_probs",]
+#qtl=qtl[2,]
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+plot_list=list()
+count=1
+#adj_chr=c(5,9)
+cors=c()
+pvals=c()
+for(i in 1:nrow(comparison2)){
+	row=comparison2[i,]
+	pheno=row$Phenotype
+	env=row$Environment
+	chr=row$CHR
+	gene=row$Trait
+	qsnp=row$highest_SNP
+	id=row$ID
+	time=row$time
+	#exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	gene=row$Trait
+	esnp=row$X_ID
+	#chr=row$CHR
+	#if(chr %in% adj_chr){
+	#	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+	#}else{
+	#	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	#
+	#}
+	#inds=rownames(X_list[[1]])
+	#inter=intersect(exp$V1,inds)
+	effect_sizes=fread(sprintf('QTL/MITE_only/results/Biogemma_chr%s_%s_x_%s_MITE_only_founderprobs.txt',chr,pheno,env),data.table=F)
+
+	#effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno,env),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
+	effect_size=unlist(effect_size[,c(6:21)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	#X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
+	#colnames(X) = founders
+	#rownames(X) = inter
+	
+	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
+	#w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
+	#results=results[[w]]
+	results=results[results$X_ID==esnp & results$Trait==gene,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	pvals=c(pvals,p)
+	
+	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+	if(abs(r)>0.5){
+		p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder)) +
+		xlab("eQTL effect size (log2cpm)") + ylab("QTL effect size") +
+		ggtitle(sprintf("%s %s and %s %s, r=%.2f",gene,time,id,env,r))
+		plot_list[[count]]=p1
+		count=count+1
+	}
+	
+}
+
+comparison2$r=cors
+comparison2$pvalue=pvals
+
+fwrite(comparison2,'QTT/QTL_cis_eQTL_overlap_qDTS3_2.txt',row.names=F,quote=F,sep='\t')
+
+pdf('QTL/images/QTL_eQTL_effect_size_correlations_qDTS3_2.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
 plotlist2=list()
 count=1
 comparison1$env_ID=paste0(comparison1$environment,'-',comparison1$ID)

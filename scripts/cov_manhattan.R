@@ -17,6 +17,11 @@ library('ggrepel')
 library('RColorBrewer')
 #library('qqman')
 
+pheno="female_flowering_d6"
+env="ALL"
+thresh=0.1
+id="qDTS8"
+
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
 
@@ -101,7 +106,7 @@ gg.manhattan2=function(df, threshold, col, ylims,bounds){
 df=c()
 for(c in 1:10){
 	print(c)
-	d=fread(sprintf('QTL/MITE_only/results/Biogemma_chr%.0f_%s_x_%s_MITE_only_founderprobs.txt',c,pheno,env),data.table=F)
+	d=fread(sprintf('QTL/covariate/Biogemma_chr%s_%s_x_%s_%s_covariate.txt',c,pheno,env,id),data.table=F)
 	#d=fread(sprintf('QTL/adjusted/Biogemma_chr%.0f_%s_x_%s_adjusted_founderprobs.txt',c,pheno,env),data.table=F)
 	#d=as.data.frame(do.call(rbind, dlist))
 	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
@@ -151,10 +156,10 @@ a2<-gg.manhattan2(subdf,threshold,
 sigs2=subdf[subdf$value>=threshold,]
 
 if(dim(sigs2)[1]!=0){#png(sprintf('eqtl/trans/images/%s_pheno_residuals_trans_eQTL_manhattan_%s.png',factor,time),width=2000,height=1500)
-  	png(sprintf('QTL/MITE_only/images/%s_%s_QTL_scan_%.2f_manhattan.png',pheno,env,thresh),width=2000,height=1500)
+  	png(sprintf('QTL/covariate/images/%s_%s_QTL_scan_%.2f_%s_manhattan.png',pheno,env,thresh,id),width=2000,height=1500)
   	print(a2)
   	dev.off()
-  	fwrite(sigs2,sprintf('QTL/MITE_only/%s_%s_QTL_scan_%2f_hits.txt',pheno,env,thresh),row.names=F,quote=F,sep='\t')
+  	#fwrite(sigs2,sprintf('QTL/covariate/%s_%s_QTL_scan_%2f_hits.txt',pheno,env,thresh),row.names=F,quote=F,sep='\t')
 
 }
 

@@ -28,31 +28,42 @@ df=as.data.frame(df)
 df=df[!is.na(df$p_value_ML),]
 df=df[order(df$p_value_ML),]
 rownames(df)=seq(1,nrow(df))
-qvalues=qvalue(df$p_value_ML,fdr.level=0.05)
+qvalues=qvalue(df$p_value_ML,fdr.level=0.1)
 summary(qvalues)
-
+#Call:
+#qvalue(p = df$p_value_ML, fdr.level = 0.1)
+#
+#pi0:	0.8460926	
+#
+#Cumulative number of significant calls:
+#
+#          <1e-04 <0.001 <0.01 <0.025 <0.05  <0.1     <1
+#p-value      123   1061  8234  17708 30982 54491 339552
+#q-value        0      0     0     15    24    27 339552
+#local FDR      0      0     0      8    15    20 242429
 write.qvalue(qvalues,'eqtl/results/factor_eqtl_qvalues.txt',sep='\t')
 
 #df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
 df$p_adjusted=qvalues$qvalues
-df$value=-log10(df$p_adjusted)
+df$lfdr=qvalues$lfdr
+#df$value=-log10(df$p_adjusted)
+df$value=-log10(df$lfdr)
 
-
-threshold=-log10(0.05)
+threshold=-log10(0.1)
 print(threshold)
 
 sig=df[df$value>=threshold,]
 sig=sig[order(sig$CHR,sig$BP),]
-fwrite(sig,'eqtl/results/all_factor_trans_eqtl_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
+fwrite(sig,'eqtl/results/all_factor_trans_eqtl_lfdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 
-png('eqtl/images/all_factor_fdr_qqplot_FIXED.png')
-print(qqman::qq(df$p_value_ML))
-dev.off()
+#png('eqtl/images/all_factor_lfdr_qqplot_FIXED.png')
+#print(qqman::qq(df$p_value_ML))
+#dev.off()
 
-pdf('eqtl/trans/images/factor_transeqtl_qvalue_diagnostics.pdf')
-hist(qvalues)
-plot(qvalues)
-dev.off()
+#pdf('eqtl/trans/images/factor_transeqtl_qvalue_diagnostics.pdf')
+#hist(qvalues)
+#plot(qvalues)
+#dev.off()
 
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
@@ -95,12 +106,12 @@ gg.manhattan2 <- function(fdf, threshold, col, ylims,bounds){
       panel.grid.minor.x = element_blank()) + guides(color="none")
 }
 
-times=c("WD_0718")
+times=unique(sig$time)
 for(time in times){
 	subdf=df[df$time==time,]
 	sig_f=sig[sig$time==time,]
 	sig_factors=unique(sig_f$factor)
-	threshold=-log10(0.05)
+	threshold=-log10(0.1)
 	for(factor in sig_factors){
 		subdf2=subdf[subdf$factor==factor,]
 		ymax=round(max(subdf$value))+1
@@ -109,7 +120,7 @@ for(time in times){
              col=greypalette,
              ylims=c(0,ymax)) + labs(caption = title)
 
-		png(sprintf('eqtl/trans/images/%s_trans_eQTL_weights_fdr_manhattan_%s_FIXED.png',factor,time),width=2000,height=1500)
+		png(sprintf('eqtl/trans/images/%s_trans_eQTL_weights_lfdr_manhattan_%s_FIXED.png',factor,time),width=2000,height=1500)
 		print(a2)
 		dev.off()
 	}
@@ -143,31 +154,57 @@ df=as.data.frame(df)
 df=df[!is.na(df$p_value_ML),]
 df=df[order(df$p_value_ML),]
 rownames(df)=seq(1,nrow(df))
-qvalues=qvalue(df$p_value_ML,fdr.level=0.05)
+qvalues=qvalue(df$p_value_ML,fdr.level=0.1)
 summary(qvalues)
+#Call:
+#qvalue(p = df$p_value_ML, fdr.level = 0.05)
+#
+#pi0:	0.8486553	
+#
+#Cumulative number of significant calls:
+#
+#          <1e-04 <0.001 <0.01 <0.025 <0.05  <0.1     <1
+#p-value      188   1151  7527  16704 29787 52718 353700
+#q-value        0      0     0     20    36    77 353700
+#local FDR      0      0     0     11    20    34 280227
 
+
+# After adjusting for outliers
+#Call:
+#qvalue(p = df$p_value_ML, fdr.level = 0.1)
+
+#pi0:	0.844447	
+
+#Cumulative number of significant calls:
+
+#          <1e-04 <0.001 <0.01 <0.025 <0.05  <0.1     <1
+#p-value      181   1109  7487  16659 29727 52564 353700
+#q-value        0      0     0     20    34    64 353700
+#local FDR      0      0     0     11    20    30 352485
 write.qvalue(qvalues,'eqtl/results/residuals_factor_eqtl_qvalues.txt',sep='\t')
 
 #df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
 df$p_adjusted=qvalues$qvalues
+df$lfdr=qvalues$lfdr
+
 df$value=-log10(df$p_adjusted)
+#df$value=-log10(df$lfdr)
 
-
-threshold=-log10(0.05)
+threshold=-log10(0.1)
 print(threshold)
 
 sig=df[df$value>=threshold,]
 sig=sig[order(sig$CHR,sig$BP),]
 fwrite(sig,'eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 
-png('eqtl/images/all_residuals_factor_fdr_qqplot_FIXED.png')
-print(qqman::qq(df$p_value_ML))
-dev.off()
+#png('eqtl/images/all_residuals_factor_lfdr_qqplot_FIXED.png')
+#print(qqman::qq(df$p_value_ML))
+#dev.off()
 
-pdf('eqtl/trans/images/residuals_factor_transeqtl_qvalue_diagnostics.pdf')
-hist(qvalues)
-plot(qvalues)
-dev.off()
+#pdf('eqtl/trans/images/residuals_factor_transeqtl_qvalue_diagnostics.pdf')
+#hist(qvalues)
+#plot(qvalues)
+#dev.off()
 
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
@@ -210,12 +247,12 @@ gg.manhattan2 <- function(fdf, threshold, col, ylims,bounds){
       panel.grid.minor.x = element_blank()) + guides(color="none")
 }
 
-times=c("WD_0712","WD_0718","WD_0720")
+times=unique(sig$time)
 for(time in times){
 	subdf=df[df$time==time,]
 	sig_f=sig[sig$time==time,]
 	sig_factors=unique(sig_f$factor)
-	threshold=-log10(0.05)
+	threshold=-log10(0.1)
 	for(factor in sig_factors){
 		subdf2=subdf[subdf$factor==factor,]
 		ymax=round(max(subdf$value))+1

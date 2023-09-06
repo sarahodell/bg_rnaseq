@@ -4,7 +4,7 @@
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
 #SBATCH -t 48:00:00
-#SBATCH --array=1-34
+#SBATCH --array=1-26
 #SBATCH --ntasks=1
 #SBATCH --mem 2G
 
@@ -18,11 +18,11 @@ module load igv
 
 #pwd
 
-chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes.bed | cut -f1 -d$'\t')"
-start="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes.bed | cut -f2 -d$'\t')"
-end="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes.bed | cut -f3 -d$'\t')"
-gene="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes.bed | cut -f4 -d$'\t')"
-time="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes.bed | cut -f5 -d$'\t')"
+chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes_FIXED.bed | cut -f1 -d$'\t')"
+start="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes_FIXED.bed | cut -f2 -d$'\t')"
+end="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes_FIXED.bed | cut -f3 -d$'\t')"
+gene="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes_FIXED.bed | cut -f4 -d$'\t')"
+time="$(sed "${SLURM_ARRAY_TASK_ID}q;d" /home/sodell/projects/biogemma/expression/eqtl/results/all_eQTL_genes_FIXED.bed | cut -f5 -d$'\t')"
 
 genome="/group/jrigrp/Share/assemblies/Zea_mays.B73_RefGen_v4.dna.toplevel.fa"
 query="${chr}:${start}-${end}"
@@ -33,7 +33,7 @@ echo $query
 
 
 # using a bamlist as input
-founders=( "B73_inra" "A632_usa" "CO255_inra" "FV252_inra" "OH43_inra" "A654_inra" "C103_inra" "EP1_inra" "D105_inra" "W117_inra" "B96" "DK63" "F492" "ND245" "VA85" )
+founders=( "B73_inra" "A632_usa" "CO255_inra" "FV252_inra" "OH43_inra" "A654_inra" "C103_inra" "FV2_inra" "EP1_inra" "D105_inra" "W117_inra" "B96" "DK63" "F492" "ND245" "VA85" )
 for founder in "${founders[@]}"; do
 	echo $founder
 	infile="/home/sodell/projects/biogemma/expression/final_bams/alignment_check/${time}_${gene}_${founder}.bam.list"

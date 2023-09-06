@@ -1,11 +1,40 @@
 #!/usr/bin/env Rscript
 
 library('data.table')
-
+library('generics',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('glue',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('tibble',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('tidyselect',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('pillar',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('MegaLMM',lib='/home/sodell/R/x86_64-conda-linux-gnu-library/4.2')
+library('data.table')
+library('preprocessCore',lib='/home/sodell/R/x86_64-conda-linux-gnu/4.2')
 time="WD_0712"
+###############
+# How much variation in expression is explained by the factors?
 
+#phenotype=fread(sprintf('eqtl/noramlized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+F_values=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time),data.table=F)
+rownames(F_values)=F_values$V1
+F_values=F_values[,-1]
+stdevs=apply(F_values,MARGIN=2,function(x) sd(x)^2)
+var_explained=stdevs/sum(stdevs)
 
+#WD_0712 
+round(var_explained*100,2)
+
+    
+# In PCs, take the variance of a PC and divide it by the sum of all variances
+y=readRDS(sprintf('eqtl/normalized/%s_voom_results_2.rds',time))
+ym=as.matrix(y$E)
+ym=t(ym)
+pca <- prcomp(ym, center = TRUE)
+pcs=as.data.frame(pca$x,stringsAsFactors=F)
+var_explained <- pca$sdev^2/sum(pca$sdev^2)
+
+##################
 phenotype=fread(sprintf('eqtl/noramlized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+
 cis=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
 cis=cis[cis$time==time,]
 #factor_groups=readRDS(sprintf('MegaLMM/pheno_MegaLMM_%s_factor_groups.rds',time))
@@ -103,6 +132,20 @@ m5=lm(y_scaled~Zm00001d004300_inv,subpheno)
 
 m6=lm(y_scaled~Zm00001d044170_inv,subpheno)
 # R2=0.003342, 0.03% of yield explained by this gene
+qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
+
+bps=c()
+for(i in 1:nrow(qtl)){
+	row=qtl[i,]
+	chr=row$CHR
+	snp=row$SNP
+	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+	bp=pmap[pmap$marker==snp,]$pos
+	bps=c(bps,bp)
+}
+qtl$BP=bps
+qtl=qtl[,c('ID','phenotype','environment','CHR','BP','SNP','left_bound_bp','alt_right_bound_bp','left_bound_snp','right_bound_snp','right_bound_bp')]
+fwrite(qtl,'QTL/all_adjusted_QTL_support_intervals.txt',row.names=F,quote=F,sep='\t')
 
 
 ############ QTL variance explained ############
@@ -121,15 +164,19 @@ phenotypes$Genotype_code=gsub('-','.',phenotypes$Genotype_code)
 adj_chr=c("5","9")
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
-qtl=fread('QTL/all_adjusted_QTL_peaks_trimmed.txt',data.table=F)
+#qtl=fread('QTL/all_adjusted_QTL_peaks_trimmed.txt',data.table=F)
+
+qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
+
 prop_vars=c()
+effects=c()
 for(i in 1:nrow(qtl)){
 	row=qtl[i,]
 	pheno=row$phenotype
 	env=row$environment
 	chr=row$CHR
 	snp=row$SNP
-	
+	id=row$ID
 	# Read in Kinship Matrix
 	K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
 	rownames(K)=K[,1]
@@ -155,14 +202,14 @@ for(i in 1:nrow(qtl)){
 	inter=intersect(data$ID,inds)
 	X_list=lapply(X_list,function(x) x[inter,])
 	data=data[inter,]
-	data$y=(data$y-mean(data$y))/sd(data$y)
+	#data$y=(data$y-mean(data$y))/sd(data$y)
 	K=K[inter,inter]
 	X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
 	colnames(X) = founders
 	rownames(X) = dimnames(X_list[[1]])[[1]]
 	frep2=apply(X,MARGIN=2,function(x) round(sum(x[x>0.75])))
 	fkeep=founders[frep2>3]
-	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno,env),data.table=F)
+	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr,pheno,env),data.table=F)
 	effect_size=effect_sizes[effect_sizes$X_ID==snp,]
 	betas=unlist(effect_size[,c(6:21)])
 	full_betas=betas[founders]
@@ -174,8 +221,61 @@ for(i in 1:nrow(qtl)){
 	bv=X %*% full_betas
 	colnames(bv)=snp
 	X_r=data$y-bv
-	prop_var=var(bv[,snp],na.rm=T)/var(data$y,na.rm=T)
+	prop_var=var(bv[,snp],na.rm=T)/var(data$y)
 	prop_vars=c(prop_vars,prop_var)
+	
+	es=full_betas-mean(data$y)
+	effects=rbind(effects,es)
 }
 qtl$prop_var=prop_vars
-fwrite(qtl,'QTL/all_adjusted_QTL_peaks_trimmed.txt',row.names=F,quote=F,sep='\t')
+qtl$pheno_env_ID=paste0(qtl$phenotype,'-',qtl$environment,'-',qtl$ID)
+effects=as.data.frame(effects,stringsAsFactors=F)
+effects$pei=qtl$pheno_env_ID
+effects=effects[,c('pei',founders)]
+fwrite(effects,'QTL/all_adjusted_QTL_effect_sizes.txt',row.names=F,quote=F,sep='\t')
+fwrite(qtl,'QTL/all_adjusted_QTL_support_intervals.txt',row.names=F,quote=F,sep='\t')
+
+
+# Plot effect size by founder
+library('ggplot2')
+qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
+effects=fread('QTL/all_adjusted_QTL_effect_sizes.txt',data.table=F)
+qtlmerge=merge(qtl,effects,by.x="pheno_env_ID",by.y='pei')
+
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+
+axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
+cumtot=2105119857
+
+phenos=unique(qtlmerge$phenotype)
+plot_list=list()
+count=1
+for(pheno in phenos){
+	subqtl=qtlmerge[qtlmerge$phenotype==pheno,]
+	subqtl$tot=axisdf[match(subqtl$CHR,axisdf$gene_chr),]$tot
+	subqtl$bp_cum=subqtl$BP + subqtl$tot 
+	submelt=reshape2::melt(subqtl[,c('pheno_env_ID',founders)],by='pheno_env_ID')
+	submelt$bp_cum=subqtl[match(submelt$pheno_env_ID,subqtl$pheno_env_ID),]$bp_cum
+	p1=ggplot(data=submelt,aes(x=bp_cum,y=value)) + geom_point() +
+	geom_hline(yintercept=0) + facet_wrap (~variable)
+	plot_list[[count]]=p1
+	count=count+1
+}
+
+pdf('QTL/images/founder_effect_sizes_QTL.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
+
+
+
+
+############ Trans var_explained
+
+
+
+
+

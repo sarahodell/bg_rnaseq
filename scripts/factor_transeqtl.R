@@ -4,8 +4,490 @@ library('data.table')
 library('ggplot2')
 library('dplyr')
 
-factoreqtl=fread('eqtl/results/all_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
+### Look for outliers
+factoreqtl=fread('eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',data.table=F)
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+
+factoreqtl$factor_time=paste0(factoreqtl$time,'-',factoreqtl$factor)
+factoreqtls=unique(factoreqtl$factor_time)
+
+axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
+cumtot=2105119857
+############### 
+#Plot out position by prop_var
+plot_list=list()
+
+for(f in factoreqtls){
+	sub=factoreqtl[factoreqtl$factor_time==f,]
+	time=unique(sub$time)
+	factor=unique(sub$factor)
+	
+	prop_var=fread(sprintf('MegaLMM/MegaLMM_residuals_%s_prop_variance_FIXED.txt',time),data.table=F)
+	df=prop_var[prop_var[,factor]>0.1,c('V1',factor)]
+	names(df)=c('Gene_ID','prop_var')
+	df=merge(df,genetable,by="Gene_ID")
+	df$midgene=round(df$START + (df$END-df$START)/2)
+	df$tot=axisdf[match(df$CHROM,axisdf$gene_chr),]$tot
+	df$midgene_cum=df$midgene + df$tot 
+	
+	sub$tot=axisdf[match(sub$CHR,axisdf$gene_chr),]$tot
+	sub$bp_cum=sub$BP + sub$tot 
+ 
+	ngenes=nrow(df)
+	print(sprintf('%.0f Genes loaded on %s %s',ngenes,time, factor))
+	
+	p=ggplot(df,aes(x=midgene_cum,y=prop_var)) +
+	scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+	ylim(0.1,1) +
+    #scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+    #geom_hline(yintercept=cumtot,colour="darkgrey") +
+    geom_vline(xintercept=cumtot,colour="darkgrey") +
+	geom_point(aes(color=prop_var)) +
+	scale_color_gradient(low = "lightblue", high = "darkblue") +
+	xlab("Position") + ylab("Proportion Variance") +
+	ggtitle(sprintf("Gene Loadings on %s %s, n=%.0f",time,factor,ngenes)) +
+	theme_classic() +
+    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
+ 	
+ 	for(i in 1:nrow(sub)){
+ 		row=sub[i,]
+ 		BP_cum=row$bp_cum
+ 		p=p+geom_vline(xintercept=BP_cum,color="coral")
+ 	}
+ 
+	
+	pdf(sprintf('eqtl/images/%s_%s_residuals_plot.pdf',time,factor))
+	print(p)
+	dev.off()
+}
+
+#factoreqtl=fread('eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',data.table=F)
+factoreqtl=fread('eqtl/results/all_factor_fdr_peaks_FIXED.txt',data.table=F)
+factoreqtl$factor_time=paste0(factoreqtl$time,'-',factoreqtl$factor)
+factoreqtls=unique(factoreqtl$factor_time)
+for(f in factoreqtls){
+	sub=factoreqtl[factoreqtl$factor_time==f,]
+	time=unique(sub$time)
+	factor=unique(sub$factor)
+	
+	prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance_FIXED.txt',time),data.table=F)
+	df=prop_var[prop_var[,factor]>0.1,c('V1',factor)]
+	names(df)=c('Gene_ID','prop_var')
+	df=merge(df,genetable,by="Gene_ID")
+	df$midgene=round(df$START + (df$END-df$START)/2)
+	df$tot=axisdf[match(df$CHROM,axisdf$gene_chr),]$tot
+	df$midgene_cum=df$midgene + df$tot 
+	
+	sub$tot=axisdf[match(sub$CHR,axisdf$gene_chr),]$tot
+	sub$bp_cum=sub$BP + sub$tot 
+ 
+	ngenes=nrow(df)
+	print(sprintf('%.0f Genes loaded on %s %s',ngenes,time, factor))
+	
+	p=ggplot(df,aes(x=midgene_cum,y=prop_var)) +
+	scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+	ylim(0.1,1) +
+    #scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+    #geom_hline(yintercept=cumtot,colour="darkgrey") +
+    geom_vline(xintercept=cumtot,colour="darkgrey") +
+	geom_point(aes(color=prop_var)) +
+	scale_color_gradient(low = "lightblue", high = "darkblue") +
+	xlab("Position") + ylab("Proportion Variance") +
+	ggtitle(sprintf("Gene Loadings on %s %s, n=%.0f",time,factor,ngenes)) +
+	theme_classic() +
+    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
+ 	
+ 	for(i in 1:nrow(sub)){
+ 		row=sub[i,]
+ 		BP_cum=row$bp_cum
+ 		p=p+geom_vline(xintercept=BP_cum,color="coral")
+ 	}
+ 
+	
+	pdf(sprintf('eqtl/images/%s_%s_plot.pdf',time,factor))
+	print(p)
+	dev.off()
+}
+
+factoreqtl=fread('eqtl/results/all_factor_fdr_SIs_FIXED.txt',data.table=F)
+resid=fread('eqtl/results/all_residual_factor_fdr_SIs_FIXED.txt',data.table=F)
+env1=factoreqtl
+env1=as.data.table(env1)
+env2=as.data.table(resid)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+comp=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+
+qtl=fread('QTL/all_adjusted_QTL_all_methods.txt',data.table=F)
+env1=qtl
+env1=as.data.table(env1)
+env2=as.data.table(factoreqtl)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+comp2=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+env1=qtl
+env1=as.data.table(env1)
+env2=as.data.table(resid)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+comp4=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+
+
+
+factoreqtl=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
+factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
+cumtot=2105119857
+
+# For each factor
+#		- How many genes are loaded on them
+#		- Where are the genes located in the genome
+#		- What prop variance is explained by the factor for each gene
+#		- How much variation in the factor is explained by the factor eQTL
+#		- Are there trans-eQTL or cis-eQTL that overlap with the factor-eQTL variant? 
+#		- Are there trans-eQTL or cis-eQTL genes that load on the factor?
+
+factoreqtl$time_factor=paste0(factoreqtl$time,'-',factoreqtl$Trait)
+tf=unique(factoreqtl$time_factor)
+for(f in tf){
+	sub=factoreqtl[factoreqtl$time_factor==f,]
+	time=unique(sub$time)
+	factor=unique(sub$factor)
+	df=factordf[factordf$time==time & factordf$Trait==factor,]
+	df$midgene=round(df$gene_start + (df$gene_end-df$gene_start)/2)
+	df$tot=axisdf[match(df$gene_chr,axisdf$gene_chr),]$tot
+	df$tot.x=axisdf[match(df$CHR,axisdf$gene_chr),]$tot
+	BP_cum=unique(df$BP) + unique(df$tot.x)
+	df$midgene_cum=df$midgene + df$tot 
+	prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),data.table=F)
+	print(time)
+	print(factor)
+	fgenes=prop_var[prop_var[,factor]>0.1,]$V1
+	ngenes=length(fgenes)
+	print(sprintf('%.0f Genes loaded on %s',ngenes,factor))
+	
+	p=ggplot(df,aes(x=midgene_cum,y=prop_var)) +
+	geom_vline(xintercept=BP_cum,color="coral") +
+	scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+	ylim(0.1,1) +
+    #scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+    #geom_hline(yintercept=cumtot,colour="darkgrey") +
+    geom_vline(xintercept=cumtot,colour="darkgrey") +
+	geom_point(aes(color=prop_var)) +
+	scale_color_gradient(low = "lightblue", high = "darkblue") +
+	xlab("Position") + ylab("Proportion Variance") +
+	ggtitle(sprintf("Gene Loadings on %s %s, n=%.0f",time,factor,ngenes)) +
+	theme_classic() +
+    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
+ 
+	
+	pdf(sprintf('eqtl/images/%s_%s_plot.pdf',time,factor))
+	print(p)
+	dev.off()
+	# Plot x-axis location
+	# y-axis prop_var
+	# vhline of location of factor eQTL
+
+}
+
+
+
+
+##############
+
+time="WD_0712"
+factor="Factor2"
+chr="2"
+snp="AX-90742183"
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-4.72816 -0.47420  0.37245  0.02671  0.81115  2.19274 
+
+time="WD_0712"
+factor="Factor5"
+chr="3"
+snp="AX-91393272"
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-7.01527 -0.14237  0.10774 -0.01013  0.44081  0.90041
+
+# EB.09S.H.00417 -7.01527 to -1.3517660
+
+time="WD_0712"
+factor="Factor9"
+chr="5"
+snp="AX-90962437"
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-1.29899 -0.56094 -0.27138 -0.02123  0.43270  2.76859
+
+time="WD_0712"
+factor="Factor23"
+chr="4"
+snp="PZE-104044271"
+
+time="WD_0712"
+factor="Factor23"
+chr="6"
+snp="SYN25266"
+
+time="WD_0712"
+factor="Factor23"
+chr="7"
+snp="AX-91067829"
+#     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#-0.941511 -0.440604 -0.107716  0.006501  0.107382  6.772298 
+
+# EB.09S.H.00005 6.7722978 to 1.9960830
+
+time="WD_0712"
+factor="Factor45"
+chr="2"
+snp="AX-91512352"
+
+time="WD_0712"
+factor="Factor45"
+chr="4"
+snp="AX-90861422"
+#Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-1.22449 -0.45388 -0.11319 -0.03125  0.19684  6.38950
+
+#EB.09S.H.00232 6.3895000 to 1.5069615
+
+time="WD_0718"
+factor="Factor24"
+chr="1"
+snp="AX-90602079"
+#     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#-1.909594 -0.314032 -0.070451 -0.007557  0.214186  4.876477 
+
+# EB.09S.H.00238 4.8764768 to 2.9610413
+
+time="WD_0718"
+factor="Factor4"
+chr="2"
+snp="AX-91511436"
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-1.64221 -0.33769  0.11737  0.04057  0.48563  1.28875 
+
+time="WD_0720"
+factor="Factor19"
+chr="4"
+snp="AX-91628035"
+#      Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-0.2774905 -0.0732565  0.0059726 -0.0006669  0.0751776  0.2479977
+
+time="WD_0718"
+factor="Factor7"
+chr="2"
+snp="SYN14630"
+#      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#-0.896650 -0.226921  0.007321  0.025942  0.200922  1.227611
+
+time="WD_0718"
+factor="Factor12"
+chr="5"
+snp="AX-90973660"
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-2.73879 -0.61673  0.07850  0.03223  0.83934  2.89556
+
+time="WD_0718"
+factor="Factor18"
+chr="2"
+snp="AX-90734033"
+#      Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-0.8369866 -0.1598194  0.0003251  0.0030659  0.1954363  0.7724557
+
+time="WD_0720"
+factor="Factor19"
+chr="4"
+snp="AX-91628035"
+#      Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-0.2774905 -0.0732565  0.0059726 -0.0006669  0.0751776  0.2479977 
+
+time="WD_0720"
+factor="Factor2"
+chr="4"
+snp="AX-91221743"
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+# -1.27508 -0.27144  0.02224  0.02590  0.31406  1.42915
+
+time="WD_0720"
+factor="Factor17"
+chr="7"
+snp="AX-91066014"
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+# -2.03323 -0.54775 -0.01378  0.02044  0.53642  2.68465
+
+time="WD_0727"
+factor="Factor12"
+chr="3"
+snp="PZE-103115047"
+#     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#-0.792397 -0.300084  0.013460  0.002684  0.275017  1.046949
+ 
+time="WD_0727"
+factor="Factor17"
+chr="3"
+snp="AX-91587910" 
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#-2.40680 -0.69669 -0.03544  0.03041  0.67546  3.19159
+
+time="WD_0727"
+factor="Factor19"
+chr="8"
+snp="AX-91777755" 
+#     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+#-1.557740 -0.438290 -0.020812 -0.003534  0.342791  2.386980
+
+#EB.09S.H.00482 2.386980 to 1.669264
+
+
+
+
+for(i in 1:nrow(factoreqtl)){
+	row=factoreqtl[i,]
+	time=row$time
+	factor=row$factor
+	chr=row$CHR
+	snp=row$X_ID
+	F_values=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time),data.table=F)
+	summary(F_values[,factor])
+	df=F_values[,c('V1',factor)]
+
+	df=df[order(df[,factor]),]
+	rownames(df)=seq(1,nrow(df))
+	df$ID_f=factor(df$V1,levels=c(unique(df$V1)))
+	rownames(df)=df$V1
+	adj_chr=c("5","9")
+	if(chr %in% adj_chr){
+		X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+	}else{
+		X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	}
+	X = do.call(cbind,lapply(X_list,function(x) x[,snp]))
+	colnames(X) = founders
+	rownames(X) = dimnames(X_list[[1]])[[1]]
+	X=X[rownames(df),]
+	founder_id=apply(X,MARGIN=1,function(x) names(x[which.max(x)]))
+	df$founder=founder_id[match(df$V1,names(founder_id))]
+	names(df)=c('V1' ,'factor','ID_f','founder')
+	p=ggplot(aes(x=ID_f,y=factor),data=df) + 
+    	geom_point(aes(color=founder)) +
+     	xlab('Sample') +
+     	ylab('F-value') + geom_hline(yintercept=0)
+
+	pdf(sprintf('eqtl/trans/images/%s_%s_F_by_ind.pdf',time,factor))
+	print(p)
+	dev.off()
+}
+
+
+# DO they overlap with each other?
+chroms=unique(factoreqtl$CHR)
+for(chr in chroms){
+	sub=factoreqtl[factoreqtl$CHR==chr,]
+	print(sub[,c('time','factor','CHR','leftmost','alt_rightmost')])
+}
+
+#1 WD_0718  Factor4   2  11217105      14861212
+#2 WD_0718 Factor18   2  12493114      14861212
+####
+
+pairs=fread('MegaLMM/MegaLMM_timepoint_residuals_factor_pairs.txt',data.table=F)
+
+lambda20=fread('MegaLMM/MegaLMM_WD_0720_residuals_all_Lambda_means_FIXED.txt',data.table=F)
+lambda12=fread('MegaLMM/MegaLMM_WD_0712_residuals_all_Lambda_means_FIXED.txt',data.table=F)
+rownames(lambda12)=lambda12$V1
+rownames(lambda20)=lambda20$V1
+ginter=intersect(lambda12$V1,lambda20$V1)
+
+
+lambda12=lambda12[ginter,]
+lambda20=lambda20[ginter,]
+
+f12=fread('MegaLMM/MegaLMM_WD_0712_residuals_all_F_means_FIXED.txt',data.table=F)
+f20=fread('MegaLMM/MegaLMM_WD_0720_residuals_all_F_means_FIXED.txt',data.table=F)
+inter=intersect(f12$V1,f20$V1)
+
+###### Do they overlap with cis-eQTL?
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+eqtl$gene_time_SNP = paste0(eqtl$Trait,'-',eqtl$time,'-',eqtl$X_ID)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+
+# For 10% FDR, 
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(factoreqtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comp=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+
+comp$Trait=paste0(comp$time,'-',comp$factor)
+comp$ID=paste0(comp$Trait,'-',comp$CHR)
+
+
+factoreqtl$Trait=paste0(factoreqtl$time,'-',factoreqtl$factor)
+factoreqtl$ID=paste0(factoreqtl$Trait,'-',factoreqtl$CHR)
+
+# Overlap of cis-eQTL for 15 of the 16 factor eqtl (not WD_0712-Factor23-4)
+
+comp %>% group_by(ID) %>% count()
+
+
+
+ngenes=comp %>% group_by(ID) %>% summarize(n=length(unique(i.Trait)))
+ngenes=as.data.frame(ngenes)
+ngenes
+#                   ID   n
+#1   WD_0712-Factor2-2  55
+#2  WD_0712-Factor23-6   4
+#3  WD_0712-Factor23-7  11
+#4   WD_0712-Factor5-3  14
+#5   WD_0712-Factor9-5   1
+#6  WD_0718-Factor12-5   2
+#7  WD_0718-Factor18-2  39
+#8   WD_0718-Factor4-2  68
+#39   WD_0718-Factor7-2   4
+#10 WD_0720-Factor17-7  14
+#11 WD_0720-Factor19-4 126
+#12  WD_0720-Factor2-4   6
+#13 WD_0727-Factor12-3  20
+#14 WD_0727-Factor17-3  25
+#15 WD_0727-Factor19-8   2
+fwrite(comp,'eqtl/results/residual_factor_eQTL_cis_eQTL_overlap.txt',row.names=F,quote=F,sep='\t')
+
+##### Do they overlap with QTL
+factoreqtl=fread('eqtl/results/all_residual_factor_fdr_SIs_FIXED.txt',data.table=F)
+
+qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
+
+env1=qtl
+env1=as.data.table(env1)
+env2=as.data.table(factoreqtl)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+comp2=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
+env1=qtl
+env1=as.data.table(env1)
+env2=as.data.table(factoreqtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comp2=foverlaps(env1,env2,by.x=c('Chromosome','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+
+
+#########################
+factoreqtl=fread('eqtl/results/all_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
 
 # Plot out individuals by F-value colored by founder at SNP
 #snp="AX-91833136"
@@ -192,6 +674,250 @@ env2=as.data.table(qtl)
 setkey(env2,CHR,leftmost,alt_rightmost)
 comparison2=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
 # No overlap
+
+
+
+
+# What factor is closest to residual WD_0720 Factor 17?
+lambda_r=fread('MegaLMM/MegaLMM_WD_0720_residuals_all_Lambda_means_FIXED.txt',data.table=F)
+r17=lambda_r[,c('V1','Factor17')]
+rownames(r17)=r17$V1
+
+lambda=fread('MegaLMM/MegaLMM_WD_0720_all_Lambda_means_FIXED.txt',data.table=F)
+rownames(lambda)=lambda$V1
+
+ginter=intersect(r17$V1,lambda$V1)
+lambda=lambda[ginter,]
+r17=r17[ginter,]
+
+for(i in 2:ncol(lambda)){
+	column=lambda[,i]
+	r=cor(r17$Factor17,column)
+	print(names(lambda)[i])
+	print(r)
+}
+# Factor 15 in full is closest to Factor 17 residuals r=0.808
+prop_var=fread('MegaLMM/MegaLMM_WD_0720_prop_variance_FIXED.txt',data.table=F)
+f15genes=prop_var[prop_var$Factor15>0.1,c('V1','Factor15')]
+
+prop_varr=fread('MegaLMM/MegaLMM_residuals_WD_0720_prop_variance_FIXED.txt',data.table=F)
+f17genes=prop_varr[prop_varr$Factor17>0.1,c('V1','Factor17')]
+
+
+interactors=c(
+"Zm00001d001945",
+"Zm00001d053819",
+"Zm00001d013707",
+"Zm00001d051451",
+"Zm00001d031064",
+"Zm00001d014858",
+"GRMZM2G017586",
+"Zm00001d000184",
+"Zm00001d034417",
+"Zm00001d002762",
+"Zm00001d024324",
+"Zm00001d002799",
+"Zm00001d005578",
+"Zm00001d005692",
+"Zm00001d006236",
+"Zm00001d010634",
+"Zm00001d012527",
+"Zm00001d012810",
+"Zm00001d031182",
+"Zm00001d013399",
+"Zm00001d013777",
+"Zm00001d015407",
+"Zm00001d015549",
+"Zm00001d016793",
+"Zm00001d016861",
+"Zm00001d017575",
+"Zm00001d020492",
+"Zm00001d051439",
+"Zm00001d017726",
+"Zm00001d018081",
+"Zm00001d020025",
+"Zm00001d020267",
+"Zm00001d021019",
+"Zm00001d021291",
+"Zm00001d024679",
+"Zm00001d025141",
+"Zm00001d044117",
+"Zm00001d026398",
+"Zm00001d034298",
+"Zm00001d038357",
+"Zm00001d026542",
+"Zm00001d027846",
+"Zm00001d029963",
+"Zm00001d030678",
+"Zm00001d031717",
+"Zm00001d032024",
+"Zm00001d032265",
+"Zm00001d033050",
+"Zm00001d050195",
+"Zm00001d033267",
+"Zm00001d033378",
+"Zm00001d043950",
+"Zm00001d034601",
+"Zm00001d035604",
+"Zm00001d037221",
+"Zm00001d037605",
+"Zm00001d038843",
+"Zm00001d048623",
+"Zm00001d039893",
+"Zm00001d041576",
+"Zm00001d042777",
+"Zm00001d042907",
+"Zm00001d044232",
+"Zm00001d044409",
+"Zm00001d046925",
+"Zm00001d047017",
+"Zm00001d048208",
+"Zm00001d048647",
+"Zm00001d049364",
+"Zm00001d050816",
+"Zm00001d051458",
+"Zm00001d052229",
+"Zm00001d053859")
+
+# are any interactor genes higher loaded in the factor than expected by chance?
+overlaps=f17genes[f17genes$V1 %in% interactors,]
+
+# More than expected by chance
+# If I grab 73 genes, how likely is it to get 6 genes in the top 95% quantile?
+quantile(prop_varr$Factor17,0.975)
+#      95% 
+quant95=0.7115427 
+#0.5142244
+sgenes=prop_varr$V1[!(prop_varr$V1 %in% interactors)]
+fsums=c()
+for(i in 1:1000){
+	draw=sample(sgenes,73)
+	sub=prop_varr[prop_varr$V1 %in% draw,c('V1','Factor17')]
+	fsum=sum(sub$Factor17>quant95)
+	fsums=c(fsums,fsum)
+
+}
+overlaps[overlaps$Factor17>0.5142244,]
+#                  V1  Factor17
+#1763  Zm00001d032265 0.7912046
+#2667  Zm00001d034601 0.6563778
+#12231 Zm00001d038843 0.9661856
+#12932 Zm00001d020267 0.7620315
+#15449 Zm00001d012527 0.9310063
+#16238 Zm00001d047017 0.7780453
+
+# There are more highly loaded genes in this subset than expected by chance (5%)
+
+# Are there cis-eQTL in this region on chr 7?
+time="WD_0712"
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+# Look only in time
+eqtl=eqtl[eqtl$time==time,]
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+factoreqtl$block_start=all_founder_blocks[match(factoreqtl$X_ID,all_founder_blocks$focal_snp),]$start
+factoreqtl$block_end=all_founder_blocks[match(factoreqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+feqtl=factoreqtl[2,]
+env1=eqtl
+env1=as.data.table(env1)
+env2=as.data.table(feqtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison1=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+# Factor 4 WD_0718 46 cis-eQTL in this region in time WD_0718
+# Factor 4 WD_0718 36 cis-eQTL in this region in time WD_0712
+
+# For WD_0720 Factor 17, 10 cis-eQTL overlap in WD_0720
+
+# For WD_0712 Factor 23, No cis-eQTL overlap in WD_0712 (only a 2.7kb window, so not super suprising), but there are no cis-eQTL at that marker at all, even in other timepoints?
+# Is this unusual? How many markers don't have cis-eQTL there?
+# Do any of them have correlated effect sizes?
+founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
+plot_list=list()
+count=1
+#adj_chr=c(5,9)
+cors=c()
+pvals=c()
+for(i in 1:nrow(comparison1)){
+	row=comparison1[i,]
+	env=row$environment
+	chr=row$CHR
+	factor=row$Trait
+	gene=row$i.Trait
+	fsnp=row$X_ID
+	esnp=row$i.X_ID
+	etime=row$time
+	
+	effect_sizes=fread(sprintf('eqtl/trans/results/%s_residuals_c%.0f_%s_trans_results_FIXED.txt',time,chr,factor),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==fsnp,]
+	effect_size=unlist(effect_size[,c(founders)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	
+	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',etime,chr),data.table=F)
+	results=results[results$X_ID==esnp & results$Trait==gene,]
+	betas=unlist(results[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
+	cors=c(cors,r)
+	pvals=c(pvals,p)
+	
+	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
+	if(abs(r)>0.5){
+		p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder)) +
+		xlab("eQTL effect size (log2cpm)") + ylab("Factor trans-eQTL effect size") +
+		ggtitle(sprintf("%s and %s, %s, r=%.2f",gene,factor,time,r))
+		plot_list[[count]]=p1
+		count=count+1
+	}
+	
+}
+
+comparison1$r=cors
+comparison1$pvalue=pvals
+
+fwrite(comparison1,'eqtl/results/WD_0720_Factor17_cis_eQTL_overlap.txt',row.names=F,quote=F,sep='\t')
+
+pdf('eqtl/images/WD_0720_Factor17_cis_eQTL_effect_size_correlations.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
+
+qtl=fread('QTL/all_adjusted_QTL_peaks.txt',data.table=F)
+qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
+qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
+env1=factoreqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,CHR,leftmost,alt_rightmost)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','leftmost','alt_rightmost'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+
+qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
+#qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
+#qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
+env1=factoreqtl
+env1=as.data.table(env1)
+env2=as.data.table(qtl)
+setkey(env2,Chromosome,left_bound_bp,alt_right_bound_bp)
+comparison2=foverlaps(env1,env2,by.x=c('CHR','leftmost','alt_rightmost'),by.y=c('Chromosome','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+No Overlaps
 
 
 ####### Residuals ########
@@ -1600,9 +2326,9 @@ all_qtts$padjust=p.adjust(all_qtts$pvalue,method='fdr')
 fwrite(all_qtts,sprintf('eqtl/results/%s_%s_F_pheno_corrs.txt',time,factor),row.names=F,quote=F,sep='\t')
 
 
-#### Do any factors have enrichment of FT genes?
-time="WD_0727"
-prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance.txt',time),data.table=F)
+#### Do any factors have enrichment of FT genes? ##########
+time="WD_0718"
+prop_var=fread(sprintf('MegaLMM/MegaLMM_residuals_%s_prop_variance_FIXED.txt',time),data.table=F)
 ft_genes=fread('../selection/FT_gene_list_AGPv4.bed',data.table=F)
 names(ft_genes)=c('CHR','START','END','GENE_ID')
 
@@ -1635,6 +2361,30 @@ for(i in 1:nrow(allft)){
 
 }
 allft$null=null
+
+allft[allft$inft>allft$null,]
+#     factor ngenes inft      null
+#2   Factor2   1642   83  68.53088
+#4   Factor4   1126   51  49.26544
+#8   Factor8   4446  158 155.79632
+#10 Factor10    308   19  17.53088
+
+f4genes=prop_var[prop_var$Factor4>0.1,c('V1','Factor4')]
+f4genes=merge(f4genes,genetable,by.x='V1',by.y="Gene_ID")
+
+rap27_1="Zm00001d010987" # Not epxressed
+rap27_2="Zm00001d010988" # Not epxressed
+zcn8="Zm00001d010752" # Factor 4, 8, and 14
+mads69="Zm00001d042315" # Factor 17
+
+ftf4=f4genes[f4genes$V1 %in% ft_genes$GENE_ID,]
+f2=merge(ftf4,genetable,by.x='V1',by.y="Gene_ID")
+
+
+
+
+
+
 
 ft_geneoverlap=c()
 for(i in 1:length(factor_groups)){

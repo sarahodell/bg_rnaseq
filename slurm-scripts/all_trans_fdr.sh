@@ -9,4 +9,5 @@
 
 module load R
 
-Rscript scripts/all_trans_weighted_plots.R
+#Rscript scripts/all_trans_weighted_plots.R
+Rscript scripts/trans_fixed.R

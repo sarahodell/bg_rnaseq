@@ -122,11 +122,14 @@ rownames(weights)=rownames(norm)
 names(weights)=names(norm)
 fwrite(weights,sprintf('eqtl/normalized/%s_voom_weights_2.txt',time),row.names=T,quote=F,sep='\t')
 
+
+y=readRDS(sprintf('eqtl/normalized/%s_voom_results_2.rds',time))
+
 ym=as.matrix(y$E)
 ym=t(ym)
 
 pca <- prcomp(ym, center = TRUE)
-pcs=as.data.frame(pca$x,stringsAsFactors=F)
+ pcs=as.data.frame(pca$x,stringsAsFactors=F)
 var_explained <- pca$sdev^2/sum(pca$sdev^2)
 
 pc_mm=pcs[,1:3]
@@ -362,14 +365,35 @@ dev.off()
 
 
 # Correlation of plate with PC
-time="WD_0720"
-pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
+time="WD_0727"
+pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
+meta=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
 
-meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+#meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
 meta=meta[meta$experiment==time,]
-meta=meta[meta$read==1,]
+#meta=meta[meta$read==1,]
 meta=meta[match(pcs$V1,meta$dh_genotype),]
 
 cor(meta$plate,pcs$PC1)
 cor(meta$plate,pcs$PC2)
 cor(meta$plate,pcs$PC3)
+
+# WD_0712
+#[1] 0.8159085
+#[1] -0.08469473
+#[1] 0.2859349
+
+#WD0718
+#[1] -0.03237676
+#[1] -0.5439166
+#[1] -0.04923342
+
+#WD0720
+#[1] 0.2180963
+#[1] 0.1039951
+#[1] -0.1608267
+
+#WD_0727
+#[1] 0.02979704
+#[1] 0.04257913
+#[1] -0.3597453

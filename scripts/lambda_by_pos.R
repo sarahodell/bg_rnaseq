@@ -2,10 +2,11 @@
 
 library('data.table')
 library('ggplot2')
-library('tidyverse')
-time="WD_0712"
+library('dplyr')
 
-lambda=fread(sprintf('MegaLMM/MegaLMM_%s_all_Lambda_means_FIXED.txt',time),data.table=F)
+time="WD_0718"
+
+lambda=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_Lambda_means_FIXED.txt',time),data.table=F)
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 
 #sub=lambda[,1:6]
@@ -19,8 +20,8 @@ mutate(tot=cumsum(chr_len)-chr_len) %>%
 #select(-chr_len) %>%
 left_join(sub, ., by=c("CHROM"="CHROM")) %>%
 arrange(CHROM, END) %>%
-mutate( BPcum=as.numeric(END+tot)) %>%
-gather(key, value,-START,-END,-V1,-CHROM,-BPcum,-tot,-all_of(factors))
+mutate( BPcum=as.numeric(END+tot)) #%>%
+#gather(key, value,-START,-END,-V1,-CHROM,-BPcum,-tot,-all_of(factors))
 
 
 
@@ -29,13 +30,13 @@ gather(key, value,-START,-END,-V1,-CHROM,-BPcum,-tot,-all_of(factors))
 plot_list=vector("list",length(factors))
 count=1
 for(f in factors){
-  p1=ggplot(aes_string(y=f),data=sub.tmp[which(abs(sub.tmp[,f])>0.2),])+ geom_point(aes(x=BPcum)) + ggtitle(sprintf("%s",f))
+  p1=ggplot(aes_string(y=f),data=sub.tmp[which(abs(sub.tmp[,f])>0.01),])+ geom_point(aes(x=BPcum)) + ggtitle(sprintf("%s",f))
   plot_list[[count]]=p1
   count=count+1
 }
 
 
-pdf('images/lambda_by_pos.pdf')
+pdf(sprintf('images/resid_%s_lambda_by_pos.pdf',time))
 for(i in 1:length(plot_list)){
   print(plot_list[[i]])
 }

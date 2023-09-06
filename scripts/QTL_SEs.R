@@ -410,6 +410,7 @@ dev.off()
 
 
 ####### Factor trans-eQTL
+time="WD_0712"
 
 colorcodes=fread('../GridLMM/effect_sizes/founder_color_codes.txt',data.table=F)
 rownames(colorcodes)=colorcodes$founder
@@ -417,16 +418,15 @@ founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra","A654_inr
 "C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 #has_mite=c(F,T,T,T,F,T,T,T,T,T,T,F,T,T,T,F)
 
-qtl=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
-#indices=c(1,5)
+qtl=fread('eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',data.table=F)#indices=c(1,5)
 
-time="WD_0720"
+
 
 
 qtl=qtl[qtl$time==time,]
 rownames(qtl)=seq(1:nrow(qtl))
 #qtl=fread(sprintf('eqtl/results/WD_0727_trans_eQTL_scan_hits.txt',time),data.table=F)
-phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means.txt',time),data.table=F)
+phenotype=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time),data.table=F)
 
 #phenotype=fread(sprintf('eqtl/normalized/WD_0712_voom_normalized_gene_counts_formatted.txt',time),data.table=F)
 
@@ -439,12 +439,11 @@ K=K[inter,inter]
 phenotype=phenotype[phenotype$V1 %in% inter,]
 
 #pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates.txt',time),data.table=F)
-metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
+metadata=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
 genos=phenotype$V1
 
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 
-metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
 metadata=metadata[metadata$experiment==time,]
 
 ######
@@ -459,17 +458,23 @@ count=1
 
 factors=unique(qtl$Trait)
 
+adj_chr=c("5","9")
+
 chroms=unique(qtl$CHR)
 for(c in chroms){
 	subqtl=qtl[qtl$CHR==c,]
 	subqtl$gene_snp=paste0(subqtl$Trait,'_',subqtl$X_ID)
 	chr=as.character(c)
-  	founder_probs = readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	if(chr %in% adj_chr){
+		founder_probs = readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+	}else{
+		founder_probs = readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+	}
 	for(i in 1:nrow(subqtl)){
 		factor=subqtl[i,]$Trait
-		res=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results.txt',time,chr,factor),data.table=F)
+		res=fread(sprintf('eqtl/trans/results/%s_residuals_c%s_%s_trans_results_FIXED.txt',time,chr,factor),data.table=F)
   		snp=subqtl[i,]$X_ID
-  		pos=subqtl[i,]$BP
+  		#pos=subqtl[i,]$BP
  		#genes=intersect(genes,colnames(phenotype))
  		inter=intersect(rownames(founder_probs[[1]]),genos)
  		X = do.call(cbind,lapply(founder_probs,function(x) x[inter,snp]))
@@ -540,7 +545,7 @@ for(c in chroms){
   		scale_color_manual(values=colorcodes[levels(cld$variable_f),]$hex_color,labels=levels(cld$variable_f))+
   		theme(axis.text.x=element_text(size=10,angle=45)) +
   		xlab("Founder") + ylab("Expression (log2CPM)") +
-  		labs(title=sprintf("%s trans-eQTL Founder Effect Sizes (lme4qtl)",y))
+  		labs(title=sprintf("%s %s c%s trans-eQTL Founder Effect Sizes (lme4qtl)",time, y,c))
   		
   		#png('test.png')
   		#print(p1)
@@ -552,9 +557,9 @@ for(c in chroms){
 	}
 }
 
-saveRDS(ses,sprintf('eqtl/results/%s_transeQTL_founder_lme4qtl_es.rds',time))
+saveRDS(ses,sprintf('eqtl/results/%s_residuals_transeQTL_founder_lme4qtl_es.rds',time))
 
-pdf(sprintf('eqtl/images/%s_factor_transeQTL_founder_lme4qtl_es.pdf',time))
+pdf(sprintf('eqtl/images/%s_residuals_factor_transeQTL_founder_lme4qtl_es.pdf',time))
 for(j in 1:length(ses_plot)){
   print(ses_plot[[j]])
 }

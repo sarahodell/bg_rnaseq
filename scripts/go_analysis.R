@@ -222,6 +222,98 @@ enriched_GO %>% group_by(time,factor) %>% count()
 all_go$under_adjusted_p=p.adjust(all_go$under_represented_pvalue,method="fdr")
 depleted_GO=all_go[all_go$under_adjusted_p<0.05,]
 
+
+
+
+
+
+
+
+
+
+
+########### MITE-No MITE DEG GO
+
+all_go=c()
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+for(time in times){
+	degs=fread(sprintf('limma_results/%s_top_MITE_late_DEGs.txt',time),data.table=F)
+	degs$time=time
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	rownames(exp)=exp$V1
+	exp=exp[,-1]
+	
+	unlog=data.frame(lapply(exp,log_inverse),stringsAsFactors=F)
+	avg_exp = apply(unlog,2,mean)
+	names(avg_exp)=names(exp)
+	avg_exp[avg_exp<1]=0
+	# re-log the input data
+	avg_logexp=log2(avg_exp)
+	avg_logexp[is.infinite(avg_logexp)]=0
+	
+	all_genes=intersect(unique(genetable$Gene_ID),unique(annotation$Gene))
+	#tp_genes=kept_genes
+
+	genelength=genetable[match(all_genes,genetable$Gene_ID),]$LENGTH
+	names(genelength)=all_genes
+
+	
+	pdf(sprintf('images/%s_MITE_nullp_plots.pdf',time))
+	genes=names(avg_exp)
+	
+  	test=unique(degs$Gene_ID)
+  	if(length(test)>1){
+  		deg=ifelse(genes %in% test,1,0)
+  		names(deg)=genes
+  		inter=intersect(test,genes[which(genes %in% test)])
+  		test=inter
+  		go=nullp(DEgenes=deg,bias.data=avg_logexp,plot.fit=T)
+  		GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],use_genes_without_cat=TRUE,test.cats=c("GO:BP"))
+  		GO.samp=as.data.frame(GO.samp,stringsAsFactors=F)
+  		GO.samp$time=time
+  		#GO.samp$in_full=GO.samp$category %in% full_cats
+  		all_go=rbind(all_go,GO.samp)
+  	}
+  	dev.off()
+}
+
+
+#all_go=as.data.frame(all_go,stringsAsFactors=F)
+#fwrite(all_go,sprintf('GO/MegaLMM_%.2f_GOSeq_all_FIXED.txt',cutoff),row.names=F,quote=F,sep='\t')
+
+all_go$adjusted_p=p.adjust(all_go$over_represented_pvalue,method="fdr")
+enriched_GO=all_go[all_go$adjusted_p<0.05,]
+fwrite(enriched_GO,sprintf('GO/MITE_%.2f_GOSeq_enriched_FIXED.txt',cutoff),row.names=F,quote=F,sep='\t')
+
+
+alldegs=c()
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+for(time in times){
+	#degs=fread(sprintf('limma_results/%s_top_MITE_DEGs.txt',time),data.table=F)
+	degs=fread(sprintf('limma_results/%s_top_MITE_late_DEGs.txt',time),data.table=F)
+
+	degs$time=time
+	alldegs=rbind(alldegs,degs)
+}
+
+test=unique(alldegs$Gene_ID)
+deg=ifelse(genes %in% test,1,0)
+names(deg)=genes
+inter=intersect(test,genes[which(genes %in% test)])
+test=inter
+genelength=genetable[match(genes,genetable$Gene_ID),]$LENGTH
+names(genelength)=genes
+go=nullp(DEgenes=deg,bias.data=genelength,plot.fit=T)
+GO.samp=goseq(go,gene2cat=annotation[,c('Gene','GO')],use_genes_without_cat=TRUE,test.cats=c("GO:BP"))
+GO.samp=as.data.frame(GO.samp,stringsAsFactors=F)
+
+enriched_GO=GO.samp[GO.samp$over_represented_pvalue<=0.05,]
+fwrite(enriched_GO,'GO/Early_Late_MITE_GOSeq_enriched_FIXED.txt',row.names=F,quote=F,sep='\t')
+#fwrite(enriched_GO,'GO/MITE_NOMITE_GOSeq_enriched_FIXED.txt',row.names=F,quote=F,sep='\t')
+
+#GO.samp$time=time
+  		#GO.samp$in_full=GO.samp$category %in% full_cats
+#all_go=rbind(all_go,GO.samp)
 #all_go=all_go[all_go$ontology!="CC",]
 #all_go=all_go[!is.na(all_go$ontology),]
 #rownames(all_go)=seq(1,nrow(all_go))

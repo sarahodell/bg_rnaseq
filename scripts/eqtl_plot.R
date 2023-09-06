@@ -5,6 +5,94 @@ library('ggplot2')
 library('dplyr')
 library('ggnewscale')
 
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+
+
+
+trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+names(trans)=c('Trait','time','CHR','X_ID','BP','block_start','block_end_bp','left_bound_snp','right_bound_snp','block_end')
+trans=trans[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
+trans$class="trans"
+
+eqtl=eqtl[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
+eqtl$class='cis'
+
+
+trans %>% group_by(time) %>% count
+## A tibble: 4 × 2
+# Groups:   time [4]
+#  time        n
+#  <chr>   <int>
+#1 WD_0712 30309
+#2 WD_0718 34461
+#3 WD_0720 37278
+#4 WD_0727 35272
+
+trans %>% group_by(time) %>% summarize(n=length(unique(gene)))
+
+neqtl= trans %>% group_by(gene,time) %>% count
+summary(neqtl$n)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  1.000   1.000   2.000   2.594   3.000  26.000
+
+table(neqtl$n)
+
+#    1     2     3     4     5     6     7     8     9    10    11    12    13 
+#18680 13776  8687  4950  2882  1520   869   552   330   225   151   113    64 
+
+#   14    15    16    17    18    19    20    21    22    23    26 
+#   34    30    21    19    12     8     1     3     2     1     1 
+
+d=as.data.frame(table(neqtl$n))
+p1=ggplot(data=neqtl,aes(x=n)) + geom_histogram(bins=26)
+
+png('eqtl/images/trans_eQTL_per_gene_hist.png')
+print(p1)
+dev.off()
+
+#35% only have 1 distal-eQTL in a timepoint
+
+#### How many eQTL are shared across timepoints?
+
+df=data.frame(gene=unique(trans$gene),stringsAsFactors=F)
+n=c()
+for(gene in unique(trans$gene)){
+	sub=trans[trans$gene==gene,]
+}
+
+
+length(unique(trans$Trait))
+#[1] 8625
+
+length(unique(interaction(trans$Trait,trans$time)))
+#[1] 18958
+
+bytime= trans %>% group_by(time) %>% summarize(ngenes=length(unique(Trait)))
+#> bytime
+# A tibble: 4 × 2
+#  time    ngenes
+#  <chr>    <int>
+#1 WD_0712    682
+#2 WD_0718   4128
+#3 WD_0720   7453
+#4 WD_0727   6695
+
+bygene=trans %>% group_by(Trait) %>% summarize(ntimes=length(unique(time)))
+table(bygene$ntimes)
+#   1    2    3    4 
+#2561 2395 3069  600 
 
 #cis=fread('eqtl/results/WD_0712_cis_eQTL_weights_fdr_hits.txt',data.table=F)
 #cis$class="cis"
@@ -40,8 +128,8 @@ library('ggnewscale')
 #names(trans)=c("Trait","CHR","BP","SNP","p_adjusted","value","class","time")
 #trans=trans[,c("Trait","CHR","BP","SNP","value","class","time")]
 #fwrite(trans,'eqtl/results/all_trans_eQTL_weights_fdr_hits.txt',row.names=F,quote=F,sep='\t')
-cis=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits.txt',data.table=F)
-trans=fread('eqtl/results/all_trans_fdr_peaks.txt',data.table=F)
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
 
 factoreqtl=fread('eqtl/results/Factor2_trans_WD_0727_eQTL_fkeep_vst_fdr_hits.txt',data.table=F)
 factoreqtl$class="factor"
@@ -61,10 +149,11 @@ names(factoreqtl)=c("Trait","CHR","BP","SNP","value","class","time")
 factoreqtl=factoreqtl[,c("Trait","CHR","BP","SNP","value","class","time")]
 fwrite(factoreqtl,'eqtl/results/all_factor_eQTL_fdr_hits.txt',row.names=F,quote=F,sep='\t')
 
-allhits=rbind(cis,trans)
+allhits=rbind(eqtl,trans)
 allhits=rbind(allhits,factoreqtl)
 
-fwrite(allhits,'eqtl/results/all_eQTL_fdr_hits.txt',row.names=F,quote=F,sep='\t')
+fwrite(allhits,'eqtl/results/all_eQTL_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
+
 
 allhits=fread('eqtl/results/all_eQTL_fdr_hits.txt',data.table=F)
 
@@ -266,10 +355,10 @@ sub$mid_block=apply(sub[,c('block_start','block_end')],1,function(x) round(mean(
 
 sub$mid_gene=apply(sub[,c('gene_start','gene_end')],1,function(x) round(mean(x)))
 
+axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
 
-
-sub$chr_lenA=chr_ends[match(sub$CHR,chr_ends$chr),]$chr_len
-sub$chr_lenB=chr_ends[match(sub$gene_chr,chr_ends$chr),]$chr_len
+sub$chr_lenA=axisdf[match(sub$CHR,axisdf$gene_chr),]$chr_len
+sub$chr_lenB=axisdf[match(sub$gene_chr,axisdf$gene_chr),]$chr_len
 
 df.tmp3 <- axisdf %>%
     left_join(sub, ., by=c("CHR"="gene_chr")) %>%

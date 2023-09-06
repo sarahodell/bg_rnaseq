@@ -37,7 +37,7 @@ data$plate=as.factor(data$plate)
 
 #data$y=(data$y-mean(data$y))/sd(data$y)
   #K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
-K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
 rownames(K)=K[,1]
 rownames(K)=gsub("-",".",rownames(K))
 K=as.matrix(K[,-1])

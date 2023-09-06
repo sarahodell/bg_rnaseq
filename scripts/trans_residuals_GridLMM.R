@@ -29,6 +29,23 @@ if(time=="WD_0712" & factor=="Factor23"){
 	phenotype[phenotype$V1==drop_ind,factor]=1.9960830
 }
 
+if(time=="WD_0712" & factor=="Factor45"){
+	drop_ind="EB.09S.H.00232" #EB.09S.H.00232 6.3895000 to 1.5069615
+	phenotype[phenotype$V1==drop_ind,factor]=1.5069615
+}
+
+if(time=="WD_0718" & factor=="Factor24"){
+	drop_ind="EB.09S.H.00238" # EB.09S.H.00238 4.8764768 to 2.9610413
+
+	phenotype[phenotype$V1==drop_ind,factor]=2.9610413
+}
+
+if(time=="WD_0727" & factor=="Factor19"){
+	drop_ind="EB.09S.H.00482"#EB.09S.H.00482 2.386980 to 1.669264
+
+	phenotype[phenotype$V1==drop_ind,factor]=1.669264
+}
+
 #factor_results=c()
 #p=names(phenotype)[factor]
 #metadata=fread('metadata/BG_completed_sample_list.txt',data.table=F)
@@ -42,7 +59,7 @@ data$plate=as.factor(data$plate)
 
 #data$y=(data$y-mean(data$y))/sd(data$y)
   #K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
-K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%s.txt',chr),data.table=F)
 rownames(K)=K[,1]
 rownames(K)=gsub("-",".",rownames(K))
 K=as.matrix(K[,-1])

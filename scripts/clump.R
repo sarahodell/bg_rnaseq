@@ -3,7 +3,8 @@
 library('data.table')
 
 
-sig=fread('eqtl/results/all_trans_fdr_hits.txt',data.table=F)
+sig=fread('eqtl/results/all_trans_fdr_hits_FIXED.txt',data.table=F)
+sig$log10p=-log10(sig$p_value_ML)
 
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 chroms=unique(sig$CHR)
@@ -27,7 +28,7 @@ for(chr in chroms){
 			if(nrow(subsig)>1){
 				snps=unique(subsig$X_ID)
 				subld=ld[ld$SNP_A %in% snps & ld$SNP_B %in% snps,]
-				startrow=subsig[which.max(subsig$value),]
+				startrow=subsig[which.max(subsig$log10p),]
 				startsnp=startrow$X_ID
 				final=c()
 				clumps=c()
@@ -45,7 +46,7 @@ for(chr in chroms){
 				final=rbind(final,startrow)
 				while(!is.null(clumps)){
 					drop=c()
-					clumprow=clumps[which.max(clumps$value),]
+					clumprow=clumps[which.max(clumps$log10p),]
 					final=rbind(final,clumprow)
 					clumpsnp=clumprow$X_ID
 					#tmp=clumps
@@ -70,14 +71,58 @@ for(chr in chroms){
 	}
 }
 
-fwrite(peaks,'eqtl/results/all_trans_fdr_peaks.txt',row.names=F,quote=F,sep='\t')
+fwrite(peaks,'eqtl/results/all_trans_fdr_peaks_FIXED.txt',row.names=F,quote=F,sep='\t')
 
-#Zm00001d048515 WD_0712
+envs=unique(phenotypes$Loc.Year.Treat)
+phenos=names(phenotypes)[3:9]
+cutoff=0.5
+thresh=0.10
+
+hitfile='eqtl/results/all_trans_lfdr_hits_FIXED.txt'
+peakfile='eqtl/results/all_trans_lfdr_peaks_FIXED.txt'
+sig=fread(hitfile,data.table=F)
+peaks=fread(peakfile,data.table=F)
+chroms=unique(sig$CHR)
+for(chr in chroms){
+	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+	pmap=pmap[order(pmap$pos),]
+	dropped=readRDS(sprintf('../genotypes/probabilities/geno_probs/dropped/bg%s_dropped_markers_genoprobs.rds',chr))
+	subpeaks=peaks[peaks$CHR==chr,]
+	subsig=sig[sig$CHR==chr,]
+	if(nrow(subsig)>1){
+		snps=unique(subsig$SNP)
+		subld=ld[ld$SNP_A %in% snps & ld$SNP_B %in% snps,]
+		for(i in 1:nrow(subpeaks)){
+			row=subpeaks[i,]
+			snp2=row$SNP
+			inld=subld[subld$SNP_A==snp2,]
+			inld=inld[inld$r2>=0.5,]
+			loc=which.min(inld$BP_B)
+			left=inld[loc,]$BP_B
+			left_SNP=inld[loc,]$SNP_B
+			loc2=which.max(inld$BP_B)
+			right=inld[loc2,]$BP_B
+			right_SNP=inld[loc2,]$SNP_B
+			peaks[peaks$SNP==snp2,]$leftmost=left
+			peaks[peaks$SNP==snp2,]$leftmost_SNP=left_SNP
+			peaks[peaks$SNP==snp2,]$rightmost=right
+			peaks[peaks$SNP==snp2,]$rightmost_SNP=right_SNP
+			r=which(unlist(lapply(dropped,function(x) x$marker==right_SNP)))
+			linked=dropped[[r]]$linked
+			last=which.max(pmap[match(linked,pmap$marker),]$pos)
+			new_rightmost=pmap[pmap$marker==linked[last],]$pos
+			peaks[peaks$SNP==snp2,]$alt_rightmost=new_rightmost
+		}
+	}			
+}
+fwrite(peak,peakfile,row.names=F,quote=F,sep='\t')
+
+
 
 
 sig=fread('eqtl/results/all_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
 
-sig=fread('eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
+#sig=fread('eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt',data.table=F)
 
 ld=fread('eqtl/data/all_founder_ld.txt',data.table=F)
 
@@ -145,8 +190,76 @@ for(chr in chroms){
 }
 # Gene counts
 fwrite(peaks,'eqtl/results/all_factor_fdr_peaks_FIXED.txt',row.names=F,quote=F,sep='\t')
+
+#fwrite(peaks,'eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',row.names=F,quote=F,sep='\t')
+
+
+#hitfile='eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt'
+#peakfile='eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt'
+
+hitfile='eqtl/results/all_factor_trans_eqtl_fdr_hits_FIXED.txt'
+peakfile='eqtl/results/all_factor_fdr_peaks_FIXED.txt'
+sig=fread(hitfile,data.table=F)
+peaks=fread(peakfile,data.table=F)
+peaks$leftmost=0
+peaks$rightmost=0
+peaks$alt_rightmost=0
+peaks$leftmost_SNP=""
+peaks$rightmost_SNP=""
+chroms=unique(sig$CHR)
+for(chr in chroms){
+	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+	pmap=pmap[order(pmap$pos),]
+	dropped=readRDS(sprintf('../genotypes/probabilities/geno_probs/dropped/bg%s_dropped_markers_genoprobs.rds',chr))
+	subpeaks=peaks[peaks$CHR==chr,]
+	subsig=sig[sig$CHR==chr,]
+	if(nrow(subsig)>1){
+		snps=unique(subsig$X_ID)
+		subld=ld[ld$SNP_A %in% snps & ld$SNP_B %in% snps,]
+		for(i in 1:nrow(subpeaks)){
+			row=subpeaks[i,]
+			snp2=row$X_ID
+			inld=subld[subld$SNP_A==snp2,]
+			inld=inld[inld$r2>=0.5,]
+			loc=which.min(inld$BP_B)
+			left=inld[loc,]$BP_B
+			left_SNP=inld[loc,]$SNP_B	
+			loc2=which.max(inld$BP_B)
+			right=inld[loc2,]$BP_B
+			right_SNP=inld[loc2,]$SNP_B
+			peaks[peaks$X_ID==snp2,]$leftmost=left
+			peaks[peaks$X_ID==snp2,]$leftmost_SNP=left_SNP
+			peaks[peaks$X_ID==snp2,]$rightmost=right
+			peaks[peaks$X_ID==snp2,]$rightmost_SNP=right_SNP			
+			r=which(unlist(lapply(dropped,function(x) x$marker==right_SNP)))
+			linked=dropped[[r]]$linked
+			last=which.max(pmap[match(linked,pmap$marker),]$pos)
+			new_rightmost=pmap[pmap$marker==linked[last],]$pos
+			peaks[peaks$X_ID==snp2,]$alt_rightmost=new_rightmost
+		}
+	}else{
+		snp2=subsig$X_ID
+		left=subsig$BP
+		left_SNP=snp2
+		right=subsig$BP
+		right_SNP=snp2
+		peaks[peaks$X_ID==snp2,]$leftmost=left
+		peaks[peaks$X_ID==snp2,]$leftmost_SNP=left_SNP
+		peaks[peaks$X_ID==snp2,]$rightmost=right
+		peaks[peaks$X_ID==snp2,]$rightmost_SNP=right_SNP
+		r=which(unlist(lapply(dropped,function(x) x$marker==right_SNP)))
+		linked=dropped[[r]]$linked
+		last=which.max(pmap[match(linked,pmap$marker),]$pos)
+		new_rightmost=pmap[pmap$marker==linked[last],]$pos
+		peaks[peaks$X_ID==snp2,]$alt_rightmost=new_rightmost
+	}
+}
+
+
 # Residuals
-fwrite(peaks,'eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',row.names=F,quote=F,sep='\t')
+fwrite(peaks,'eqtl/results/all_factor_fdr_peaks_FIXED.txt',row.names=F,quote=F,sep='\t')
+
+#fwrite(peaks,'eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',row.names=F,quote=F,sep='\t')
 
 ##### For all QTL updated
 phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
@@ -154,11 +267,11 @@ ld=fread('eqtl/data/all_founder_ld.txt',data.table=F)
 
 envs=unique(phenotypes$Loc.Year.Treat)
 phenos=names(phenotypes)[3:9]
-cutoff=0.5
+cutoff=0.25
 thresh=0.10
 for(p in phenos){
 	for(e in envs){
-		hitfile=sprintf('QTL/adjusted/%s_%s_QTL_scan_%.2f0000_hits.txt',p,e,thresh)
+		hitfile=sprintf('QTL/MITE_only/%s_%s_QTL_scan_%.2f0000_hits.txt',p,e,thresh)
 		if(file.exists(hitfile)){
 			sig=fread(hitfile,data.table=F)
 			chroms=unique(sig$CHR)
@@ -190,13 +303,13 @@ for(p in phenos){
 						#}
 					}
 					final=rbind(final,startrow)
-					final=cbind(final,leftmost,rightmost)
+					#final=cbind(final)#,leftmost,rightmost)
 					while(!is.null(clumps)){
 						drop=c()
-						leftmost=min(clumps$BP)
-						rightmost=max(clumps$BP)
+						#leftmost=min(clumps$BP)
+						#rightmost=max(clumps$BP)
 						clumprow=clumps[which.max(clumps$value),]
-						clumprow=cbind(clumprow,leftmost,rightmost)
+						#clumprow=cbind(clumprow)#,leftmost,rightmost)
 						final=rbind(final,clumprow)
 						clumpsnp=clumprow$SNP
 						#leftmost=clumprow$BP
@@ -220,7 +333,7 @@ for(p in phenos){
 				}
 				peaks=rbind(peaks,final)
 			}
-			fwrite(peaks,sprintf('QTL/adjusted/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh),row.names=F,quote=F,sep='\t')
+			fwrite(peaks,sprintf('QTL/MITE_only/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh),row.names=F,quote=F,sep='\t')
 		}
 	}
 }
@@ -229,15 +342,20 @@ for(p in phenos){
 # Get bounds of peak
 envs=unique(phenotypes$Loc.Year.Treat)
 phenos=names(phenotypes)[3:9]
-cutoff=0.5
+cutoff=0.25
 thresh=0.10
 for(p in phenos){
 	for(e in envs){
-		hitfile=sprintf('QTL/adjusted/%s_%s_QTL_scan_%.2f0000_hits.txt',p,e,thresh)
-		peakfile=sprintf('QTL/adjusted/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh)
+		hitfile=sprintf('QTL/MITE_only/%s_%s_QTL_scan_%.2f0000_hits.txt',p,e,thresh)
+		peakfile=sprintf('QTL/MITE_only/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh)
 		if(file.exists(hitfile)){
 			sig=fread(hitfile,data.table=F)
 			peaks=fread(peakfile,data.table=F)
+			peaks$leftmost=0
+			peaks$rightmost=0
+			peaks$alt_rightmost=0
+			peaks$leftmost_SNP=""
+			peaks$rightmost_SNP=""
 			chroms=unique(sig$CHR)
 			for(chr in chroms){
 				pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
@@ -271,14 +389,44 @@ for(p in phenos){
 						new_rightmost=pmap[pmap$marker==linked[last],]$pos
 						peaks[peaks$SNP==snp2,]$alt_rightmost=new_rightmost
 					}
+				}else{
+					snp2=subsig$SNP
+					left=subsig$BP
+					left_SNP=snp2
+					right=subsig$BP
+					right_SNP=snp2
+					peaks[peaks$SNP==snp2,]$leftmost=left
+					peaks[peaks$SNP==snp2,]$leftmost_SNP=left_SNP
+					peaks[peaks$SNP==snp2,]$rightmost=right
+					peaks[peaks$SNP==snp2,]$rightmost_SNP=right_SNP
+					r=which(unlist(lapply(dropped,function(x) x$marker==right_SNP)))
+					linked=dropped[[r]]$linked
+					last=which.max(pmap[match(linked,pmap$marker),]$pos)
+					new_rightmost=pmap[pmap$marker==linked[last],]$pos
+					peaks[peaks$SNP==snp2,]$alt_rightmost=new_rightmost
 				}
-				
 			}
-			fwrite(peaks,sprintf('QTL/adjusted/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh),row.names=F,quote=F,sep='\t')
+			fwrite(peaks,sprintf('QTL/MITE_only/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh),row.names=F,quote=F,sep='\t')
 		}
 	}
 }
 
+envs=unique(phenotypes$Loc.Year.Treat)
+phenos=names(phenotypes)[3:9]
+allq=c()
+for(p in phenos){
+	for(e in envs){
+		peakfile=sprintf('QTL/MITE_only/%s_%s_QTL_scan_%.2f_peaks.txt',p,e,thresh)
+		if(file.exists(peakfile)){
+			#sig=fread(hitfile,data.table=F)
+			peaks=fread(peakfile,data.table=F)
+			peaks$phenotype=p
+			peaks$environment=e
+			allq=rbind(allq,peaks)
+		}
+	}
+}
+fwrite(allq,'QTL/MITE_only/all_MITE_only_QTL_peaks.txt',row.names=F,quote=F,sep='\t')
 
 
 m1=intersect(pmap$marker,subld$SNP_A)
