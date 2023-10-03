@@ -7,8 +7,10 @@ founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_in
 #plot_list=list()
 #count=1
 #adj_chr=c(5,9)
-trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
-qtl=fread('QTL/all_adjusted_QTL_all_methods.txt',data.table=F)
+trans=fread('eqtl/results/all_trans_fdr_SIs_ld_FIXED.txt',data.table=F)
+
+#trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+qtl=fread('QTL/all_adjusted_QTL_SIs.txt',data.table=F)
 env1=qtl
 env1=as.data.table(env1)
 env2=as.data.table(trans)
@@ -35,7 +37,7 @@ for(tc in time_chr){
 		tsnp=row$SNP
 		id=row$ID
 		qsnp=row$i.SNP
-		effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno,env),data.table=F)
+		effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr,pheno,env),data.table=F)
 		effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
 		effect_size=unlist(effect_size[,c(6:21)])
 		wn=which(!is.na(effect_size))[1]
@@ -54,7 +56,11 @@ for(tc in time_chr){
 	}
 }
 
-fwrite(subcomp,'QTT/QTL_trans_eQTL_overlap.txt',row.names=F,quote=F,sep='\t')
+fwrite(subcomp,'QTT/QTL_trans_eQTL_interval_overlap.txt',row.names=F,quote=F,sep='\t')
+
+max_r=subcomp %>% group_by(pheno_env_ID) %>% slice(which.max(abs(r)))
+max_r=as.data.frame(max_r,stringsAsFactors=F)
+fwrite(max_r,'QTT/distal_eQTL_candidates.txt',row.names=F,quote=F,sep='\t')
 
 
 #trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)

@@ -5,12 +5,71 @@ library('ggplot2')
 library('dplyr')
 
 ### Look for outliers
-factoreqtl=fread('eqtl/results/all_residual_factor_fdr_peaks_FIXED.txt',data.table=F)
+factoreqtl=fread('eqtl/results/all_residual_factor_fdr_SIs_FIXED.txt',data.table=F)
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 
 factoreqtl$factor_time=paste0(factoreqtl$time,'-',factoreqtl$factor)
 factoreqtls=unique(factoreqtl$factor_time)
+
+########## Are F values corrleated with overlapping phenotype QTL?
+time1="WD_0720"
+factor="Factor19"
+pheno="grain_yield_15"
+env="NERAC_2016_WD"
+#-0.05
+time1="WD_0727"
+factor="Factor12"
+pheno="total_plant_height"
+env="ALL"
+#0.134
+Fvalues=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time1),data.table=F)
+rownames(Fvalues)=Fvalues$V1
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+
+subpheno=phenotypes[phenotypes$Loc.Year.Treat==env,]
+rownames(subpheno)=subpheno$Genotype_code
+inter=intersect(subpheno$Genotype_code,Fvalues$V1)
+Fvalues=Fvalues[inter,]
+subpheno=subpheno[inter,]
+cor(subpheno[,pheno],Fvalues[,factor])
+
+# Are the founder effect sizes correlated? I can only do this for whole gene counts
+chr2=3
+pheno="male_flowering_d6"
+env="EXP_STPAUL_2017_WD"
+qsnp="PZE-103093413"
+#-0.2196711
+
+pheno="harvest_grain_moisture"
+env="BLOIS_2017_OPT"
+qsnp="PZE-103093413"
+#-0.452876
+
+pheno="harvest_grain_moisture"
+env="ALL"
+qsnp="PZE-103084819"
+
+time1="WD_0720"
+factor1="Factor17"
+esnp="AX-90826809"
+#-0.6890176
+
+effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr2,pheno,env),data.table=F)
+effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
+effect_size=unlist(effect_size[,c(6:21)])
+wn=which(!is.na(effect_size))[1]
+effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+
+results=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results_FIXED.txt',time1,chr2,factor1),data.table=F)
+result=results[results$X_ID==esnp,]
+betas=unlist(result[,founders])
+wn=which(!is.na(betas))[1]
+betas[-wn]=betas[-wn]+betas[wn]
+
+cor(betas,effect_size,use="complete.obs")
+
+# 
 
 axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
 cumtot=2105119857
@@ -132,9 +191,100 @@ env2=as.data.table(resid)
 setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
 comp4=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
+# Is T20 Factor 17 enriched for flowering time genes
+time="WD_0727"
+prop_var=fread(sprintf('MegaLMM/MegaLMM_residuals_%s_prop_variance_FIXED.txt',time),data.table=F)
+ft_genes=fread('../selection/FT_gene_list_AGPv4.bed',data.table=F)
+names(ft_genes)=c('CHR','START','END','GENE_ID')
 
+allft=c()
 
+factors=names(prop_var)[-1]
+for(factor in factors){
+	fgenes=prop_var[prop_var[,factor]>=0.1,]$V1
+	tn=sum(fgenes %in% ft_genes$GENE_ID)
+	ft_geneoverlap=data.frame(factor=factor,ngenes=length(fgenes),inft=tn,stringsAsFactors=F)
+	allft=rbind(allft,ft_geneoverlap)
+}
 
+allgenes=prop_var$V1
+
+null=c()
+for(i in 1:nrow(allft)){
+	row=allft[i,]
+	ngenes=row$ngenes
+	tgenes=row$inft
+	alltn=c()
+	for(j in 1:1000){
+		draw=sample(allgenes,ngenes)
+		tn=sum(draw %in% ft_genes$GENE_ID)
+		alltn=c(alltn,tn)
+	}
+	adjust=68
+	q5=quantile(alltn,1-(0.05/adjust))
+	null=c(null,q5)
+
+}
+allft$null=null
+
+allft[allft$inft>allft$null,]
+
+#WD_0712 Factor3 WD_0727 Factor4 0.47
+#WD_0718 Factor2 WD_0720 Factor4 0.7565007
+#WD_0718 Factor2 WD_0727 Factor6 0.7461929
+#WD_0718 Factor4 WD_0720 Factor1 0.7645210
+#WD_0718 Factor4 WD_0727 Factor4 0.4809296
+#WD_0720 Factor4 WD_0727 Factor6 0.6893948
+
+# WD_0712 Factor 3 
+# WD_0718 Factor 2, Factor 4, Factor 8, Factor 10
+# WD_0720 Factor 4
+# WD_0727 Factor 4, Factor 6
+
+# WD_0718 Factor 4 has a factor-eQTL on chr2
+
+time="WD_0712"
+prop_var=fread(sprintf('MegaLMM/MegaLMM_%s_prop_variance_FIXED.txt',time),data.table=F)
+ft_genes=fread('../selection/FT_gene_list_AGPv4.bed',data.table=F)
+names(ft_genes)=c('CHR','START','END','GENE_ID')
+
+allft=c()
+
+factors=names(prop_var)[-1]
+for(factor in factors){
+	fgenes=prop_var[prop_var[,factor]>=0.1,]$V1
+	tn=sum(fgenes %in% ft_genes$GENE_ID)
+	ft_geneoverlap=data.frame(factor=factor,ngenes=length(fgenes),inft=tn,stringsAsFactors=F)
+	allft=rbind(allft,ft_geneoverlap)
+}
+
+allgenes=prop_var$V1
+
+null=c()
+for(i in 1:nrow(allft)){
+	row=allft[i,]
+	ngenes=row$ngenes
+	tgenes=row$inft
+	alltn=c()
+	for(j in 1:1000){
+		draw=sample(allgenes,ngenes)
+		tn=sum(draw %in% ft_genes$GENE_ID)
+		alltn=c(alltn,tn)
+	}
+	adjust=68
+	q5=quantile(alltn,1-(0.05/adjust))
+	null=c(null,q5)
+
+}
+allft$null=null
+
+allft[allft$inft>allft$null,]
+#WD_0712 Factor 3, Factor 8
+#WD_0718 Factor 2
+#WD_0720 Factor 6, Factor 8
+#WD_0727 Factor5 Factor 7
+
+########
 factoreqtl=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
 factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
@@ -468,9 +618,8 @@ ngenes
 fwrite(comp,'eqtl/results/residual_factor_eQTL_cis_eQTL_overlap.txt',row.names=F,quote=F,sep='\t')
 
 ##### Do they overlap with QTL
-factoreqtl=fread('eqtl/results/all_residual_factor_fdr_SIs_FIXED.txt',data.table=F)
-
-qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
+zqtl=fread('QTL/all_adjusted_QTL_all_methods.txt',data.table=F)
+#qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
 
 env1=qtl
 env1=as.data.table(env1)
@@ -478,12 +627,12 @@ env2=as.data.table(factoreqtl)
 setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
 comp2=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
-qtl=fread('../GridLMM/Biogemma_QTL.csv',data.table=F)
+factoreqtl=fread('eqtl/results/all_factor_fdr_SIs_FIXED.txt',data.table=F)
 env1=qtl
 env1=as.data.table(env1)
 env2=as.data.table(factoreqtl)
-setkey(env2,CHR,leftmost,alt_rightmost)
-comp2=foverlaps(env1,env2,by.x=c('Chromosome','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','leftmost','alt_rightmost'),nomatch=NULL)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+comp1=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
 
 #########################

@@ -11,7 +11,12 @@ module load plink
 
 #/home/sodell/bin/./plink --threads 5 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list MegaLMM/WD_0727_Factor2_snplist.txt --ld-window-r2 0.01 --out MegaLMM/Factor2_rsquared
 
-/home/sodell/bin/./plink --threads 16 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list eqtl/data/snplist.txt --ld-window-r2 0.01 --out eqtl/data/SNP_LD
+#/home/sodell/bin/./plink --threads 16 --bfile /home/sodell/projects/biogemma/genotypes/plink_files/600K/Biogemma_DHLines_600K_Genotypes_binary --r2 with-freqs inter-chr --ld-snp-list eqtl/data/snplist.txt --ld-window-r2 0.01 --out eqtl/data/SNP_LD
+
+founderfile=../genotypes/WGS/Biogemma_WGS_Founders_filtered_snps_diploid_no_tester.vcf.gz
+
+/home/sodell/bin/./plink --threads 4 --vcf $founderfile --maf 0.01 --freq counts --out datasets/Biogemma_founders
+
 
 #plink --bfile Biogemma_DHLines_600K_Genotypes_binary --freqx --nonfounders --out ../ld_decay/Biogemma_DHLine_allele_freq
 

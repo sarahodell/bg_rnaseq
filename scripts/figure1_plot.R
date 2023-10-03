@@ -6,29 +6,37 @@ library('dplyr')
 library('ggnewscale')
 
 
-cis=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits.txt',data.table=F)
-cis$class="cis"
-cis=cis[,c('Trait','X_ID','CHR','BP','value','class','time')]
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
 
 
-trans=fread('eqtl/results/all_trans_fdr_peaks.txt',data.table=F)
-#trans=fread('eqtl/results/all_trans_eQTL_weights_fdr_hits.txt',data.table=F)
+
+trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+names(trans)=c('Trait','time','CHR','X_ID','BP','block_start','block_end_bp','left_bound_snp','right_bound_snp','block_end')
+trans=trans[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
 trans$class="trans"
-#names(trans)=c('Trait','CHR','BP','X_ID','value','class','time')
-trans=trans[,c('Trait','CHR','X_ID','BP','value','class','time')]
 
-#factoreqtl=fread('eqtl/results/all_factor_trans_eqtl_fdr_hits',data.table=F)
-factoreqtl=fread('eqtl/results/all_factor_fdr_peaks.txt',data.table=F)
-factoreqtl$class="factor"
-factoreqtl=factoreqtl[,c('Trait','X_ID','CHR','BP','value','class','time')]
+eqtl=eqtl[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
+eqtl$class='cis'
 
 
-allhits=rbind(cis,trans)
-allhits=rbind(allhits,factoreqtl)
+allhits=rbind(eqtl,trans)
+#allhits=rbind(allhits,factoreqtl)
 names(allhits)[2]="SNP"
-fwrite(allhits,'eqtl/results/all_eQTL_fdr_peaks.txt',row.names=F,quote=F,sep='\t')
+fwrite(allhits,'eqtl/results/all_local_distal_eQTL_fdr_peaks.txt',row.names=F,quote=F,sep='\t')
 
-allhits=fread('eqtl/results/all_eQTL_fdr_peaks.txt',data.table=F)
+allhits=fread('eqtl/results/all_local_distal_eQTL_fdr_peaks.txt',data.table=F)
 
 all_founder_blocks=c()
 for(chr in 1:10){#
@@ -313,17 +321,17 @@ cistrans=ggplot(df.tmp4,aes(x=midblock_cum,y=midgene_cum)) +
     scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center_shift,minor_breaks=minor_breaks,limits=c(0, cumtot)) +
     geom_hline(yintercept=cumtot,colour="darkgrey") +
     geom_vline(xintercept=cumtot,colour="darkgrey") +
-    geom_point(aes(color=time),size=0.5) + 
+    geom_point(aes(color=time),size=0.1) + 
     labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
     theme_classic() +
     theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_blank())
  
-pdf('eqtl/images/cis_trans.pdf')
+pdf('paper_figures/cis_trans.pdf')
 print(cistrans)
 dev.off()
 
 output=df.tmp4[,c('Trait','SNP','CHR','block_start','block_end','gene_chr','gene_start','gene_end','class','time')]
-fwrite(output,'eqtl/results/all_cis_trans_fdr_hits.txt',row.names=F,quote=F,sep='\t')
+fwrite(output,'eqtl/results/all_cis_trans_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 
@@ -331,17 +339,17 @@ for(time in times){
 	subtmp=df.tmp4[df.tmp4$time==time,]
 	cistrans=ggplot(subtmp,aes(x=midblock_cum,y=midgene_cum)) +
 	geom_abline(slope=1, intercept=0,alpha=0.5) +
-	scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
-    scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
+	scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center_shift,minor_breaks=minor_breaks,limits=c(0, cumtot)) +
+    scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center_shift,minor_breaks=minor_breaks,limits=c(0, cumtot)) +
     geom_hline(yintercept=cumtot,colour="darkgrey") +
     geom_vline(xintercept=cumtot,colour="darkgrey") +
- 	geom_point(aes(color=class),size=1) + 
- 	scale_color_manual(values = c("cis" = "red","trans" = "blue")) + 
+ 	geom_point(aes(color=class),size=0.1) + 
+ 	#scale_color_manual(values = c("cis" = "coral","trans" = "lightblue")) + 
     labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
     theme_classic() +
-    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
+    theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_blank())
  
-	pdf(sprintf('eqtl/images/%s_cis_trans_fdr.pdf',time))
+	pdf(sprintf('paper_figures/%s_cis_trans_fdr.pdf',time))
 	print(cistrans)
 	dev.off()
 
@@ -375,7 +383,7 @@ scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axi
 geom_hline(yintercept=cumtot,colour="darkgrey") +
 geom_vline(xintercept=cumtot,colour="darkgrey") +
 annotate('rect', xmin=(comparison4$block_start+comparison4$tot.x.2), xmax=(comparison4$block_end+comparison4$tot.x.2), ymin=0, ymax=comparison4$midgene_cum.1, alpha=.5, fill='blue',alpha=0.3) +
-geom_point(aes(color=overlap),size=1) + 
+geom_point(aes(color=overlap),size=0.2) + 
 scale_color_manual(values = c("FALSE"="red", "TRUE"="blue")) + 
 labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
 theme_classic() +

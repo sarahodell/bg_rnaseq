@@ -28,7 +28,9 @@ for(chr in 1:10){#
 eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
 eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
 
-
+trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+trans$gene_snp=paste0(trans$gene,'-',trans$SNP)
+trans$gene_time=paste0(trans$gene,'-',trans$time)
 
 
 all_cors=c()
@@ -42,10 +44,12 @@ all_cors=as.data.frame(all_cors,stringsAsFactors=F)
 # 8,849 rows
 # 3,577 genes
 
+# two distal-eQTL with high correlation 
 tsus=all_cors[complete.cases(all_cors),]
 
 tsus$chr_pair=interaction(tsus$CHR.x,tsus$CHR.y)
 tsus$r2=0
+
 
 
 chrpairs=unique(interaction(tsus$CHR.x,tsus$CHR.y))
@@ -73,6 +77,37 @@ for(cp in chrpairs){
 
 fwrite(newt,'eqtl/results/trans_pair_high_cor.txt',row.names=F,quote=F,sep='\t')
 
+
+#### If they are on the same chromosome - choose the one with the highest pvalue? 
+
+newtld=newt[newt$r2>0.2,]
+newtld$gene_time_snp1=paste0(newtld$gene.x,'-',newtld$time.x,'-',newtld$SNP.x)
+newtld$gene_time=paste0(newtld$gene.x,'-',newtld$time.x)
+
+newtld$gene_time_snp2=paste0(newtld$gene.y,'-',newtld$time.y,'-',newtld$SNP.y)
+
+ldgenes=unique(newtld$gene_time)
+distal_ld=list()
+for(i in ldgenes){
+	sub=newtld[newtld$gene_time==i,]
+	sub=sub[complete.cases(sub),]
+	chroms=unique(sub$CHR.x)
+	for(chr in chroms){
+		sub2=sub[sub$CHR.x==chr,]
+		namesx=unique(c(sub2$gene_time_snp1,sub2$gene_time_snp2))
+		tsub=trans[trans$gene_time_snp %in% namesx,]
+		e1=tsub[which.max(tsub$value),]$gene_time_snp
+		distal_ld[[e1]]=namesx[namesx!=e1]
+	}
+}
+
+saveRDS(distal_ld,'eqtl/results/trans_pair_high_cor_dropped.rds')
+
+dropped=unlist(lapply(distal_ld,function(x) x))
+newtrans=trans[!(trans$gene_time_snp %in% dropped),]
+
+fwrite(newtrans,'eqtl/results/all_trans_fdr_SIs_ld_FIXED.txt',row.names=F,quote=F)
+# 
 
 # 8,504 rows
 # 3,372 genes
@@ -153,6 +188,9 @@ for(cp in chrpairs){
 }
 
 fwrite(newsus,'eqtl/results/cis_trans_high_cor.txt',row.names=F,quote=F,sep='\t')
+
+newsus$gene_time_snp=paste0(newsus$gene,'-',newsus$time,'-',newsus$SNP)
+newtrans=newtrans[!(newtrans$gene_time_snp %in% newsus$gene_time_snp),]
 
 # 345 rows
 # 282 genes

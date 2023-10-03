@@ -4,8 +4,8 @@ library('ggplot2')
 library('dplyr')
 
 ##
-time="WD_0712"
-deg=fread(sprintf('limma_results/%s_top_MITE_DEGs.txt',time))
+#time="WD_0712"
+#deg=fread(sprintf('limma_results/%s_top_MITE_DEGs.txt',time))
 eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
 eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
 eqtl$gene_time_SNP = paste0(eqtl$Trait,'-',eqtl$time,'-',eqtl$X_ID)
@@ -14,11 +14,9 @@ eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
 eqtl=as.data.frame(eqtl2)
 
 
-eqtl=eqtl[eqtl$time==time,]
-
-eqtl= eqtl[eqtl$Trait %in% deg$V1,]
-
-eqtl= eqtl[eqtl$Trait %in% deg$Gene_ID,]
+#eqtl=eqtl[eqtl$time==time,]
+#eqtl= eqtl[eqtl$Trait %in% deg$V1,]
+#eqtl= eqtl[eqtl$Trait %in% deg$Gene_ID,]
 
 
 all_founder_blocks=c()
@@ -30,20 +28,16 @@ eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp
 eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
 
 
-qtl=fread('QTL/all_adjusted_QTL_support_intervals.txt',data.table=F)
-qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
-qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
+qtl=fread('QTL/all_adjusted_QTL_SIs.txt',data.table=F)qtl$block_start=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$start
+#qtl$block_end=all_founder_blocks[match(qtl$SNP,all_founder_blocks$focal_snp),]$end
 env1=eqtl
 env1=as.data.table(env1)
 env2=as.data.table(qtl)
 setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
 comp=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
-
+fwrite(comp,'QTT/QTL_cis_eQTL_interval_overlap.txt',row.names=F,quote=F,sep='\t')
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
-plot_list=list()
-count=1
-#adj_chr=c(5,9)
 cors=c()
 pvals=c()
 for(i in 1:nrow(comp)){
@@ -53,63 +47,42 @@ for(i in 1:nrow(comp)){
 	chr=row$CHR
 	gene=row$Trait
 	qsnp=row$SNP
-	#id=row$ID
 	time=row$time
-	#exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
 	gene=row$Trait
 	esnp=row$X_ID
-	#chr=row$CHR
-	#if(chr %in% adj_chr){
-	#	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
-	#}else{
-	#	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
-	#
-	#}
-	#inds=rownames(X_list[[1]])
-	#inter=intersect(exp$V1,inds)
-	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr,pheno,env),data.table=F)
+	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr,pheno,env),data.table=F)
 	effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
 	effect_size=unlist(effect_size[,c(6:21)])
 	wn=which(!is.na(effect_size))[1]
 	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
-	#X = do.call(cbind,lapply(X_list,function(x) x[inter,snp]))
-	#colnames(X) = founders
-	#rownames(X) = inter
-	
 	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
-	#w=which(unlist(lapply(results,function(x) unique(x$Trait)==gene)))
-	#results=results[[w]]
 	results=results[results$X_ID==esnp & results$Trait==gene,]
 	betas=unlist(results[,c(6,10:24)])
 	wn=which(!is.na(betas))[1]
 	betas[-wn]=betas[-wn]+betas[wn]
-	
 	test=cor.test(effect_size,betas,use="complete.obs")
 	r=test$estimate
 	p=test$p.value
 	cors=c(cors,r)
 	pvals=c(pvals,p)
-	
-	df=data.frame(founder=founders,pheno=effect_size,eqts=betas,stringsAsFactors=F)
-	df=df[complete.cases(df),]
-	p1=ggplot(df,aes(x=eqts,y=pheno)) + geom_point(aes(color=founder)) +
-	xlab("eQTL effect size (log2cpm)") + ylab("QTL effect size") +
-	ggtitle(sprintf("%s %s and %s %s, r=%.2f",gene,time,pheno,env,r))
-	plot_list[[count]]=p1
-	count=count+1
-	
 }
 
 comp$r=cors
 comp$pvalue=pvals
+fwrite(comp,'QTT/QTL_cis_eQTL_interval_overlap.txt',row.names=F,quote=F,sep='\t')
 
-pdf(sprintf('QTL/images/%s_MITE_DEG_effect_size_correlations.pdf',time))
-for(i in 1:length(plot_list)){
-	print(plot_list[[i]])
-}
-dev.off()
+max_r=comp %>% group_by(pheno_env_ID) %>% slice(which.max(abs(r)))
+max_r=as.data.frame(max_r,stringsAsFactors=F)
+fwrite(max_r,'QTT/local_eQTL_candidates.txt',row.names=F,quote=F,sep='\t')
+#pdf(sprintf('QTL/images/%s_MITE_DEG_effect_size_correlations.pdf',time))
+#for(i in 1:length(plot_list)){#
+#	print(plot_list[[i]])
+#}
+#dev.off()
 
 
+####
+trans=fread('eqtl/results/all_trans_fdr_SIs_ld_FIXED.txt',data.table=F)
 
 eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
 eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)

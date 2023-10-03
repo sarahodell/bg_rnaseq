@@ -346,7 +346,8 @@ dev.off()
 
 ### just cis and trans plot first
 
-sub=allhits[allhits$class %in% c('cis','trans'),]
+#sub=allhits[allhits$class %in% c('cis','trans'),]
+sub=rbind(eqtl,trans)
 sub$gene_chr=genetable[match(sub$Trait,genetable$Gene_ID),]$CHROM
 sub$gene_start=genetable[match(sub$Trait,genetable$Gene_ID),]$START
 sub$gene_end=genetable[match(sub$Trait,genetable$Gene_ID),]$END
@@ -387,7 +388,7 @@ cistrans=ggplot(df.tmp4,aes(x=midblock_cum,y=midgene_cum)) +
     theme_classic() +
     theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_blank())
  
-pdf('eqtl/images/cis_trans.pdf')
+pdf('paper_figures/cis_trans.pdf')
 print(cistrans)
 dev.off()
 

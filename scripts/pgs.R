@@ -9,8 +9,10 @@ library('MASS')
 
 
   #Founders
-  
-  
+qtl=fread('QTL/all_adjusted_QTL_SIs.txt',data.table=F)
+pheno="male_flowering_d6"
+env="ALL"
+qtl=qtl[qtl$phenotype==pheno & qtl$environment==env,]
 ## DTA PGS
 K=fread(sprintf('../GridLMM/K_matrices/K_matrix_chr%.0f.txt',c),data.table=F)
 rownames(K)=K[,1]
@@ -19,32 +21,40 @@ K=as.matrix(K[,-1])
 colnames(K)=rownames(K)
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
-phenotypes=fread('phenotypes/EXP_STPAUL_2017_WD_phenotypes.csv',data.table=F)
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+phenotypes=phenotypes[phenotypes$Loc.Year.Treat==env,]
+#env="EXP_STPAUL_2017_WD"
 
-env="EXP_STPAUL_2017_WD"
+# 3 AX-90796752 instead of AX-91555799
+# 8 AX-91112984
+
+qsnps=c("AX-90834914","AX-90796752","AX-91105891","AX-91112984","AX-91145948")
 
 all_pgs=c()
-for(c in 1:10){
-	fes=fread(sprintf('QTL/Biogemma_chr%.0f_male_flowering_d6_x_%s_vst_founderprobs.txt',c,env),data.table=F)
+chroms=unique(qtl$CHR)
+for(c in chroms){
+	row1=qtl[qtl$CHR==c,]
+	qsnps=unique(row1$SNP)
+	fes=fread(sprintf('QTL/adjusted/Biogemma_chr%.0f_%s_x_%s_unscaled_founderprobs.txt',c,pheno,env),data.table=F)
 	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%.0f_filtered_genotype_probs.rds',c))
 	inds=rownames(X_list[[1]])
-	inter=intersect(phenotypes$ID,inds)
+	inter=intersect(phenotypes$Genotype_code,inds)
 	X_list=lapply(X_list,function(x) x[inter,])
 	markers=colnames(X_list[[1]])
 	rownames(fes)=fes$X_ID
-	fes=fes[markers,]
+	fes=fes[qsnps,]
 	betas = fes[,founders]
 	wn=apply(betas,MARGIN=1,function(x) which(!is.na(x))[1]) 
 	for(x in 1:nrow(betas)){
 		betas[x,-wn[x]] = betas[x,-wn[x]] + betas[x,wn[x]]
 	}
 	betas[is.na(betas)]=0
-	pgs=sapply(markers,function(x) as.matrix(do.call(cbind,lapply(X_list,function(j) j[,x]))) %*% unlist(betas[x,]))
+	pgs=sapply(qsnps,function(x) as.matrix(do.call(cbind,lapply(X_list,function(j) j[,x]))) %*% unlist(betas[x,]))
 
 	#tmp2=as.data.frame(sapply(seq(1,nrow(betas)),function(x) tmp[x,-wn[x]] = tmp[x,-wn[x]] + tmp[x,wn[x]]))
 	rownames(pgs)=inter
 	ft_pgs=as.data.frame(rowSums(pgs,na.rm=T))
-	if(c==1){
+	if(c==3){
 		all_pgs=ft_pgs
 	}else{
 		all_pgs=cbind(all_pgs,ft_pgs)
@@ -53,7 +63,8 @@ for(c in 1:10){
 
 
 allp=data.frame(inds=inter,dta=rowSums(all_pgs,na.rm=T),stringsAsFactors=F)
-fwrite(allp,'QTL/Founder_EXP_STPAUL_2017_WD_DTA_polygenic_scores.txt',quote=F,sep='\t',row.names=F)
+fwrite(allp,'QTL/Founder_ALL_DTA_polygenic_scores.txt',quote=F,sep='\t',row.names=F)
+# variance 533.201
 
 #TPH
 all_pgs=c()
