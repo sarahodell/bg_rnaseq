@@ -14,10 +14,31 @@ eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
 eqtl=as.data.frame(eqtl2)
 
 
+ntimes=eqtl %>% group_by(Trait) %>% count()
 #eqtl=eqtl[eqtl$time==time,]
 #eqtl= eqtl[eqtl$Trait %in% deg$V1,]
 #eqtl= eqtl[eqtl$Trait %in% deg$Gene_ID,]
 
+
+#16218 for T12, 17516 for T18, 18062 for T20, and 17823 for T27.
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+prop_var=c()
+for(time1 in times){
+	for(chr in 1:10){
+		pv=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_prop_var_FIXED.txt',time1,chr),data.table=F)
+		prop_var=rbind(prop_var,pv)
+	}
+}
+prop_var=as.data.frame(prop_var,stringsAsFactors=F)
+prop_var$gene_time_SNP=paste0(prop_var$gene,'-',prop_var$time,'-',prop_var$snp)
+eqtl_var = merge(eqtl,prop_var,by='gene_time_SNP')
+
+p1=ggplot(aes(x=prop_var),data=prop_var) + geom_histogram() + theme_classic() +
+xlab("Proportion Variation Explained") + ylab("Frequency")
+
+png('paper_figures/local_eQTL_prop_var_hist.png')
+print(p1)
+dev.off()
 
 all_founder_blocks=c()
 for(chr in 1:10){#
@@ -83,6 +104,45 @@ fwrite(max_r,'QTT/local_eQTL_candidates.txt',row.names=F,quote=F,sep='\t')
 
 ####
 trans=fread('eqtl/results/all_trans_fdr_SIs_ld_FIXED.txt',data.table=F)
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+
+trans=merge(trans,genetable,by.x='gene',by.y="Gene_ID")
+
+trans %>% group_by(time) %>% summarize(length(unique(gene)))
+# A tibble: 4 × 2
+#  time    `length(unique(gene))`
+#  <chr>                    <int>
+#1 WD_0712                  11612
+#2 WD_0718                  13730
+#3 WD_0720                  14019
+#4 WD_0727                  13540
+trans %>% group_by(time) %>% summarize(length(unique(gene)))
+
+# A tibble: 4 × 2
+# Groups:   time [4]
+#  time        n
+#  <chr>   <int>
+#1 WD_0712 27804
+#2 WD_0718 30760
+#3 WD_0720 31777
+#4 WD_0727 30656
+
+ntimes=trans %>% group_by(gene) %>% summarize(n=length(unique(time)))
+
+ntimes2=trans %>% group_by(gene_snp) %>% summarize(n=length(unique(time)))
+#summary(ntimes2$n)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#  1.000   1.000   1.000   1.015   1.000   4.000 
+
+hotspots=trans %>% group_by(SNP) %>% summarize(n=length(unique(gene)))
+
+median=1.139
+
+p2=ggplot(aes(x=value),data=eqtl) + geom_histogram() + theme_classic() +
+xlab("-log10(p-value)") + ylab("Frequency") + geom_vline(xintercept=median,color='red')
+png('paper_figures/local_eQTL_pvalue_hist.png')
+print(p2)
+dev.off()
 
 eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
 eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)

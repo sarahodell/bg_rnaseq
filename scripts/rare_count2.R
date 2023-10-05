@@ -30,7 +30,8 @@ founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_in
 
 #allrares=c()
 
-rcount=fread(sprintf('eqtl/results/%s_%s_5kb_rare_counts.txt',time1,chr),data.table=F)
+rcount=fread(sprintf('eqtl/results/%s_%s_5kb_rare_counts_lower_exp.txt',time1,chr),data.table=F)
+#rcount=fread(sprintf('eqtl/results/%s_%s_5kb_rare_counts.txt',time1,chr),data.table=F)
 rcount$time=time1
 rcount$chr=chr
 adj_chr=c(5,9)
@@ -83,5 +84,5 @@ rcount$add_rank=add_ranks
 #allrares=rbind(allrares,rcount)
 #allrares=as.data.frame(allrares,stringsAsFactors=F)
 
-fwrite(rcount,sprintf('eqtl/results/rare_counts_%s_c%s_max_f.txt',time1,chr),row.names=F,quote=F,sep='\t')
+fwrite(rcount,sprintf('eqtl/results/rare_counts_%s_c%s_max_f_lower_exp.txt',time1,chr),row.names=F,quote=F,sep='\t')
 

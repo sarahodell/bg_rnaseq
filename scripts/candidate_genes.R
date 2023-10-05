@@ -28,6 +28,7 @@ for(i in 1:nrow(pot)){
 
 pot$sig=sig
 cand=pot[pot$sig==TRUE,]
+fwrite(cand,'QTT/sig_candidate_genes.txt',row.names=F,quote=F,sep='\t')
 #topcand=pot[pot$sig==TRUE,]
 
 #                                            pei  local_z  distal_z     zdiff

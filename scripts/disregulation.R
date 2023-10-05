@@ -16,16 +16,27 @@ for(time1 in times){
 	totalrares=rbind(totalrares,allrares)
 }
 totalrares=as.data.frame(totalrares,stringsAsFactors=F)
+totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
 
-beta_z=totalrares%>% group_by(Gene_ID,time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
+# first I need to break up by gene_time_founder
+totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
+
+totalrares=totalrares[!is.na(totalrares$max_f),]
+totalrares=totalrares[totalrares$max_f!="",]
+totf=totalrares %>% group_by(gene_time_founder) %>% summarize(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),rare_count=unique(rare_count),gene_time=unique(gene_time),max_f=unique(max_f))
+
+beta_z=totf%>% group_by(gene_time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
+
+#beta_z=totalrares%>% group_by(Gene_ID,time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
 beta_z=as.data.frame(beta_z,stringsAsFactors=F)
 beta_z=beta_z[!is.na(beta_z$beta_z),]
 # Extreme bins are >=3/<=-3 SD
 bbreaks=c(min(beta_z$beta_z)-0.1,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,max(beta_z$beta_z)+0.1)
 beta_z$bin=cut(beta_z$beta_z, breaks=bbreaks, label=F)
 beta_z$gene_time=paste0(beta_z$Gene_ID,'-',beta_z$time)
+beta_z$gene_founder=paste0(beta_z$Gene_ID,'-',beta_z$max_f)
 
-avg_z=beta_z %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_time)))
+avg_z=beta_z %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
 avg_z=as.data.frame(avg_z,stringsAsFactors=F)
 nbins=max(avg_z$bin)
 #avg_z=avg_z[!is.na(bin),]
@@ -33,6 +44,7 @@ nbins=max(avg_z$bin)
 p3=ggplot(aes(x=bin,y=avg_rares),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(mapping=aes(weight=ngenes),linewidth = 1) +
 xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Rare Allele Count") +
 scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
+theme_classic() + scale_size_continuous(name="# of Gene Alleles",breaks=c(500,1000,5000,10000,20000)) +
 theme(axis.text.x=element_text(angle=-45))
 
 png('eqtl/images/all_beta_z_bin_disregulation_smooth_smile.png')
@@ -42,28 +54,85 @@ dev.off()
 p2=ggplot(aes(x=bin,y=avg_rares),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(method = "lm",mapping=aes(weight=ngenes),formula = y ~ x + I(x^2), linewidth = 1) +
 xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Rare Allele Count") +
 scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
+theme_classic() + scale_size_continuous(name="# of Gene Alleles",breaks=c(500,1000,5000,10000,20000)) +
 theme(axis.text.x=element_text(angle=-45))
+
 
 png('eqtl/images/all_beta_z_bin_disregulation_smile.png')
 print(p2)
 dev.off()
 
+
+# Grab FT genes
 localcomp=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
 ft_genelist=fread('../selection/FT_gene_list_AGPv4.bed',data.table=F)
 ftgenes=ft_genelist$V4
+
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+ft_genelist$focal_snp=sapply(seq(1,nrow(ft_genelist)),function(x) all_founder_blocks[all_founder_blocks$chr==ft_genelist$V1[x] & all_founder_blocks$start<=ft_genelist$V2[x] & all_founder_blocks$end>ft_genelist$V3[x],]$focal_snp)
+ft_genelist$focal_snp=as.character(ft_genelist$focal_snp)
+ft_genelist[ft_genelist$focal_snp=="character(0)",]$focal_snp=sapply(seq(1,nrow(ft_genelist[ft_genelist$focal_snp=="character(0)",])),function(x) tail(all_founder_blocks[all_founder_blocks$chr==ft_genelist[ft_genelist$focal_snp=="character(0)",]$V1[x] & all_founder_blocks$start<=ft_genelist[ft_genelist$focal_snp=="character(0)",]$V2[x],]$focal_snp,1))
+
+
+
 fts=c("male_flowering_d6","female_flowering_d6")
-ftgenes=c(ftgenes,unique(localcomp[localcomp$phenotype %in% fts,]$Trait))
+cutoff=0.75
+# local eQTL with high |r| values
+localcomp=localcomp[localcomp$phenotype %in% fts,]
+localcomp=localcomp[abs(localcomp$r)>=cutoff,]
+ftgenes=c(ftgenes,unique(localcomp$Trait))
 ftgenes=unique(ftgenes)
+# 936 with local
+#distalcomp=fread('QTT/QTL_trans_eQTL_interval_overlap.txt',data.table=F)
+#distalcomp=distalcomp[distalcomp$phenotype %in% fts,]
+#distalcomp=distalcomp[abs(distalcomp$r)>=cutoff,]
+
+#ftgenes=c(ftgenes,unique(distalcomp$gene))
+#ftgenes=unique(ftgenes)
+# 1024 genes with distal
+
+ftmarkers=unique(localcomp$SNP)
+#ftmarkers=unique(ftmarkers) # 86 markers
+
+ftmarkers=c(unique(ft_genelist$focal_snp),ftmarkers)
+ftmarkers=unique(ftmarkers) # 757 (3959 markers left over)
+
+#ftgenes2=c(unique(localcomp$Trait),unique(distalcomp$gene))
+#ftgenes2=unique(ftgenes2)
+# 153 genes from eQTL
+
+
+
 # 2437 genes
 allgenes=unique(totalrares$Gene_ID)
-nftgenes=allgenes[!(allgenes %in% ftgenes)]
+# To be a non-FT genes, it needs to not be in the FT genelist AND not have an eQTL
+# with the same marker as an FT gene
+nftgenes=allgenes[!(allgenes %in% ftgenes)] #5662 to start
+# not localcomp
+localcomp1=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
+#distalcomp1=fread('QTT/QTL_trans_eQTL_interval_overlap.txt',data.table=F)
+
+sub1=localcomp1[localcomp1$Trait %in% nftgenes,]
+sub1=sub1[sub1$SNP %in% ftmarkers,]$Trait
+nftgenes=nftgenes[!(nftgenes %in% sub1)]
+# 5196 genes
+
+# not in distalcomp
+#sub2=distalcomp1[distalcomp1$gene %in% nftgenes,]
+#sub2=sub2[sub2$SNP %in% ftmarkers,]$gene
+#nftgenes=nftgenes[!(nftgenes %in% sub2)]
+# 3851 genes
 
 ##### FT genes
-
-ft_rares=totalrares[totalrares$Gene_ID %in% ftgenes,]
+totf=as.data.frame(totf,stringsAsFactors=F)
+ft_rares=totf[totf$Gene_ID %in% ftgenes,]
 ft_rares=ft_rares[!is.na(ft_rares$beta_rank),]
 print(length(unique(ft_rares$Gene_ID)))
-#701 genes
+# 234 genes
 ### Beta Z-scores
 
 beta_z=ft_rares%>% group_by(Gene_ID) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
@@ -73,8 +142,9 @@ beta_z=beta_z[!is.na(beta_z$beta_z),]
 bbreaks=c(min(beta_z$beta_z)-0.1,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,max(beta_z$beta_z)+0.1)
 beta_z$bin=cut(beta_z$beta_z, breaks=bbreaks, label=F)
 beta_z$gene_time=paste0(beta_z$Gene_ID,'-',beta_z$time)
+beta_z$gene_founder=paste0(beta_z$Gene_ID,'-',beta_z$max_f)
 
-avg_z=beta_z %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_time)))
+avg_z=beta_z %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
 avg_z=as.data.frame(avg_z,stringsAsFactors=F)
 nbins=max(avg_z$bin)
 #avg_z=avg_z[!is.na(bin),
@@ -82,30 +152,34 @@ nbins=max(avg_z$bin)
 p3=ggplot(aes(x=bin,y=avg_rares),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(mapping=aes(weight=ngenes),linewidth = 1) +
 xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Rare Allele Count") +
 scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
-theme(axis.text.x=element_text(angle=-45))
+theme(axis.text.x=element_text(angle=-45)) + theme_classic()
 
 png('eqtl/images/all_beta_z_bin_FT_disregulation_smooth_smile.png')
 print(p3)
 dev.off()
 
+ft_df=data.frame(Gene_ID=ftgenes,stringsAsFactors=F)
+fwrite(ft_df,'eqtl/data/FT_genelist.txt',row.names=F,quote=F,sep='\t')
+
 
 #### Non-FT genes
 
-nft_rares=totalrares[totalrares$Gene_ID %in% nftgenes,]
+nft_rares=totf[totf$Gene_ID %in% nftgenes,]
 nft_rares=nft_rares[!is.na(nft_rares$beta_rank),]
 print(length(unique(nft_rares$Gene_ID)))
-#5228 genes
+#5225 genes
 ### Beta Z-scores
 
 beta_z=nft_rares%>% group_by(Gene_ID) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
 beta_z=as.data.frame(beta_z,stringsAsFactors=F)
 beta_z=beta_z[!is.na(beta_z$beta_z),]
+beta_z$gene_ind=paste0(beta_z$Gene_ID,'-',beta_z$ID)
 # Extreme bins are >=3/<=-3 SD
 bbreaks=c(min(beta_z$beta_z)-0.1,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,max(beta_z$beta_z)+0.1)
 beta_z$bin=cut(beta_z$beta_z, breaks=bbreaks, label=F)
 beta_z$gene_time=paste0(beta_z$Gene_ID,'-',beta_z$time)
-
-avg_z=beta_z %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_time)))
+beta_z$gene_founder=paste0(beta_z$Gene_ID,'-',beta_z$max_f)
+avg_z=beta_z %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
 avg_z=as.data.frame(avg_z,stringsAsFactors=F)
 nbins=max(avg_z$bin)
 #avg_z=avg_z[!is.na(bin),
@@ -113,12 +187,15 @@ nbins=max(avg_z$bin)
 p3=ggplot(aes(x=bin,y=avg_rares),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(mapping=aes(weight=ngenes),linewidth = 1) +
 xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Rare Allele Count") +
 scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
+theme_classic() + scale_size_continuous(name="# of Gene Alleles",breaks=c(500,1000,5000,10000,20000)) +
 theme(axis.text.x=element_text(angle=-45))
 
 png('eqtl/images/all_beta_z_bin_nonFT_disregulation_smooth_smile.png')
 print(p3)
 dev.off()
 
+nft_df=data.frame(Gene_ID=nftgenes,stringsAsFactors=F)
+fwrite(nft_df,'eqtl/data/Non_FT_genelist.txt',row.names=F,quote=F,sep='\t')
 
 
 

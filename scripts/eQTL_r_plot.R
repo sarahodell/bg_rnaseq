@@ -232,9 +232,10 @@ all_perms$max_r100=round(all_perms$max_r2*100)
 top_r$max_r100=round(top_r$max_r2*100)
 
 p2=ggplot(aes(x=max_r,y=top10_r),data=top_r) + geom_point() + xlab("Highest correlation eQTL (|r|)") + 
-ylab("Highest correlation gene of 10 most significant eQTL (|r|)") + geom_abline(slope=1)
+ylab("Highest correlation gene of 10 most significant eQTL (|r|)") + geom_abline(slope=1) +
+theme_classic()
 
-png('QTT/images/eQTL_r_by_sig.png')
+png('paper_figures/local_eQTL_r_by_sig.png')
 print(p2)
 dev.off()
 
@@ -246,12 +247,33 @@ geom_boxplot(position =position_dodge(0),alpha=0.2) +
 geom_point(data=top_r,aes(x=max_r100,y=top10_r**2),color="red",size=2) +
 xlab("Highest correlation eQTL (r^2)") + 
 ylab("Highest correlation of 10 most significant eQTL (r^2)") + geom_abline(slope=0.01) +
-ggtitle("Correlation of QTL effect sizes with overlapping eQTL")
+ggtitle("Correlation of QTL effect sizes with overlapping eQTL") +
+theme_classic()
 
-
-pdf('QTT/images/eQTL_r_by_sig_perm.pdf')
+png('paper_figures/local_eQTL_r_by_sig.png',width=800,height=800)
 print(p2)
 dev.off()
+
+
+top_r$cand=top_r$pheno_env_ID %in% cand$pei
+# highlight candidate genes
+p2=ggplot(all_perms,aes(x=max_r100,y=perm_max_r**2,group=max_r100))  + 
+scale_x_continuous(limits=c(30,100),breaks=c(seq(30,100,10)),labels=c("0.3","0.4","0.5","0.6","0.7","0.8","0.9",'1.0')) +
+scale_y_continuous(limits=c(0,1),breaks=c(seq(0,1,0.1)),labels=c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9",'1.0')) +
+geom_boxplot(position =position_dodge(0),alpha=0.2) +
+geom_point(data=top_r,aes(x=max_r100,y=top10_r**2,color=cand),size=2) +
+scale_color_manual(values = c("TRUE" = "red","FALSE"="black")) +
+xlab(bquote('Highest correlation local-eQTL'(r^2))) + 
+ylab(bquote('Highest correlation of 10 most significant local-eQTL' (r^2))) + geom_abline(slope=0.01) +
+ggtitle("Correlation of QTL effect sizes with overlapping eQTL") +
+theme_classic() + guides(color="none")
+
+png('paper_figures/local_eQTL_r_by_sig.png',width=800,height=800)
+print(p2)
+dev.off()
+
+# is this the plot I want?
+# 
 
 # generally, how many are higher or lower than expected by chance
 all_perms$top10_r=top_r[match(all_perms$pei,top_r$pheno_env_ID),]$top10_r

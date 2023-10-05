@@ -3,7 +3,7 @@
 #SBATCH -J rares
 #SBATCH -o /home/sodell/projects/biogemma/expression/slurm-logs/out-%A_%a.txt
 #SBATCH -e /home/sodell/projects/biogemma/expression/slurm-logs/error-%A_%a.txt
-#SBATCH -t 48:00:00
+#SBATCH -t 12:00:00
 #SBATCH --array=1-40%20
 #SBATCH --ntasks=8
 #SBATCH --mem 16G
