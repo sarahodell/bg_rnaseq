@@ -121,6 +121,10 @@ for(i in 1:nrow(comparison2)){
 }
 comparison2$prop_var=prop_var
 comparison2$qtl_prop_var=qtl[match(comparison2$pheno_env_ID,qtl$pheno_env_ID),]$prop_var
+
+fwrite(comparison2,'QTT/QTL_cis_eQTL_interval_overlap.txt',row.names=F,quote=F,sep='\t')
+
+
 # How does correlation change over time?
 
 # For each QTL, grab the top 50 most significant eQTL - what is the max abs(r) for those

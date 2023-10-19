@@ -2,8 +2,12 @@
 
 library('data.table')
 library('ggplot2')
+library('stringr')
+library('ggrepel')
+library('DescTools')
+library('dplyr')
 
-all_perms=fread('QTT/%s_z_permutations.txt',data.table=F)
+all_perms=fread('QTT/z_permutations.txt',data.table=F)
 
 truediff=fread('QTT/local_distal_max_z.txt',data.table=F)
 
@@ -12,13 +16,25 @@ pot=truediff[truediff$zdiff>0,]
 #pot=truediff
 pheno_env_ids=pot$pei
 
+high=c()
+low=c()
 sig=c()
-for(i in 1:nrow(pot)){
-	row1=pot[i,]
+for(i in 1:nrow(truediff)){
+	row1=truediff[i,]
 	pei=row1$pei
 	subperm=all_perms[all_perms$pei==pei,]
 	quant=quantile(subperm$difference,0.95)
-	true=pot[pot$pei==pei,]$zdiff
+	quant2=quantile(subperm$difference,0.05)
+	space=row1$zdiff-quant
+	perm_high=row1$local_z-quant
+	perm_low=row1$local_z-quant2
+	
+	# distance of true z_diff from higher perm z_diff
+	
+	high=c(high,perm_high)
+	low=c(low,perm_low)
+	# Figure out how to get slope of permutations 95% CI 
+	true=row1$zdiff
 	if(true>=quant){
 		sig=c(sig,TRUE)
 	}else{
@@ -26,9 +42,162 @@ for(i in 1:nrow(pot)){
 	}
 }
 
-pot$sig=sig
-cand=pot[pot$sig==TRUE,]
+truediff$sig=sig
+truediff$perm_high=high
+truediff$perm_low=low
+
+
+p1=ggplot(truediff,aes(x=distal_z,y=local_z)) + geom_point(aes(color=sig)) +
+	xlab("Max |z| of distal-eQTL") + ylab("Max |z| of local-eQTL") +
+	geom_abline(slope=1) + 
+	geom_segment(data=truediff,aes(x=perm_high,xend = perm_low)) +
+	theme_classic() + 
+	#geom_text_repel(data=subset(truediff, sig==TRUE),aes(x=local_z,y=distal_z,label=pei)) +
+	scale_color_manual(values=c("TRUE"="red", "FALSE"="black")) + 
+	ggtitle("Most Correlated eQTL per QTL") + guides(color="none")
+
+
+png('paper_figures/eQTL_z_values.png')
+print(p1)
+dev.off()
+
+cand=fread('QTT/sig_candidate_genes.txt',data.table=F)
+comparison2=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
+genecount=comparison2 %>% group_by(pheno_env_ID) %>% count()
+pheno_env_ids=unique(comparison2$pheno_env_ID)
+max_r_l=fread('QTT/local_eQTL_candidates.txt',data.table=F)
+max_r_l$qtl_prop_var=max_r_l$prop_var
+
+eqtl_prop_vars= comparison2 %>% group_by(gene_time_SNP) %>% summarize(prop_var=unique(prop_var))
+max_r_l$eqtl_prop_var=eqtl_prop_vars[match(max_r_l$gene_time_SNP,eqtl_prop_vars$gene_time_SNP),]$prop_var
+
+fwrite(max_r_l,'QTT/local_eQTL_candidates.txt',row.names=F,quote=F,sep='\t')
+
+p2=ggplot(aes(x=max_r,y=top10_r),data=top_r) + geom_point() + xlab("Highest correlation eQTL (|r|)") + 
+ylab("Highest correlation gene of 10 most significant eQTL (|r|)") + geom_abline(slope=1) +
+theme_classic()
+
+all_perms=fread('QTT/top10_eqtl_permutations.txt',data.table=F)
+n=10
+top_r=c()
+for(pei in pheno_env_ids){
+	subdf=comparison2[comparison2$pheno_env_ID==pei,]
+	subdf=subdf[order(subdf$value),]
+	rownames(subdf)=seq(1,nrow(subdf))
+	subdf$rank=seq(nrow(subdf),1)
+	max_loc=which.max(abs(subdf$r))
+	max_r=max(abs(subdf$r))
+	top10=subdf %>% slice_max(value, n = n)
+	top10=as.data.frame(top10)
+	#top10_r=top10_r[order(top10_r$i.value),]
+	#top10_r$rank=seq(1,10)
+	top10_r_loc=unlist(which.max(abs(top10$r)))
+	top_rank=top10[top10_r_loc,]$rank
+	top10_r=abs(top10[top10_r_loc,]$r)
+	newline=data.frame(pheno_env_ID=pei,max_r=max_r,top10_r=top10_r,max_rank=top_rank,stringsAsFactors=F)
+	top_r=rbind(top_r,newline)
+}
+
+all_perms$max_r=top_r[match(all_perms$pei,top_r$pheno_env_ID),]$max_r
+
+
+top_r$top10_z=FisherZ(abs(top_r$top10_r))
+top_r$max_z=FisherZ(abs(top_r$max_r))
+
+all_perms=all_perms[order(all_perms$max_r),]
+rownames(all_perms)=seq(1,nrow(all_perms))
+all_perms$pei_f=factor(all_perms$pei,levels=c(unique(all_perms$pei)))
+
+top_r=top_r[order(top_r$max_r),]
+rownames(top_r)=seq(1,nrow(top_r))
+top_r$pei_f=factor(top_r$pheno_env_ID,levels=c(unique(top_r)$pheno_env_ID))
+
+max_r_f=sort(unique(top_r$max_r2))
+top_r$max_r2=top_r$max_r**2
+top_r$max_r_f=factor(top_r$max_r2,levels=c(max_r_f))
+
+all_perms$max_r2=all_perms$max_r**2
+all_perms$max_r_f=factor(all_perms$max_r2,levels=c(max_r_f))
+
+
+all_perms$max_r100=round(all_perms$max_r2*100)
+
+top_r$max_r100=round(top_r$max_r2*100)
+
+top_r$sig=top_r$pheno_env_ID %in% cand$pei
+top_r$ngenes=genecount[match(top_r$pheno_env_ID,genecount$pheno_env_ID),]$n
+
+p2=ggplot(aes(x=max_z,y=top10_z),data=top_r) + geom_point(data=subset(top_r,sig==FALSE),aes(size=ngenes),color='black') +
+geom_point(data=subset(top_r,sig==TRUE),aes(size=ngenes),color='red') +
+ xlab("Highest correlation eQTL (|z|)") + 
+ylab("Highest correlation gene of 10 most significant eQTL (|z|)") + geom_abline(slope=1) +
+theme_classic() + scale_color_manual(values=c("TRUE"="red", "FALSE"="black")) + guides(color="none") +
+labs(size= "# Genes")
+
+png('paper_figures/local_eQTL_r_by_sig.png')
+print(p2)
+dev.off()
+
+
+ft=c("male_flowering_d6","female_flowering_d6")
+max_r_l$ft=max_r_l$phenotype %in% ft
+max_r_l$max_z=FisherZ(abs(max_r_l$r))
+
+p3=ggplot(aes(x=max_z,y=qtl_prop_var),data=max_r_l) + #geom_point(aes(color=ft)) +
+geom_point(aes(color=sig)) + scale_color_manual(values=c("TRUE"="red", "FALSE"="black")) +
+theme_classic() +
+ xlab('Max eQTL correlation |z|') +
+ylab("Proportion of phenotypic variance explained by QTL")  #+ labs(color="Flowering Time QTL")
+png('paper_figures/eQTL_z_by_qtl_propvar.png')
+print(p3)
+dev.off()
+
+#cand=pot[pot$sig==TRUE,]
 fwrite(cand,'QTT/sig_candidate_genes.txt',row.names=F,quote=F,sep='\t')
+
+plot_list=list()
+count=1
+#### Look at correaltion of bv with FT
+for(i in 1:nrow(cand)){
+	row1=cand[i,]
+	chr=row1$CHR
+	pheno_env_ID=cand$pei
+	#split1=strsplit(pheno_env_ID,'_')
+	pheno=row1$phenotype
+	env=row1$environment
+	id=row1$ID
+	time1=row1$time
+	gene=row1$Trait
+	exp=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_bv_FIXED.txt',time1,chr),data.table=F)
+	rownames(exp)=exp$V1
+	exp=exp[,-1]
+	phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+	phenotypes=phenotypes[phenotypes$Loc.Year.Treat==env,]
+	rownames(phenotypes)=phenotypes$Genotype_code
+	
+	inter=intersect(rownames(phenotypes),rownames(exp))
+	phenotypes=phenotypes[inter,]
+	exp=exp[inter,]
+	df=phenotypes[,c('Genotype_code',pheno)]
+	df$exp_bv=exp[match(df$Genotype_code,rownames(exp)),gene]
+	beta_r=row1$r
+	names(df)=c('ID','pheno','exp_bv')
+	bv_r=cor(df$pheno,df$exp_bv,use="complete.obs")
+
+	p1=ggplot(df,aes(x=exp_bv,y=pheno)) + geom_point() + xlab("Additive Local Effect on Expression") +
+	ylab('Phenotype Value') + ggtitle(sprintf('%s %s',pheno_env_ID,gene),subtitle=sprintf("beta r=%.2f, bv r = %.2f",beta_r,bv_r)) 
+	
+	plot_list[[count]]=p1
+	count=count+1
+	
+}
+
+pdf('QTT/candidate_bv_pheno.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
 #topcand=pot[pot$sig==TRUE,]
 
 #                                            pei  local_z  distal_z     zdiff

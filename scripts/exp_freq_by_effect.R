@@ -10,15 +10,19 @@ library('lmerTest')
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 chroms=1:10
 
-totalrares=c()
-for(time1 in times){
-	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
-	allrares=allrares[allrares$max_f!="B73_inra",]
-	totalrares=rbind(totalrares,allrares)
-}
-totalrares=as.data.frame(totalrares,stringsAsFactors=F)
-totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
-totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
+#totalrares=c()
+#for(time1 in times){
+#	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
+#	allrares=allrares[allrares$max_f!="B73_inra",]
+#	totalrares=rbind(totalrares,allrares)
+#}
+#totalrares=as.data.frame(totalrares,stringsAsFactors=F)
+#totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
+#totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
+
+
+totalrares=fread('eqtl/results/all_rare_counts_max_f_all_exp.txt',data.table=F)
+totf=totalrares %>% group_by(gene_time_founder) %>% summarize(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),rare_count=unique(rare_count),gene_time=unique(gene_time),max_f=unique(max_f))
 
 ft_df=fread('eqtl/data/FT_genelist.txt',data.table=F)
 ftgenes=ft_df$Gene_ID
@@ -62,7 +66,7 @@ beta_merge$freq=alldf[match(beta_merge$snp_founder,alldf$snp_founder),]$value
 
 
 
-fwrite(beta_merge,'eqtl/results/local_eqtl_effect_size_frequency_beta_z.txt',row.names=F,quote=F,sep='\t')
+fwrite(beta_merge,'eqtl/results/local_eqtl_effect_size_frequency_beta_z_all_genes.txt',row.names=F,quote=F,sep='\t')
 
 ### For all of them, what is the gene's correlation with flowering time?
 fts=c("male_flowering_d6","female_flowering_d6")
@@ -112,9 +116,11 @@ for(time1 in times){
 	
 }
 
-fwrite(beta_merge,'eqtl/results/local_eqtl_effect_size_frequency_beta_z.txt',row.names=F,quote=F,sep='\t')
+fwrite(beta_merge,'eqtl/results/local_eqtl_effect_size_frequency_beta_z_all_genes.txt',row.names=F,quote=F,sep='\t')
 
 # Which alleles are associated with later flowering? (Higher exp for positive r, lower exp for negative r)
+summary(abs(beta_merge$cor))
+
 
 high=beta_merge[abs(beta_merge$cor)>0.1,]
 # "Zm00001d034045" "Zm00001d048474" "Zm00001d051135"
@@ -161,12 +167,12 @@ for(t in gts){
 
 over_under_dir=as.data.frame(over_under_dir,stringsAsFactors=F)
 over_under_dir$perc=over_under_dir$over/over_under_dir$total
-fwrite(over_under_dir,'eqtl/results/directional_FT_freq_counts.txt',row.names=F,quote=F,sep='\t')
+fwrite(over_under_dir,'eqtl/results/directional_FT_freq_counts_all_genes.txt',row.names=F,quote=F,sep='\t')
 
 over_under_div=as.data.frame(over_under_div,stringsAsFactors=F)
 over_under_div$perc=over_under_div$over/over_under_div$total
 
-fwrite(over_under_div,'eqtl/results/diversifying_FT_freq_counts.txt',row.names=F,quote=F,sep='\t')
+fwrite(over_under_div,'eqtl/results/diversifying_FT_freq_counts_all_genes.txt',row.names=F,quote=F,sep='\t')
 
 #Directional - how often is the extreme founder allele associated with late FT over represented?
 
@@ -174,3 +180,304 @@ fwrite(over_under_div,'eqtl/results/diversifying_FT_freq_counts.txt',row.names=F
 # Diversifying
 ##### Which alleles for these genes are the extreme one? Are they at higher frequency
 
+over_under_div=fread('eqtl/results/diversifying_FT_freq_counts_all_genes.txt',data.table=F)
+
+# For each gene_time, rank by zscore and make same "dysregulation plot", but with avg frequency on the y-axis
+
+totalrares=c()
+for(time1 in times){
+	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
+	allrares=allrares[allrares$max_f!="B73_inra",]
+	totalrares=rbind(totalrares,allrares)
+}
+totalrares=as.data.frame(totalrares,stringsAsFactors=F)
+totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
+totalrares$gene_time_id=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$ID)
+
+# first I need to break up by gene_time_founder
+totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
+
+beta_merge=fread('eqtl/results/local_eqtl_effect_size_frequency_beta_z_all_genes.txt',data.table=F)
+beta_merge=beta_merge[!is.na(beta_merge$beta_z),]
+# Extreme bins are >=3/<=-3 SD
+bbreaks=c(min(beta_merge$beta_z)-0.1,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,max(beta_merge$beta_z)+0.1)
+beta_merge$bin=cut(beta_merge$beta_z, breaks=bbreaks, label=F)
+#beta_z$gene_time=paste0(beta_z$Gene_ID,'-',beta_z$time)
+#beta_z$gene_founder=paste0(beta_z$Gene_ID,'-',beta_z$max_f)
+
+avg_z=beta_merge %>% group_by(bin) %>% reframe(avg_freq=mean(freq),sd_freq=sd(freq),avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
+avg_z=as.data.frame(avg_z,stringsAsFactors=F)
+nbins=max(avg_z$bin)
+
+
+p3=ggplot(aes(x=bin,y=avg_freq),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(mapping=aes(weight=ngenes),linewidth = 1) +
+xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Founder Allele Frequency") +
+scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
+theme_classic() + scale_size_continuous(name="# of Gene Alleles",breaks=c(500,1000,5000,10000,20000)) +
+theme(axis.text.x=element_text(angle=-45))
+
+png('eqtl/images/all_gene_allele_frequency_bin_smooth_smile.png')
+print(p3)
+dev.off()
+
+
+#### What about just FT genes & genes with high correlation with FT
+high=beta_merge[abs(beta_merge$cor)>0.2,]
+ft_corgenes=unique(high$Gene_ID)
+ft_df=fread('eqtl/data/FT_genelist.txt',data.table=F)
+
+# 101 genes that are in the gene list and correlated with FT
+
+bbreaks=c(min(high$beta_z)-0.1,-3.0,-2.5,-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0,max(beta_merge$beta_z)+0.1)
+#beta_merge$bin=cut(beta_merge$beta_z, breaks=bbreaks, label=F)
+#beta_z$gene_time=paste0(beta_z$Gene_ID,'-',beta_z$time)
+#beta_z$gene_founder=paste0(beta_z$Gene_ID,'-',beta_z$max_f)
+
+avg_z=high %>% group_by(bin) %>% reframe(avg_freq=mean(freq),sd_freq=sd(freq),avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
+avg_z=as.data.frame(avg_z,stringsAsFactors=F)
+nbins=max(avg_z$bin)
+
+
+p3=ggplot(aes(x=bin,y=avg_freq),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(mapping=aes(weight=ngenes),linewidth = 1) +
+xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Founder Allele Frequency") +
+scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
+theme_classic() + scale_size_continuous(name="# of Gene Alleles",breaks=c(500,1000,5000,10000,20000)) +
+theme(axis.text.x=element_text(angle=-45))
+
+png('eqtl/images/FT_gene_allele_frequency_bin_smooth_smile.png')
+print(p3)
+dev.off()
+
+### Highly confident of involvement in FT
+
+ft_corgenes=intersect(ft_df$Gene_ID,ft_corgenes)
+# 101 genes
+vhigh=high[high$Gene_ID %in% ft_corgenes,]
+
+avg_z=vhigh %>% group_by(bin) %>% reframe(avg_freq=mean(freq),sd_freq=sd(freq),avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
+avg_z=as.data.frame(avg_z,stringsAsFactors=F)
+nbins=max(avg_z$bin)
+
+
+p3=ggplot(aes(x=bin,y=avg_freq),data=avg_z) + geom_point(aes(size=ngenes)) + stat_smooth(mapping=aes(weight=ngenes),linewidth = 1) +
+xlab("Founder Effect Size Z-Score (Low to High)") + ylab("Mean Founder Allele Frequency") +
+scale_x_continuous(limits=c(1,nbins),breaks=c(seq(1,nbins)),labels=c(breaks=c("<-3.0]","(-3.0..-2.5]","(-2.5..-2.0]","(-2.0..-1.5]","(-1.5..-1.0]","(-1.0..-0.5]","(-0.5..0.0]","(0.0..0.5]","(0.5..1.0]","(1.0..1.5]","(1.5..2.0]","(2.0..2.5]","(2.5..3.0]",">3.0)"))) +
+theme_classic() + scale_size_continuous(name="# of Gene Alleles",breaks=c(500,1000,5000,10000,20000)) +
+theme(axis.text.x=element_text(angle=-45))
+
+png('eqtl/images/conf_FT_gene_allele_frequency_bin_smooth_smile.png')
+print(p3)
+dev.off()
+
+### Frequency plots of candidate genes
+
+cand_beta=beta_merge[beta_merge$Gene_ID %in% cand$Trait & beta_merge$time.x=="WD_0712",]
+
+alldf=fread('eqtl/data/founder_frequency.txt',data.table=F)
+alldf$snp_founder=paste0(alldf$snp,'-',alldf$variable)
+
+cand=fread('QTT/sig_candidate_genes.txt',data.table=F)
+
+plot_list=list()
+count=1
+cands=cand$Trait
+for(cg in cands){
+	sub1=cand_beta[cand_beta$Gene_ID==cg,]
+	bv_r=unique(sub1$cor)
+	p1=ggplot(data=sub1,aes(x=beta,y=freq)) + geom_point(aes(color=max_f)) +
+	geom_smooth(method='lm', formula= y~x) +
+	#geom_hline(yintercept=0.0625,color='black') +
+	xlab("Founder Effect Size")+ ylab("Founder Allele Frequency") +
+	ggtitle(sprintf("%s, bv r=%.2f",cg,bv_r))
+	
+	plot_list[[count]]=p1
+	count=count+1
+}
+
+pdf('QTT/images/candidate_gene_z_by_freq.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+# For this list of candidate genes
+
+# Does a linear model fit better than a quadratic?
+# For linear model, is slope in the same direction as correlation?
+ft_corgenes=intersect(ft_df$Gene_ID,ft_corgenes)
+# 101 genes
+vhigh=high[high$Gene_ID %in% ft_corgenes,]
+
+
+comp_df=c()
+#vhigh=vhigh[vhigh$time.x=="WD_0712",]
+vhigh=beta_merge[beta_merge$Gene_ID %in% ft_df$Gene_ID,]
+# 593 genes
+gene_times=unique(vhigh$gene_time)
+# 2,131
+for(gt in gene_times){
+	sub1=vhigh[vhigh$gene_time==gt,]
+	gene=unique(sub1$Gene_ID)
+	time1=unique(sub1$time.x)
+	
+	m0=lm(freq~1,sub1)
+	m1=lm(freq~beta_z,sub1)
+	# Linear model
+	m1sum=summary(m1)
+	m1_pval= m1sum$coefficients['beta_z',4]
+	m1_slope= m1sum$coefficients['beta_z',1]
+	# Is slope in same direction as correlation?
+	bv_r=unique(sub1$cor)
+	if(bv_r>0 & m1_slope>0){
+		consistent=TRUE
+	}else{
+		consistent=FALSE
+	}
+	# Quadratic model
+	m2=lm(freq~poly(beta_z,2),sub1)
+	m2sum=summary(m2)
+	m2_pval= m2sum$coefficients[3,4]
+	m2_curve= m2sum$coefficients[3,1]
+	
+	#Model comparison
+	modelcomp=anova(m0,m1,m2)
+	modelcomp_res1=modelcomp$`Pr(>F)`[2]
+	modelcomp_res2=modelcomp$`Pr(>F)`[3]
+	if(modelcomp_res2<=0.05){
+		result="quadratic"
+	}else if(modelcomp_res1<=0.05){
+		result="linear"
+	}else{
+		result="neither"
+	}
+	
+	
+	line=data.frame(gene_time=gt,Gene_ID=gene,time=time1,m1_pvalue=m1_pval,m1_slope=m1_slope,bv_cor=bv_r,consistent=consistent,m2_pvalue=m2_pval,m2_curve=m2_curve,modelcomp_m1_pvalue=modelcomp_res1,modelcomp_m2_pvalue=modelcomp_res2,better=result)
+	comp_df=rbind(comp_df,line)
+}
+
+table(comp_df$better)
+
+truedf=data.frame(linear=104,quadratic_p=60,quadratic_n=80,neither=1887)
+
+#   linear   neither quadratic 
+#      104      1887       140 
+comp_df=as.data.frame(comp_df,stringsAsFactors=F)
+
+fwrite(comp_df,'eqtl/results/div_dir_model_comparison.txt',row.names=F,quote=F,sep='\t')
+# Linear is significant
+
+linear=comp_df[comp_df$better=="linear",]
+
+# Quadratic is significant
+
+quad=comp_df[comp_df$better=="quadratic",]
+
+dim(quad[quad$m2_curve>0,])
+# 60 out of 140 are positively curved (diversifying)
+
+bonf=0.05/nrow(comp_df)
+dim(comp_df[comp_df$m1_pvalue<=bonf,])
+dim(comp_df[comp_df$m2_pvalue<=bonf,])
+
+plot_list=list()
+count=1
+cands=quad$gene_time
+for(cg in cands){
+	sub1=vhigh[vhigh$gene_time==cg,]
+	bv_r=unique(sub1$cor)
+	p1=ggplot(data=sub1,aes(x=beta_z,y=freq)) + geom_point(aes(color=max_f)) +
+	geom_smooth(method='lm', formula = y ~ x + I(x^2)) +
+	#geom_hline(yintercept=0.0625,color='black') +
+	xlab("Founder Effect Size")+ ylab("Founder Allele Frequency") +
+	ggtitle(sprintf("%s, bv r=%.2f",cg,bv_r))
+	
+	plot_list[[count]]=p1
+	count=count+1
+}
+
+
+#png('QTT/test.png')
+#print(p1)
+#dev.off()
+
+pdf('QTT/images/quadratic_candidate_gene_beta_by_freq.pdf')
+for(i in 1:length(plot_list)){
+	print(plot_list[[i]])
+}
+dev.off()
+
+# Is this more than we'd expect - for a random set of genes,
+# Is there a different ratio of quadratic to linear? (More quadratic )
+
+ft_corgenes=intersect(ft_df$Gene_ID,ft_corgenes)
+# 101 genes
+vhigh=high[high$Gene_ID %in% ft_corgenes,]
+
+
+comp_df=c()
+#vhigh=vhigh[vhigh$time.x=="WD_0712",]
+vhigh=beta_merge[beta_merge$Gene_ID %in% ft_df$Gene_ID,]
+# 593 genes
+gene_times=unique(vhigh$gene_time)
+
+rand=beta_merge[!(beta_merge$gene_time %in% gene_times),]
+
+n=length(gene_times)
+set.seed(100)
+n_reps=1:100
+
+rep_comp_df=c()
+for(rep in n_reps){
+	draw=sample(rand$gene_time,n)
+	for(gt in draw){
+		sub1=rand[rand$gene_time==gt,]
+		gene=unique(sub1$Gene_ID)
+		time1=unique(sub1$time.x)
+		m0=lm(freq~1,sub1)
+		m1=lm(freq~beta_z,sub1)
+		# Linear model
+		m1sum=summary(m1)
+		m1_pval= m1sum$coefficients['beta_z',4]
+		m1_slope= m1sum$coefficients['beta_z',1]
+		# Is slope in same direction as correlation?
+		bv_r=unique(sub1$cor)
+		if(bv_r>0 & m1_slope>0){
+			consistent=TRUE
+		}else{
+			consistent=FALSE
+		}
+		# Quadratic model
+		m2=lm(freq~poly(beta_z,2),sub1)
+		m2sum=summary(m2)
+		m2_pval= m2sum$coefficients[3,4]
+		m2_curve= m2sum$coefficients[3,1]
+		#Model comparison
+		modelcomp=anova(m0,m1,m2)
+		modelcomp_res1=modelcomp$`Pr(>F)`[2]
+		modelcomp_res2=modelcomp$`Pr(>F)`[3]
+		if(modelcomp_res2<=0.05){
+			result="quadratic"
+		}else if(modelcomp_res1<=0.05){
+			result="linear"
+		}else{
+			result="neither"
+		}
+		line=data.frame(rep=rep,gene_time=gt,Gene_ID=gene,time=time1,m1_pvalue=m1_pval,m1_slope=m1_slope,bv_cor=bv_r,consistent=consistent,m2_pvalue=m2_pval,m2_curve=m2_curve,modelcomp_m1_pvalue=modelcomp_res1,modelcomp_m2_pvalue=modelcomp_res2,better=result)
+		rep_comp_df=rbind(rep_comp_df,line)
+	}
+}
+rep_comp_df=as.data.frame(rep_comp_df,stringsAsFactors=F)
+# 2,131
+
+
+fwrite(rep_comp_df,'eqtl/results/div_dir_model_comparison_perms.txt',row.names=F,quote=F,sep='\t')
+
+
+rep_sum=rep_comp_df %>% group_by(rep) %>% count(better,sort=TRUE)
+# Get average # of each time from reps
+rep_sum %>% group_by(better) %>% reframe(avg_n=mean(n))
+chi_df=data.frame(better=c('linear','quadratic_p','quadratic_n','neither'),
+true_count=c(104,60,80,1887),
+perm_count=c())
+
+chisq.test(chi_df$true_count,chi_df$perm_count)
