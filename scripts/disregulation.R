@@ -813,29 +813,6 @@ expdf=merge(expdf,genetable,by="Gene_ID")
 markers=c()
 p_chis=c()
 
-for(i in 1:nrow(expdf)){
-	row1=expdf[i,]
-	gene=row1$Gene_ID
-	start=row1$START#-100000
-	end=row1$END#+100000
-	chr=row1$CHROM
-	subchi=chidf[chidf$chr==chr,]
-	subchi=subchi[complete.cases(subchi),]
-	row2=subchi[subchi$pos<=start & subchi$end>start,]
-	#if(nrow(row2)==0){
-	#	row2=subchi[subchi$pos<=start & subchi$end>start,]
-	#}
-	if(nrow(row2)==0){
-		row2=subchi[which.min(abs(subchi$pos-start)),]
-	}
-	markers=c(markers,row2$marker)
-	p_chis=c(p_chis,row2$p_chi)
-}
-
-expdf$snp=markers
-expdf$p_chi=p_chis
-
-fwrite(expdf,sprintf('eqtl/results/eQTL_%s_chi_square.txt',time1),row.names=F,quote=F,sep='\t')
 
 p1=ggplot(expdf,aes(x=rank,y=-log10(p_chi))) + geom_point() + xlab("Gene Expression Rank") +
 ylab("Chi-Squared -log10(p-value)")

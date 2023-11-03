@@ -5,24 +5,80 @@ library('ggplot2')
 library('dplyr')
 
 ### Look for outliers
-factoreqtl=fread('eqtl/results/all_residual_factor_fdr_SIs_FIXED.txt',data.table=F)
+
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
+qtl=fread('QTL/all_adjusted_QTL_SIs.txt',data.table=F)
 
+all_founder_blocks=c()
+for(chr in 1:10){#
+  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+}
+
+
+#### Residual Overlap
+factoreqtl=fread('eqtl/results/all_residual_factor_fdr_SIs_FIXED.txt',data.table=F)
 factoreqtl$factor_time=paste0(factoreqtl$time,'-',factoreqtl$factor)
 factoreqtls=unique(factoreqtl$factor_time)
 
+env1=qtl
+env1=as.data.table(env1)
+env2=factoreqtl
+#names(env2)=c('Trait.factor','CHR','SNP.factor','class.factor','time.factor','block_start','block_end')
+env2=as.data.table(env2)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+dre_comp=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+
+qtl_all=fread('QTL/all_adjusted_QTL_all_methods.txt',data.table=F)
+env1=qtl_all
+env1=as.data.table(env1)
+env2=factoreqtl
+#names(env2)=c('Trait.factor','CHR','SNP.factor','class.factor','time.factor','block_start','block_end')
+env2=as.data.table(env2)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+dre_comp2=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+
+
 ########## Are F values corrleated with overlapping phenotype QTL?
+id="qGYD4"
 time1="WD_0720"
-factor="Factor19"
+factor1="Factor19"
+chr2=4
+qbp=174746247
+fsnp=all_founder_blocks[all_founder_blocks$chr==chr2 & all_founder_blocks$start<=qbp & all_founder_blocks$end>qbp,]$focal_snp
 pheno="grain_yield_15"
+qsnp="AX-91851755"
+esnp="AX-91628035"
 env="NERAC_2016_WD"
-#-0.05
+#-0.05 F-values
+# effect sizes 0.06697317
+
+
+
+id="qTPH3"
 time1="WD_0727"
 factor="Factor12"
 pheno="total_plant_height"
 env="ALL"
+chr2=3
+qbp=181395366
+fsnp=all_founder_blocks[all_founder_blocks$chr==chr2 & all_founder_blocks$start<=qbp & all_founder_blocks$end>qbp,]$focal_snp
+esnp="PZE-103115047"
 #0.134
+# effect sizes 0.1346099
+
+time1="WD_0727"
+factor="Factor12"
+pheno="total_plant_height"
+env="ALL"
+chr2=3
+qbp=155180019
+fsnp=all_founder_blocks[all_founder_blocks$chr==chr2 & all_founder_blocks$start<=qbp & all_founder_blocks$end>qbp,]$focal_snp
+esnp="PZE-103115047"
+
 Fvalues=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time1),data.table=F)
 rownames(Fvalues)=Fvalues$V1
 phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
@@ -34,18 +90,58 @@ Fvalues=Fvalues[inter,]
 subpheno=subpheno[inter,]
 cor(subpheno[,pheno],Fvalues[,factor])
 
+
+#### 
+effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr2,pheno,env),data.table=F)
+effect_size=effect_sizes[effect_sizes$X_ID==fsnp,]
+effect_size=unlist(effect_size[,c(6:21)])
+wn=which(!is.na(effect_size))[1]
+effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+
+results=fread(sprintf('eqtl/trans/results/%s_residuals_c%s_%s_trans_results_FIXED.txt',time1,chr2,factor1),data.table=F)
+result=results[results$X_ID==esnp,]
+betas=unlist(result[,founders])
+wn=which(!is.na(betas))[1]
+betas[-wn]=betas[-wn]+betas[wn]
+
+cor(betas,effect_size,use="complete.obs")
+
+tmpdf=data.frame(ebeta=betas,qbeta=effect_size,founder=founders,stringsAsFactors=F)
+p1=ggplot(aes(x=ebeta,y=qbeta),data=tmpdf) + geom_point(aes(color=founder)) + xlab("eQTL Effect Size") +
+ylab("QTL Effect Size") 
+png(sprintf("QTT/images/%s_%s_%s_%s.png",env,id,time1,factor1))
+print(p1)
+dev.off()
+
+####### WE Overlap
+factoreqtl=fread('eqtl/results/all_factor_fdr_SIs_FIXED.txt',data.table=F)
+factoreqtl$factor_time=paste0(factoreqtl$time,'-',factoreqtl$factor)
+factoreqtls=unique(factoreqtl$factor_time)
+
+env1=qtl
+env1=as.data.table(env1)
+env2=factoreqtl
+#names(env2)=c('Trait.factor','CHR','SNP.factor','class.factor','time.factor','block_start','block_end')
+env2=as.data.table(env2)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+we_comp=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
+
+
 # Are the founder effect sizes correlated? I can only do this for whole gene counts
+id="qDTA3_2"
 chr2=3
 pheno="male_flowering_d6"
 env="EXP_STPAUL_2017_WD"
 qsnp="PZE-103093413"
-#-0.2196711
+#-0.2196711  T20 Factor 17 WE
 
+id="qHGM3_2"
 pheno="harvest_grain_moisture"
 env="BLOIS_2017_OPT"
 qsnp="PZE-103093413"
-#-0.452876
+#-0.452876  T20 Factor 17
 
+id="qHGM3_2"
 pheno="harvest_grain_moisture"
 env="ALL"
 qsnp="PZE-103084819"
@@ -53,9 +149,9 @@ qsnp="PZE-103084819"
 time1="WD_0720"
 factor1="Factor17"
 esnp="AX-90826809"
-#-0.6890176
+#-0.6890176 T20 Factor 17
 
-effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_adjusted_founderprobs.txt',chr2,pheno,env),data.table=F)
+effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr2,pheno,env),data.table=F)
 effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
 effect_size=unlist(effect_size[,c(6:21)])
 wn=which(!is.na(effect_size))[1]
@@ -67,9 +163,19 @@ betas=unlist(result[,founders])
 wn=which(!is.na(betas))[1]
 betas[-wn]=betas[-wn]+betas[wn]
 
-cor(betas,effect_size,use="complete.obs")
+r=cor(betas,effect_size,use="complete.obs")
 
+tmpdf=data.frame(ebeta=betas,qbeta=effect_size,founder=founders,stringsAsFactors=F)
+p1=ggplot(aes(x=ebeta,y=qbeta),data=tmpdf) + geom_point(aes(color=founder)) + xlab("eQTL Effect Size") +
+ggtitle(label=sprintf("r=%.2f",r))
+ylab("QTL Effect Size") 
+png(sprintf("QTT/images/WE_%s_%s_%s_%s.png",env,id,time1,factor1))
+print(p1)
+dev.off()
 # 
+
+
+
 
 axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
 cumtot=2105119857

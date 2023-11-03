@@ -45,9 +45,9 @@ write.qvalue(qvalues,'eqtl/results/factor_eqtl_qvalues.txt',sep='\t')
 
 #df$p_adjusted=p.adjust(df$p_value_ML,method='fdr')
 df$p_adjusted=qvalues$qvalues
-df$lfdr=qvalues$lfdr
-#df$value=-log10(df$p_adjusted)
-df$value=-log10(df$lfdr)
+#df$lfdr=qvalues$lfdr
+df$value=-log10(df$p_adjusted)
+#df$value=-log10(df$lfdr)
 
 threshold=-log10(0.1)
 print(threshold)
@@ -64,6 +64,11 @@ fwrite(sig,'eqtl/results/all_factor_trans_eqtl_lfdr_hits_FIXED.txt',row.names=F,
 #hist(qvalues)
 #plot(qvalues)
 #dev.off()
+time="WD_0720"
+factor="Factor17"
+subdf=df[df$time==time & df$factor==factor,]
+
+fwrite(subdf,'paper_figures/data/WD_0720_Factor17_pvalues.txt',row.names=F,quote=F,sep='\t')
 
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")

@@ -4,37 +4,40 @@ library('data.table')
 library('ggplot2')
 library('dplyr')
 library('ggnewscale')
+library('RColorBrewer')
 
 
-eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
-eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+#eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+#eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
 # Grab only the highest cis SNP
-eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
-eqtl=as.data.frame(eqtl2)
+#eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+#eqtl=as.data.frame(eqtl2)
 
-all_founder_blocks=c()
-for(chr in 1:10){#
-  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
-  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
-}
-eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
-eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+#all_founder_blocks=c()
+#for(chr in 1:10){#
+#  founder_blocks=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
+#  all_founder_blocks=rbind(all_founder_blocks,founder_blocks)
+#}
+#eqtl$block_start=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$start
+#eqtl$block_end=all_founder_blocks[match(eqtl$X_ID,all_founder_blocks$focal_snp),]$end
+#
+#
+#
+#trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
+#names(trans)=c('Trait','time','CHR','X_ID','BP','block_start','block_end_bp','left_bound_snp','right_bound_snp','block_end')
+#trans=trans[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
+#trans$class="trans"
+#
+#eqtl=eqtl[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
+#eqtl$class='cis'
+#
+#
+#allhits=rbind(eqtl,trans)
+##allhits=rbind(allhits,factoreqtl)
+#names(allhits)[2]="SNP"
+#fwrite(allhits,'eqtl/results/all_local_distal_eQTL_fdr_peaks.txt',row.names=F,quote=F,sep='\t')
 
 
-
-trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
-names(trans)=c('Trait','time','CHR','X_ID','BP','block_start','block_end_bp','left_bound_snp','right_bound_snp','block_end')
-trans=trans[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
-trans$class="trans"
-
-eqtl=eqtl[,c('Trait','X_ID','CHR','BP','time','block_start','block_end')]
-eqtl$class='cis'
-
-
-allhits=rbind(eqtl,trans)
-#allhits=rbind(allhits,factoreqtl)
-names(allhits)[2]="SNP"
-fwrite(allhits,'eqtl/results/all_local_distal_eQTL_fdr_peaks.txt',row.names=F,quote=F,sep='\t')
 
 allhits=fread('eqtl/results/all_local_distal_eQTL_fdr_peaks.txt',data.table=F)
 
@@ -50,236 +53,11 @@ genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F
 allhits$block_start=all_founder_blocks[match(allhits$SNP,all_founder_blocks$focal_snp),]$start
 allhits$block_end=all_founder_blocks[match(allhits$SNP,all_founder_blocks$focal_snp),]$end
 
-
-#f27_groups=readRDS('MegaLMM/MegaLMM_WD_0727_factor_groups.rds')
-#f2genes=f27_groups[['Factor2']]$genes
-#f14genes=f27_groups[['Factor14']]$genes
-
-prop27=fread('MegaLMM/MegaLMM_WD_0727_prop_variance.txt',data.table=F)
-f2genes=prop27[prop27$Factor2>=0.10,]$V1
-f14genes=prop27[prop27$Factor14>=0.10,]$V1
-f22genes=prop27[prop27$Factor22>=0.10,]$V1
-
-
-prop20=fread('MegaLMM/MegaLMM_WD_0720_prop_variance.txt',data.table=F)
-f9genes=prop20[prop20$Factor9>=0.10,]$V1
-
-#f18_groups=readRDS('MegaLMM/MegaLMM_WD_0718_factor_groups.rds')
-#f16genes=f18_groups[['Factor16']]$genes
-
-prop18=fread('MegaLMM/MegaLMM_WD_0718_prop_variance.txt',data.table=F)
-f16genes=prop18[prop18$Factor16>=0.10,]$V1
-
-prop12=fread('MegaLMM/MegaLMM_WD_0712_prop_variance.txt',data.table=F)
-f1genes=prop12[prop12$Factor1>=0.10,]$V1
-
-
-
-igenes=intersect(f2genes,f14genes)
-length(igenes)
-# 368
-igenes=intersect(igenes,f16genes)
-length(igenes)
-# 1 "Zm00001d028809"
-
-ugenes=union(f2genes,f14genes)
-ugenes=union(ugenes,f16genes)
-gtable=genetable[genetable$Gene_ID %in% c(f2genes,f14genes,f16genes),]
-
-### make table of genes grouped by factor and location of SNP and gene
-sub2=factoreqtl[factoreqtl$Trait=="Factor2",]
-gtable=genetable[genetable$Gene_ID %in% f2genes,]
-
-factordf=c()
-for(i in 1:nrow(gtable)){
-	subdf=sub2
-	row=gtable[i,]
-	subdf$Gene=row$Gene_ID
-	subdf$gene_chr=row$CHROM
-	subdf$gene_start=row$START
-	subdf$gene_end=row$END
-	factordf=rbind(factordf,subdf)
-}
-
-factordf$prop_var=prop27[match(factordf$Gene,prop27$V1),]$Factor2
-
-sub2=factoreqtl[factoreqtl$Trait=="Factor14",]
-gtable=genetable[genetable$Gene_ID %in% f14genes,]
-for(i in 1:nrow(gtable)){
-	subdf=sub2
-	row=gtable[i,]
-	subdf$Gene=row$Gene_ID
-	subdf$gene_chr=row$CHROM
-	subdf$gene_start=row$START
-	subdf$gene_end=row$END
-	subdf$prop_var=prop27[match(subdf$Gene,prop27$V1),]$Factor14
-	factordf=rbind(factordf,subdf)
-}
-
-sub2=factoreqtl[factoreqtl$Trait=="Factor22",]
-#names(sub2)[2]="SNP"
-gtable=genetable[genetable$Gene_ID %in% f22genes,]
-for(i in 1:nrow(gtable)){
-	subdf=sub2
-	row=gtable[i,]
-	subdf$Gene=row$Gene_ID
-	subdf$gene_chr=row$CHROM
-	subdf$gene_start=row$START
-	subdf$gene_end=row$END
-	subdf$prop_var=prop27[match(subdf$Gene,prop27$V1),]$Factor22
-	factordf=rbind(factordf,subdf)
-}
-
-sub2=factoreqtl[factoreqtl$Trait=="Factor16",]
-gtable=genetable[genetable$Gene_ID %in% f16genes,]
-
-for(i in 1:nrow(gtable)){
-	subdf=sub2
-	row=gtable[i,]
-	subdf$Gene=row$Gene_ID
-	subdf$gene_chr=row$CHROM
-	subdf$gene_start=row$START
-	subdf$gene_end=row$END
-	subdf$prop_var=prop18[match(subdf$Gene,prop18$V1),]$Factor16
-	factordf=rbind(factordf,subdf)
-}
-
-sub2=factoreqtl[factoreqtl$Trait=="Factor9",]
-gtable=genetable[genetable$Gene_ID %in% f9genes,]
-
-for(i in 1:nrow(gtable)){
-	subdf=sub2
-	row=gtable[i,]
-	subdf$Gene=row$Gene_ID
-	subdf$gene_chr=row$CHROM
-	subdf$gene_start=row$START
-	subdf$gene_end=row$END
-	subdf$prop_var=prop20[match(subdf$Gene,prop20$V1),]$Factor9
-	factordf=rbind(factordf,subdf)
-}
-
-sub2=factoreqtl[factoreqtl$Trait=="Factor1",]
-gtable=genetable[genetable$Gene_ID %in% f1genes,]
-
-for(i in 1:nrow(gtable)){
-	subdf=sub2
-	row=gtable[i,]
-	subdf$Gene=row$Gene_ID
-	subdf$gene_chr=row$CHROM
-	subdf$gene_start=row$START
-	subdf$gene_end=row$END
-	subdf$prop_var=prop12[match(subdf$Gene,prop12$V1),]$Factor1
-	factordf=rbind(factordf,subdf)
-}
-
-
-fwrite(factordf,'eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',row.names=F,quote=F,sep='\t')
-
-factordf=fread('eqtl/results/all_factor_trans_eqtl_fdr_genes.txt',data.table=F)
-
-pmap=c()
-for(c in 1:10){
-	p=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%.0f.csv',c),data.table=F)
-	pmap=rbind(pmap,p)
-}
-chr_ends=pmap %>% group_by(chr) %>% summarize(chr_len=max(pos))
-names(factordf)[2]="SNP"
-
-factordf$block_start=all_founder_blocks[match(factordf$SNP,all_founder_blocks$focal_snp),]$start
-factordf$block_end=all_founder_blocks[match(factordf$SNP,all_founder_blocks$focal_snp),]$end
-
-factordf$mid_block=apply(factordf[,c('block_start','block_end')],1,function(x) round(mean(x)))
-factordf$mid_gene=apply(factordf[,c('gene_start','gene_end')],1,function(x) round(mean(x)))
-
-factordf$chr_lenA=chr_ends[match(factordf$CHR,chr_ends$chr),]$chr_len
-factordf$chr_lenB=chr_ends[match(factordf$gene_chr,chr_ends$chr),]$chr_len
-
-
-# Factor eQTL - get chromosome locations of midgene  
-df.tmp2 <- factordf %>%
-
-    # Compute chromosome size
-    group_by(gene_chr) %>%
-    summarise(chr_len=max(chr_lenB)) %>%
-
-    # Calculate cumulative position of each chromosome
-    mutate(totB=cumsum(chr_len)-chr_len) %>%
-    select(-chr_len) %>%
-
-    # Add this info to the initial dataset
-    left_join(factordf, ., by=c("gene_chr"="gene_chr")) %>%
-
-    # Add a cumulative position of each SNP
-    arrange(gene_chr, mid_gene) %>%
-    mutate(midgene_cum=as.numeric(mid_gene+totB))
-    
-# Factor eQTL - get chromosome locations of mid-block
-df.tmp = df.tmp2 %>%
-	# Compute chromosome size
-    group_by(gene_chr) %>%
-    summarise(chr_len=max(chr_lenB)) %>%
-
-    # Calculate cumulative position of each chromosome
-    mutate(totA=cumsum(chr_len)-chr_len) %>%
-    select(-chr_len) %>%
-
-    # Add this info to the initial dataset
-    left_join(df.tmp2, ., by=c("CHR"="gene_chr")) %>%
-	arrange(CHR, mid_block) %>%
-    mutate(midblock_cum=as.numeric(mid_block+totA))
-
-
-axisdf <- factordf %>%
-	# Compute chromosome size
-    group_by(gene_chr) %>%
-    summarise(chr_len=max(chr_lenB)) %>%
-
-    # Calculate cumulative position of each chromosome
-    mutate(tot=cumsum(chr_len)-chr_len,chr_len=chr_len) %>%
-
-    # Calculate cumulative position of each chromosome
-    mutate(tot=cumsum(chr_len)-chr_len) %>% mutate(center=(chr_len/2)+tot)
-
-
 #fwrite(axisdf,'eqtl/data/chromosome_axis.txt',row.names=F,quote=F,sep='\t')
 axisdf=fread('eqtl/data/chromosome_axis.txt',data.table=F)
-
-shift=2.5e7
-#axisdf$tot_shift=axisdf$tot+shift
-#axisdf$center_shift=axisdf$center+shift
-#axisdf[axisdf$gene_chr==1,]$tot_shift=0
-#axisdf[axisdf$gene_chr==1,]$center_shift=axisdf[axisdf$gene_chr==1,]$center
-
-tot_shift=c(0)
-center_shift=c(axisdf[axisdf$gene_chr==1,]$center)
-cums=c()
-for(i in 1:10){
-	seqs=length(1:i)-1
-	addon=sum(axisdf$chr_len[1:i])
-	addon=addon + (shift*seqs)
-	cums=c(cums,addon)
-}
-axisdf$len_shift=cums
-
-cstart=c(0)
-cend=c(306972432)
-cshift=c(153486216)
-for(i in 1:nrow(axisdf)){
-	if(i !=1){
-		row=axisdf[i,]
-		prev=axisdf[(i-1),]
-		prev_end=prev$len_shift
-		current_start=prev_end+shift
-		cstart=c(cstart,current_start)
-		current_end=row$len_shift
-		cend=c(cend,current_end)
-		center_shift=current_start+((current_end-current_start)/2)
-		cshift=c(cshift,center_shift)
-	}
-}
-axisdf$center_shift=cshift
-axisdf$chr_start=cstart
-axisdf$chr_end=cend
+axisdf$chr_start=as.numeric(axisdf$chr_start)
+axisdf$chr_end=as.numeric(axisdf$chr_end)
+axisdf$center_shift=as.numeric(axisdf$center_shift)
 
 ### just cis and trans plot first
 
@@ -314,6 +92,97 @@ cumtot=2105119857
 cumtot=axisdf[axisdf$gene_chr==10,]$chr_end
 
 minor_breaks=sort(c(0,axisdf$chr_start[-1],axisdf$chr_end))
+df.tmp4$time_f=factor(df.tmp4$time,levels=c("WD_0712","WD_0718","WD_0720","WD_0727"))
+
+df.tmp4=df.tmp4[order(df.tmp4$midblock_cum),]
+row.names(df.tmp4)=seq(1,nrow(df.tmp4))
+df.tmp4$X_SNP=factor(df.tmp4$SNP,levels=c(unique(df.tmp4$SNP)))
+
+snp_order=unique(df.tmp4$SNP)
+#gene_snp=c()
+#for(chr in 1:10){
+#	testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
+#	genes=unique(df.tmp4[df.tmp4$gene_chr==chr,]$Trait)
+#	for(gene in genes){
+#		snp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
+#		line=data.frame(chr=chr,gene=gene,snp=snp,stringsAsFactors=F)
+#		gene_snp=rbind(gene_snp,line)
+#	}
+#}
+#gene_snp=as.data.frame(gene_snp,stringsAsFactors=F)
+#fwrite(gene_snp,'eqtl/data/gene_focal_snps.txt',row.names=F,quote=F,sep='\t')
+gene_snp=fread('eqtl/data/gene_focal_snps.txt',data.table=F)
+df.tmp4$gene_SNP=gene_snp[match(df.tmp4$Trait,gene_snp$gene),]$snp
+
+df.tmp4=df.tmp4[order(df.tmp4$midgene_cum),]
+row.names(df.tmp4)=seq(1,nrow(df.tmp4))
+
+df.tmp4$Y_SNP=factor(df.tmp4$gene_SNP,levels=c(snp_order))
+
+snps=unique(c(unique(df.tmp4$SNP),unique(df.tmp4$gene_SNP)))
+
+subtmp=df.tmp4[df.tmp4$time=="WD_0712",]
+mat=expand.grid(snps,snps)
+ngenes=df.tmp4 %>% group_by(X_SNP,Y_SNP) %>% reframe(n=length(unique(Trait)))
+ngenes=as.data.frame(ngenes)
+#mat$snp_pair=paste0(mat$Var2,'_',mat$Var1)
+
+ngenes$snp_pair=paste0(ngenes$X_SNP,'_',ngenes$Y_SNP)
+#notin=mat$snp_pair[!(mat$snp_pair %in% ngenes$snp_pair)]
+#mat$n=ngenes[match(c(mat$Var2,mat$Var1),c(ngenes$X_SNP,ngenes$Y_SNP)),]$n
+#mat$n[is.na(mat$n),]=0
+
+#nmat=mat[!(mat$snp_pair %in% ngenes$snp_pair),]
+#nmat$n=0
+#nmat=nmat[,c('Var2','Var1','n','snp_pair')]
+#names(nmat)=c('X_SNP','Y_SNP','n','snp_pair')
+
+#ngenes2=rbind(ngenes,nmat)
+
+
+theme_set(theme_classic())
+#theme_update(text=element_text(family="Times"))
+theme_update(plot.caption = element_text(hjust = 0))
+theme_update(axis.text.x=element_text(size=18),axis.text.y=element_text(size=18))
+theme_update(plot.title = element_text(size=20),axis.title=element_text(size=20))
+theme_update(panel.background=element_blank())
+theme_update(plot.caption=element_text(size=20))
+
+#reds=c("#FEE5D9" ,"#FCAE91", "#FB6A4A", "#CB181D")
+reds=brewer.pal(n=9,"Reds")
+reds=reds[5:9]
+ngenes$X_bin=as.numeric(ngenes$X_SNP)
+ngenes$Y_bin=as.numeric(ngenes$Y_SNP)
+
+ngenes$x_chr=all_founder_blocks[match(ngenes$X_SNP,all_founder_blocks$focal_snp),]$chr
+ngenes$y_chr=all_founder_blocks[match(ngenes$Y_SNP,all_founder_blocks$focal_snp),]$chr
+
+# Which SNP is the last one on the chromosome?
+#for(i in 1:10){
+#	print(tail(all_founder_blocks[all_founder_blocks$chr==i,],n=1))
+#}
+
+breaks=c('AX-91509113','AX-91553484','AX-91217538','AX-91221920','AX-91681652','AX-90594801','AX-91068340','AX-90636227','AX-91157044','AX-91834694')
+xbreak=ngenes[match(breaks,ngenes$X_SNP),]$X_bin
+#ybreak=ngenes[match(breaks,ngenes$Y_SNP),]$Y_bin
+
+p1=ggplot(ngenes,aes(x=X_SNP,y=Y_SNP,fill=n)) + geom_raster() +
+scale_fill_gradientn(colours=c(reds,'black')) +
+#theme(axis.text.x=element_blank(),axis.text.y=element_blank(),
+#axis.ticks.x=element_blank(),axis.ticks.y=element_blank()) +
+scale_x_discrete(label = axisdf$gene_chr,breaks=breaks) +
+scale_y_discrete(label = axisdf$gene_chr,breaks=breaks) +
+theme(panel.grid.major=element_line(colour="darkgrey"),panel.grid.minor=element_blank()) +
+xlab('eQTL Variant') + ylab("eQTL Transcript")
+
+#png('eqtl/images/WD_0712_heatmap.png')
+#print(p1)
+#dev.off()
+
+pdf('eqtl/images/WD_0712_heatmap.pdf',width=12,height=12)
+print(p1)
+dev.off()
+
 
 cistrans=ggplot(df.tmp4,aes(x=midblock_cum,y=midgene_cum)) +
 	geom_abline(slope=1, intercept=0,alpha=0.5) +
@@ -321,9 +190,9 @@ cistrans=ggplot(df.tmp4,aes(x=midblock_cum,y=midgene_cum)) +
     scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center_shift,minor_breaks=minor_breaks,limits=c(0, cumtot)) +
     geom_hline(yintercept=cumtot,colour="darkgrey") +
     geom_vline(xintercept=cumtot,colour="darkgrey") +
-    geom_point(aes(color=time),size=0.1) + 
+    geom_point(aes(color=time_f),size=0.1) +
+    scale_color_hue(name="Timepoint",labels=c("T12","T18","T20","T27")) + 
     labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
-    theme_classic() +
     theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_blank())
  
 pdf('paper_figures/cis_trans.pdf')
@@ -344,9 +213,9 @@ for(time in times){
     geom_hline(yintercept=cumtot,colour="darkgrey") +
     geom_vline(xintercept=cumtot,colour="darkgrey") +
  	geom_point(aes(color=class),size=0.1) + 
+ 	scale_color_hue(name="Type",labels=c("local",'distal'))
  	#scale_color_manual(values = c("cis" = "coral","trans" = "lightblue")) + 
     labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
-    theme_classic() +
     theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_blank())
  
 	pdf(sprintf('paper_figures/%s_cis_trans_fdr.pdf',time))
@@ -362,13 +231,13 @@ for(time in times){
 
 time="WD_0720"
 subtmp=df.tmp4[df.tmp4$time==time,]
+subtmp=subtmp[subtmp$CHR==8,]
 
-
-env1=subtmp[,c('Trait','SNP','CHR','block_start','block_end','mid_block','tot.x','midgene_cum')]
-names(env1)=c('Trait.1','SNP.1','CHR','block_start','block_end','mid_block.1','tot.x.1','midgene_cum.1')
+env1=subtmp[,c('Trait','SNP','CHR','block_start','block_end','mid_block','tot.x','midgene_cum','mid_gene')]
+names(env1)=c('Trait.1','SNP.1','CHR','block_start','block_end','mid_block.1','tot.x.1','midgene_cum.11','mid_gene.1')
 env1=as.data.table(env1)
-env2=subtmp[,c('Trait','SNP','CHR','block_start','block_end','mid_block','tot.x','midgene_cum')]
-names(env2)=c('Trait.2','SNP.2','CHR','block_start','block_end','mid_block.2','tot.x.2','midgene_cum.1')
+env2=subtmp[,c('Trait','SNP','CHR','block_start','block_end','mid_block','tot.x','midgene_cum','mid_gene')]
+names(env2)=c('Trait.2','SNP.2','CHR','block_start','block_end','mid_block.2','tot.x.2','midgene_cum.2','mid_gene.2')
 env2=as.data.table(env2)
 setkey(env2,CHR,block_start,block_end)
 comparison4=foverlaps(env1,env2,by.x=c('CHR','block_start','block_end'),by.y=c('CHR','block_start','block_end'),nomatch=NULL)
@@ -376,20 +245,19 @@ comparison4=comparison4[comparison4$Trait.1!=comparison4$Trait.2,]
 
 overlap=union(unique(comparison4$Trait.1),unique(comparison4$Trait.2))
 subtmp$overlap=subtmp$Trait %in% overlap
-cistrans=ggplot(subtmp,aes(x=midblock_cum,y=midgene_cum)) +
+
+minor_breaks=sort(c(0,axisdf$chr_start[-1],axisdf$chr_end))
+
+cistrans=ggplot(subtmp,aes(x=mid_block/1e6,y=midgene_cum)) +
 geom_abline(slope=1, intercept=0,alpha=0.5) +
-scale_x_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
-scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center,minor_breaks=axisdf$tot,limits=c(0, cumtot)) +
-geom_hline(yintercept=cumtot,colour="darkgrey") +
-geom_vline(xintercept=cumtot,colour="darkgrey") +
-annotate('rect', xmin=(comparison4$block_start+comparison4$tot.x.2), xmax=(comparison4$block_end+comparison4$tot.x.2), ymin=0, ymax=comparison4$midgene_cum.1, alpha=.5, fill='blue',alpha=0.3) +
-geom_point(aes(color=overlap),size=0.2) + 
+scale_y_continuous(label = axisdf$gene_chr,breaks=axisdf$center_shift,minor_breaks=minor_breaks,limits=c(0, cumtot)) +
+annotate('rect', xmin=comparison4$block_start/1e6, xmax=comparison4$block_end/1e6, ymin=0, ymax=cumtot,color='black',fill='dodgerblue',alpha=0.25) +
+geom_point(aes(color=overlap),size=1) + 
 scale_color_manual(values = c("FALSE"="red", "TRUE"="blue")) + 
 labs(x = "Position of eQTL variants",y="Position of eQTL Transcripts") +
-theme_classic() +
 theme(panel.grid.minor=element_line(colour="darkgrey"),panel.grid.major=element_line(colour="black"))
  
-pdf(sprintf('eqtl/images/%s_shadow_fdr.pdf',time))
+pdf(sprintf('eqtl/images/%s_shadow_fdr.pdf',time),width=10,height=8)
 print(cistrans)
 dev.off()
 

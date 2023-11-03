@@ -6,9 +6,54 @@ library('stringr')
 library('ggplot2')
 #library('glmnet')
 #library('lme4')
-library('lmerTest')
 library('lme4qtl')
+library('lmerTest')
 
+
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+
+K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+rownames(K)=K[,1]
+rownames(K)=gsub("-",".",rownames(K))
+K=as.matrix(K[,-1])
+colnames(K)=rownames(K)
+inds=rownames(K)
+#### All rares upstream
+totalrares=c()
+for(time1 in times){
+	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
+	allrares=allrares[allrares$max_f!="B73_inra",]
+	totalrares=rbind(totalrares,allrares)
+}
+totalrares=as.data.frame(totalrares,stringsAsFactors=F)
+totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
+totalrares$gene_time_id=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$ID)
+
+rcount = totalrares %>% group_by(ID,time) %>% reframe(tot_rares=sum(rare_count))
+
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+phenotypes=phenotypes[phenotypes$Loc.Year.Treat=="ALL",]
+
+rcount$grain_yield_15=phenotypes[match(rcount$ID,phenotypes$Genotype_code),]$grain_yield_15
+rcount$tkw_15=phenotypes[match(rcount$ID,phenotypes$Genotype_code),]$tkw_15
+rcount=as.data.frame(rcount,stringsAsFactors=F)
+for(time in times){
+	subr=rcount[rcount$time==time,]
+	newK=K[subr$ID,subr$ID]
+	model=relmatLmer(grain_yield_15 ~ tot_rares + (1|ID), data=subr, relmat = list(ID = newK))
+
+	lme4qtl::VarProp(model)
+	lme4::VarCorr(model)
+	anova(model,ddf='K')
+
+	m0=relmatLmer(grain_yield_15 ~ (1|ID), data=subr, relmat = list(ID = newK))
+	#m1 <- relmatLmer(trait1 ~ AGE + (1|ID), dat40, relmat = list(ID = kin2))
+	print(time)
+	print(anova(m0, model))
+}
+
+
+#### What about total number of rare alleles upstream, not just total number that are expressed in this tissue/timepoint?
 chr=10
 K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
 rownames(K)=K[,1]
@@ -50,6 +95,166 @@ allcounts$tkw_15=phenotypes[match(allcounts$inds,phenotypes$Genotype_code),]$tkw
 fwrite(allcounts,'datasets/homozygous_rare_count.txt',row.names=F,quote=F,sep='\t') 
 
 
+
+
+####
+
+
+
+chr=10
+K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+rownames(K)=K[,1]
+rownames(K)=gsub("-",".",rownames(K))
+K=as.matrix(K[,-1])
+colnames(K)=rownames(K)
+inds=rownames(K)
+
+chroms=1:10
+upstream=fread('eqtl/data/upstream_gene_list.txt',data.table=F)
+
+allcounts=data.frame(inds=inds,stringsAsFactors=F)
+for(chr in chroms){
+	#min_founder=readRDS(sprintf('datasets/hapmap/minor_allele_founders_c%s.rds',chr))
+	bimbam=fread(sprintf('datasets/chr%s_biogemma_rare_allele_probs.txt',chr),data.table=F)
+	bimbam$pos1=bimbam$pos+1
+	bimbam$chr=chr
+	bimbam=bimbam[,c('marker','chr','pos','pos1','alt1','ref',rownames(K))]
+
+	env1=as.data.table(bimbam)
+	env2=as.data.table(upstream)
+	setkey(env2,CHROM,UP_START,UP_END)
+	comp=foverlaps(env1,env2,by.x=c('chr','pos','pos1'),by.y=c('CHROM','UP_START','UP_END'),nomatch=NULL)
+	sites=unique(comp$marker)
+	bimbam=bimbam[bimbam$marker %in% sites,]
+	#names(bimbam)=c('marker','alt1','ref',rownames(K),'pos')
+		#For each individual, how many sites are they homozygous for rare alleles?
+	cutoff=0.75
+	rcount=apply(bimbam[,inds],MARGIN=2,function(x) sum(x>cutoff))
+	fwrite(bimbam,sprintf('datasets/chr%s_all_homo_hetero_rare_allele_probs.txt',chr),row.names=F,quote=F,sep='\t')
+	coln=paste0('chr',chr)	
+	allcounts[,coln]=unlist(rcount)
+}
+
+
+allcounts=as.data.frame(allcounts,stringsAsFactors=F)
+allcounts$total=rowSums(allcounts[,2:11])
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+
+phenotypes=phenotypes[phenotypes$Loc.Year.Treat=="ALL",]
+allcounts$grain_yield_15=phenotypes[match(allcounts$inds,phenotypes$Genotype_code),]$grain_yield_15
+allcounts$tkw_15=phenotypes[match(allcounts$inds,phenotypes$Genotype_code),]$tkw_15
+
+countsdf=allcounts[,c('inds','grain_yield_15','tkw_15','total')]
+names(countsdf)=c('inds','grain_yield_15','tkw_15','all_5kb_upstream')
+countsdf$homo_5kb_upstream=homocounts[match(countsdf$inds,homocounts$inds),]$UPSTREAM_5kb_count
+countsdf$all_homo=homocounts[match(countsdf$inds,homocounts$inds),]$total
+countsdf$hetero_5kb=countsdf$all_5kb_upstream-countsdf$homo_5kb_upstream
+countsdf$homo_outside=countsdf$all_homo-countsdf$homo_5kb_upstream
+
+fwrite(countsdf,'datasets/rare_counts_table.txt',row.names=F,quote=F,sep='\t')
+### All homozygous rare alleles
+m0 <- relmatLmer(grain_yield_15 ~ (1|inds),countsdf, relmat = list(inds = K))
+
+model1=relmatLmer(grain_yield_15 ~homo_5kb_upstream + homo_outside + (1|inds), countsdf, relmat = list(inds = K))
+model2=relmatLmer(grain_yield_15 ~homo_5kb_upstream + (1|inds), countsdf, relmat = list(inds = K))
+anova(model2,model1)
+
+#refitting model(s) with ML (instead of REML)
+#Data: countsdf
+#Models:
+#model2: grain_yield_15 ~ homo_5kb_upstream + (1 | inds)
+#model1: grain_yield_15 ~ homo_5kb_upstream + homo_outside + (1 | inds)
+#       npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+#model2    4 2017.3 2032.4 -1004.6   2009.3                     
+#model1    5 2018.9 2037.8 -1004.4   2008.9 0.3819  1     0.5366
+
+
+
+#refitting model(s) with ML (instead of REML)
+#Data: countsdf
+#Models:
+#m0: grain_yield_15 ~ (1 | inds)
+#model: grain_yield_15 ~ all_homo + (1 | inds)
+#      npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)   
+#m0       3 2027.2 2038.5 -1010.6   2021.2                        
+#model    4 2020.2 2035.3 -1006.1   2012.2 8.9713  1   0.002743 **
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+theme_set(theme_classic())
+#theme_update(text=element_text(family="Times"))
+theme_update(plot.caption = element_text(hjust = 0))
+theme_update(axis.text.x=element_text(size=18),axis.text.y=element_text(size=18))
+theme_update(plot.title = element_text(size=20),axis.title=element_text(size=20))
+theme_update(panel.background=element_blank())
+theme_update(plot.caption=element_text(size=20))
+
+p1=ggplot(aes(x=homo_5kb_upstream,y=grain_yield_15),data=countsdf) + geom_point() +
+geom_smooth(method="lm",formula=y~x) + xlab("Homozygous Rare Alleles (5kb upstream)") + ylab("Grain Yield (kgs)")
+png('paper_figures/gyd_by_homo5kb.png')
+print(p1)
+dev.off()
+
+countsdf$fittedvals=3.929334004 + (countsdf$homo_5kb_upstream * -0.002682143)
+
+p1=ggplot(aes(x=fittedvals,y=grain_yield_15),data=countsdf) + geom_point() +
+geom_smooth(method="lm",formula=y~x) + xlab("Fitted Values") + ylab("Grain Yield (kgs)")
+png('paper_figures/gyd_by_fitted_homo5kb.png')
+print(p1)
+dev.off()
+
+lme4qtl::VarProp(model)
+lme4::VarCorr(model)
+anova(model,ddf='Kenward-Roger')
+
+m0 <- relmatLmer(grain_yield_15 ~ (1|inds), allcounts, relmat = list(inds = K))
+#m1 <- relmatLmer(trait1 ~ AGE + (1|ID), dat40, relmat = list(ID = kin2))
+anova(m0, model)
+
+###
+
+fwrite(allcounts,'datasets/total_rare_count.txt',row.names=F,quote=F,sep='\t') 
+
+allcounts=fread('datasets/total_rare_count.txt',data.table=F)
+K=fread('../GridLMM/K_matrices/K_matrix_full.txt',data.table=F)
+rownames(K)=K[,1]
+rownames(K)=gsub("-",".",rownames(K))
+K=as.matrix(K[,-1])
+colnames(K)=rownames(K)
+rownames(allcounts)=allcounts$inds
+# Grain Yield
+model=relmatLmer(grain_yield_15 ~total + (1|inds), allcounts, relmat = list(inds = K))
+
+lme4qtl::VarProp(model)
+lme4::VarCorr(model)
+anova(model,ddf='Kenward-Roger')
+
+m0 <- relmatLmer(grain_yield_15 ~ (1|inds), allcounts, relmat = list(inds = K))
+#m1 <- relmatLmer(trait1 ~ AGE + (1|ID), dat40, relmat = list(ID = kin2))
+anova(m0, model)
+#m0: grain_yield_15 ~ (1 | inds)
+#model: grain_yield_15 ~ total + (1 | inds)
+#      npar    AIC    BIC  logLik deviance Chisq Df Pr(>Chisq)
+#m0       3 2027.2 2038.5 -1010.6   2021.2                    
+#model    4 2027.1 2042.2 -1009.5   2019.1 2.072  1       0.15
+
+# Thousand Kernel Weight
+model=relmatLmer(tkw_15 ~total + (1|inds), allcounts, relmat = list(inds = K))
+
+lme4qtl::VarProp(model)
+lme4::VarCorr(model)
+anova(model,ddf='Kenward-Roger')
+
+m0 <- relmatLmer(tkw_15 ~ (1|inds), allcounts, relmat = list(inds = K))
+#m1 <- relmatLmer(trait1 ~ AGE + (1|ID), dat40, relmat = list(ID = kin2))
+anova(m0, model)
+
+#m0: tkw_15 ~ (1 | inds)
+#model: tkw_15 ~ total + (1 | inds)
+#      npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+#m0       3 2636.1 2647.5 -1315.0   2630.1                     
+#model    4 2637.9 2653.0 -1314.9   2629.9 0.2434  1     0.6217
+
+
 ## How many rare alleles
 bimbam=fread('datasets/all_tester_rare_allele_probs.txt',data.table=F)
 upstream=fread('eqtl/data/upstream_gene_list.txt',data.table=F)
@@ -75,6 +280,7 @@ allcounts=fread('datasets/homozygous_rare_count.txt',data.table=F)
 rownames(allcounts)=allcounts$inds
 model=relmatLmer(grain_yield_15 ~ UPSTREAM_5kb_count + (1|inds), allcounts, relmat = list(inds = K))
 
+# -0.002682143 coefficient
 lme4qtl::VarProp(model)
 lme4::VarCorr(model)
 anova(model,ddf='k')
@@ -94,6 +300,25 @@ anova(m0, model)
 #model    4 2017.3 2032.4 -1004.6   2009.3 11.907  1  0.0005594 ***
 #---
 #Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+# TKW
+
+
+
+model=relmatLmer(tkw_15 ~ UPSTREAM_5kb_count + (1|inds), allcounts, relmat = list(inds = K))
+
+lme4qtl::VarProp(model)
+lme4::VarCorr(model)
+anova(model,ddf='k')
+
+m0 <- relmatLmer(tkw_15 ~ (1|inds), allcounts, relmat = list(inds = K))
+#m1 <- relmatLmer(trait1 ~ AGE + (1|ID), dat40, relmat = list(ID = kin2))
+anova(m0, model)
+#m0: tkw_15 ~ (1 | inds)
+#model: tkw_15 ~ UPSTREAM_5kb_count + (1 | inds)
+#      npar    AIC    BIC  logLik deviance  Chisq Df Pr(>Chisq)
+#m0       3 2636.1 2647.5 -1315.0   2630.1                     
+#model    4 2635.7 2650.9 -1313.9   2627.7 2.3721  1     0.1235
 
 
 

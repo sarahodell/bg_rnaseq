@@ -278,6 +278,14 @@ alldf$snp_founder=paste0(alldf$snp,'-',alldf$variable)
 
 cand=fread('QTT/sig_candidate_genes.txt',data.table=F)
 
+theme_set(theme_classic())
+#theme_update(text=element_text(family="Times"))
+theme_update(plot.caption = element_text(hjust = 0))
+theme_update(axis.text.x=element_text(size=18),axis.text.y=element_text(size=18))
+theme_update(plot.title = element_text(size=20),axis.title=element_text(size=20))
+theme_update(panel.background=element_blank())
+theme_update(plot.caption=element_text(size=20))
+
 plot_list=list()
 count=1
 cands=cand$Trait
@@ -303,14 +311,30 @@ dev.off()
 
 # Does a linear model fit better than a quadratic?
 # For linear model, is slope in the same direction as correlation?
-ft_corgenes=intersect(ft_df$Gene_ID,ft_corgenes)
+#ft_corgenes=intersect(ft_df$Gene_ID,ft_corgenes)
 # 101 genes
-vhigh=high[high$Gene_ID %in% ft_corgenes,]
+#vhigh=high[high$Gene_ID %in% ft_corgenes,]
+ft_df=fread('eqtl/data/FT_genelist.txt',data.table=F)
+high=beta_merge[abs(beta_merge$cor)>0.2,]
+ft_corgenes=unique(high$Gene_ID)
 
+# Is this more than we'd expect - for a random set of genes,
+# Is there a different ratio of quadratic to linear? (More quadratic )
+
+#ft_corgenes=intersect(ft_df$Gene_ID,ft_corgenes)
+# 101 genes
+#vhigh=high[high$Gene_ID %in% ft_corgenes,]
+
+
+
+#vhigh=vhigh[vhigh$time.x=="WD_0712",]
+vhigh=beta_merge[beta_merge$Gene_ID %in% ft_corgenes,]
+# 1730 genes
+# 6592 gene_times
 
 comp_df=c()
 #vhigh=vhigh[vhigh$time.x=="WD_0712",]
-vhigh=beta_merge[beta_merge$Gene_ID %in% ft_df$Gene_ID,]
+#vhigh=beta_merge[beta_merge$Gene_ID %in% ft_df$Gene_ID,]
 # 593 genes
 gene_times=unique(vhigh$gene_time)
 # 2,131
@@ -357,7 +381,9 @@ for(gt in gene_times){
 
 table(comp_df$better)
 
-truedf=data.frame(linear=104,quadratic_p=60,quadratic_n=80,neither=1887)
+
+
+truedf=data.frame(better=c('linear','p_quadratic','n_quadratic','neither'),n=c(349,149,279,5815),stringsAsFactors=F)
 
 #   linear   neither quadratic 
 #      104      1887       140 
@@ -472,12 +498,36 @@ rep_comp_df=as.data.frame(rep_comp_df,stringsAsFactors=F)
 
 fwrite(rep_comp_df,'eqtl/results/div_dir_model_comparison_perms.txt',row.names=F,quote=F,sep='\t')
 
+truedf=data.frame(better=c('linear','p_quadratic','n_quadratic','neither'),true_n=c(349,149,279,5815),stringsAsFactors=F)
+
+
+rep_comp_df=c()
+for(rep in 1:100){
+	p=fread(sprintf('eqtl/results/div_dir_model_comparison_perm%s.txt',rep),data.table=F)
+	rep_comp_df=rbind(rep_comp_df,p)
+}
+rep_comp_df=as.data.frame(rep_comp_df,stringsAsFactors=F)
 
 rep_sum=rep_comp_df %>% group_by(rep) %>% count(better,sort=TRUE)
+
+# 
+chi_res=c()
+
+for(rep in 1:100){
+	t0=rep_sum[rep_sum$rep==rep,]
+	t1=truedf
+	t1$rep_n=t0[match(t1$better,t0$better),]$n
+	#t1=t1[t1$better!='neither',]
+	test=chisq.test(t1$true_n,t1$rep_n,simulate.p.value=TRUE)
+	line=data.frame(rep=rep,pvalue=test$p.value,stat=test$parameter)
+	chi_res=rbind(chi_res,line)
+}
+chi_res=as.data.frame(chi_res,stringsAsFactors=F)
+
+# None of them are significant
 # Get average # of each time from reps
 rep_sum %>% group_by(better) %>% reframe(avg_n=mean(n))
 chi_df=data.frame(better=c('linear','quadratic_p','quadratic_n','neither'),
 true_count=c(104,60,80,1887),
 perm_count=c())
 
-chisq.test(chi_df$true_count,chi_df$perm_count)
