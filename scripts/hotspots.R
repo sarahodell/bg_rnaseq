@@ -4,10 +4,49 @@ library('ggplot2')
 library('data.table')
 library('dplyr')
 
+times=c('WD_0712',"WD_0718","WD_0720","WD_0727")
+allgenes=c()
+for(time in times){
+	exp=fread(sprintf('eqtl/normalized/%s_voom_normalized_gene_counts_formatted_FIXED.txt',time),data.table=F)
+	genes=names(exp)[-1]
+	allgenes=c(allgenes,genes)
+}
+
+
 trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
 
 time1="WD_0727"
 tmp=trans[trans$time==time1,]
+
+hotspot=trans[trans$time=="WD_0727" & trans$SNP=="AX-91102858",]
+prop_var=fread('MegaLMM/MegaLMM_WD_0727_prop_variance_FIXED.txt',data.table=F)
+rownames(prop_var)=prop_var$V1
+tgenes=unique(hotspot$gene)
+prop_var=prop_var[tgenes,]
+apply(prop_var[,-1], MARGIN=2,function(x) sum(x>0.1))
+
+f4=prop_var[prop_var$Factor4>=0.1,c('V1','Factor4')]
+local=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
+sub1=local[local$Trait %in% tgenes,]
+#Factor2  Factor3  Factor4  Factor5  Factor6  Factor7  Factor8  Factor9 
+#       8       21       42        4        6        1        1       16 
+#Factor10 Factor11 Factor12 Factor13 
+#      13       38       13        1 
+
+# WD_0727 factor 4 go terms  - 223 floral development!
+
+
+prop_var=fread('MegaLMM/MegaLMM_residuals_WD_0727_prop_variance_FIXED.txt',data.table=F)
+rownames(prop_var)=prop_var$V1
+tgenes=unique(hotspot$gene)
+prop_var=prop_var[tgenes,]
+apply(prop_var[,-1], MARGIN=2,function(x) sum(x>0.1))
+#Factor1  Factor2  Factor3  Factor4  Factor5  Factor6  Factor7  Factor8 
+#       4       15       24       15       15        5        7        7 
+# Factor9 Factor10 Factor11 Factor12 Factor13 Factor14 Factor15 Factor16 
+#       8       28       17        0        0        3        4        0 
+#Factor17 Factor18 Factor19 
+#       2        0        0 
 
 bysnp=trans %>% group_by(time,SNP) %>% reframe(ngenes=length(unique(gene)))
 

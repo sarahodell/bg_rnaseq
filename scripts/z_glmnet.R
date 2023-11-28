@@ -39,30 +39,31 @@ data.frame(
   
 }
 
-totalrares=c()
-for(time1 in times){
-	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
-	#allrares=allrares[allrares$max_f!="B73_inra",]
-	totalrares=rbind(totalrares,allrares)
-}
-totalrares=as.data.frame(totalrares,stringsAsFactors=F)
-totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
+#totalrares=c()
+#for(time1 in times){
+#	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
+#	#allrares=allrares[allrares$max_f!="B73_inra",]
+#	totalrares=rbind(totalrares,allrares)
+#}
+#totalrares=as.data.frame(totalrares,stringsAsFactors=F)
+totalrares=fread('eqtl/results/beta_merge_all_v3.txt',data.table=F)
+#totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
 
 # first I need to break up by gene_time_founder
-totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
+#totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
 
-totalrares=totalrares[!is.na(totalrares$max_f),]
-totalrares=totalrares[totalrares$max_f!="",]
+#totalrares=totalrares[!is.na(totalrares$max_f),]
+#totalrares=totalrares[totalrares$max_f!="",]
 
 # switch from summarize to reframe
-totf=totalrares %>% group_by(gene_time_founder) %>% reframe(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),gene_time=unique(gene_time),max_f=unique(max_f))
+#totf=totalrares %>% group_by(gene_time_founder) %>% reframe(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),gene_time=unique(gene_time),max_f=unique(max_f))
 
-beta_z=totf%>% group_by(Gene_ID,time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
-beta_z=as.data.frame(beta_z,stringsAsFactors=F)
-beta_z=beta_z[!is.na(beta_z$beta_z),]
+#beta_z=totf%>% group_by(Gene_ID,time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
+#beta_z=as.data.frame(beta_z,stringsAsFactors=F)
+#beta_z=beta_z[!is.na(beta_z$beta_z),]
 
 # Add beta_z score to totalrares
-totalrares$beta_z=beta_z[match(totalrares$gene_time_founder,beta_z$gene_time_founder),]$beta_z
+#totalrares$beta_z=beta_z[match(totalrares$gene_time_founder,beta_z$gene_time_founder),]$beta_z
 
 
 ########## 
@@ -125,6 +126,7 @@ for(time1 in times){
 	rownames(blup_predictions)=blup_predictions$ID
 	blup_predictions=cbind(blup_predictions,as.data.frame(matrix(nrow=nrow(dev),ncol=n_folds)))
 	names(blup_predictions)=c('ID',breaks[1:n_folds])
+	dat=cbind(y,dev)
 	cv_results=c()
 	draw = sample(1:n_inds,n_inds)
 	for(i in breaks[1:n_folds]){
@@ -135,29 +137,44 @@ for(time1 in times){
 			# randomly order samples
 			index=seq(i,i_end)
 			subdraw=draw[index]
-			x_test = as.matrix(dev[subdraw,]) # Create the training data 
-			y_test = y[subdraw,]
-			x_train = as.matrix(dev[-subdraw,])
-			y_train = y[-subdraw,]
-			ridge_reg = glmnet(x_train, y_train,alpha = 0,family='gaussian')
+			cols_reg = colnames(dat)
+			test = dat[subdraw,] # Create the training data 
+			train = dat[-subdraw,]
+			#y_test = y[subdraw,]
+			#test_data=cbind(y_test,x_test)
+			#colnames(test_data)=cols_reg
+			#x_train = as.matrix(dev[-subdraw,])
+			#y_train = y[-subdraw,]
+			#train_data=cbind(y_train,x_train)
+			#colnames(train_data)=cols_reg
+			f=as.formula(paste0(pheno,' ~ .'))
+			dummies <- dummyVars(f, data = dat[,cols_reg])
+			train_dummies = predict(dummies, newdata = train[,cols_reg])
+			test_dummies = predict(dummies, newdata = test[,cols_reg])
+			#print(dim(train_dummies)); print(dim(test_dummies))
+			x = as.matrix(train_dummies)
+			y_train = train[,pheno]
+			x_test = as.matrix(test_dummies)
+			y_test = test[,pheno]
+			ridge_reg = glmnet(x, y_train,alpha = 0,family='gaussian')
 			#summary(ridge_reg)
 			### Optimal lambda value from validation set
-			png(sprintf('QTT/images/%s_%s_%s_z_score_cv_%.0f.png',time1,pheno,env,i))
-			cv_ridge <- cv.glmnet(x_train, y_train, nfolds=n_folds,alpha = 0,family='gaussian')
-			plot(cv_ridge)
-			dev.off()
+			#png(sprintf('QTT/images/%s_%s_%s_z_score_cv_%.0f.png',time1,pheno,env,i))
+			cv_ridge <- cv.glmnet(x, y_train, nfolds=n_folds,alpha = 0,family='gaussian')
+			#plot(cv_ridge)
+			#dev.off()
 			optimal_lambda1 <- cv_ridge$lambda.min
 			optimal_lambda1
 			optimal_lambda2 <- cv_ridge$lambda.1se
 			optimal_lambda2
 			# Prediction and evaluation on train data
-			predictions_train <- predict(ridge_reg, s = c(optimal_lambda1,optimal_lambda2), newx = x_train,type = "response",exact=FALSE)
-			train_eval1=eval_results(y_train, predictions_train[,1], x_train)
-			train_eval2=eval_results(y_train, predictions_train[,2], x_train)
+			predictions_train <- predict(ridge_reg, s = c(optimal_lambda1,optimal_lambda2), newx = x,type = "response",exact=FALSE)
+			train_eval1=eval_results(y_train, predictions_train[,1], train)
+			train_eval2=eval_results(y_train, predictions_train[,2], train)
 			# Prediction and evaluation on test data
 			predictions_test <- predict(ridge_reg, s = c(optimal_lambda1,optimal_lambda2), newx = x_test,type = "response",exact=FALSE)
-			test_eval1=eval_results(y_test, predictions_test[,1], x_test)
-			test_eval2=eval_results(y_test, predictions_test[,2], x_test)
+			test_eval1=eval_results(y_test, predictions_test[,1], test)
+			test_eval2=eval_results(y_test, predictions_test[,2], test)
 			test_blups=y[rownames(predictions_test),]
 			r_blup1=cor(predictions_test[,1],test_blups)
 			r_blup2=cor(predictions_test[,2],test_blups)
@@ -177,9 +194,10 @@ for(time1 in times){
 }
 
 all_cv=as.data.frame(all_cv,stringsAsFactors=F)
-fwrite(all_cv,sprintf('QTT/%s_%s_z_score_cross_validation_results2.txt',pheno,env),row.names=F,quote=F,sep='\t')
+fwrite(all_cv,sprintf('QTT/%s_%s_z_score_cross_validation_results_all.txt',pheno,env),row.names=F,quote=F,sep='\t')
 
 
+all_cv=fread(sprintf('QTT/%s_%s_z_score_cross_validation_results_all.txt',pheno,env),data.table=F)
 summary=all_cv %>% group_by(time) %>% reframe(mean_test_R2=mean(test_R2_1,na.rm=T),mean_train_R2=mean(train_R2_1,na.rm=T),mean_test_cor=mean(test_cor_1,na.rm=T))
 print(summary)
 
@@ -192,7 +210,7 @@ print(summary)
 #4 WD_0727     -0.00920         0.324        0.118
 predictions=as.data.frame(predictions,stringsAsFactors=F)
 predictions$pheno=phenotypes[match(rownames(predictions),rownames(phenotypes)),pheno]
-fwrite(predictions,sprintf('QTT/%s_%s_zscore_fitted_values2.txt',pheno,env),row.names=F,quote=F,sep='\t')
+fwrite(predictions,sprintf('QTT/%s_%s_zscore_fitted_values_all.txt',pheno,env),row.names=F,quote=F,sep='\t')
 
 cor(predictions[,times],predictions$pheno,use="complete.obs")
 #WD_0712  0.2229664

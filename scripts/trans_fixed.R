@@ -1,13 +1,20 @@
 #!/usr/bin/env Rscript
+args=commandArgs(trailingOnly=T)
+time1=as.character(args[[1]])
+chr=as.character(args[[2]])
+cores=as.numeric(args[[3]])
 
 library('data.table')
 library('dplyr')
+library('parallel')
+library('MASS')
 
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 #plot_list=list()
 #count=1
 #adj_chr=c(5,9)
 trans=fread('eqtl/results/all_trans_fdr_SIs_ld_FIXED.txt',data.table=F)
+trans=trans[trans$time==time1 & trans$CHR==chr,]
 
 #trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)
 qtl=fread('QTL/all_adjusted_QTL_SIs.txt',data.table=F)
@@ -18,49 +25,80 @@ setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
 subcomp=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
 
-subcomp$time_chr=paste0(subcomp$time,'-',subcomp$CHR)
+#subcomp$time_chr=paste0(subcomp$time,'-',subcomp$CHR)
 subcomp=subcomp[subcomp$method=="Founder_probs",]
-time_chr=unique(subcomp$time_chr)
-subcomp$r=0
-subcomp$pvalue=1
-for(tc in time_chr){
-	subcomp2=subcomp[subcomp$time_chr==tc,]
-	time=unique(subcomp2$time)
-	chr=unique(subcomp2$CHR)
-	results=fread(sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results_filtered_FIXED.txt',time,chr),data.table=F)
-	for(i in 1:nrow(subcomp2)){
-		row=subcomp2[i,]
-		gts=row$gene_time_snp
-		pheno=row$phenotype
-		env=row$environment
-		gene=row$gene
-		tsnp=row$SNP
-		id=row$ID
-		qsnp=row$i.SNP
-		effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr,pheno,env),data.table=F)
-		effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
-		effect_size=unlist(effect_size[,c(6:21)])
-		wn=which(!is.na(effect_size))[1]
-		effect_size[-wn]=effect_size[-wn]+effect_size[wn]
-		result=results[results$X_ID==tsnp& results$Trait==gene,]
-		betas=unlist(result[,c(6,10:24)])
-		wn=which(!is.na(betas))[1]
-		betas[-wn]=betas[-wn]+betas[wn]
+#time_chr=unique(subcomp$time_chr)
+#time_chr=paste0(time1,'-',chr)
+#subcomp$r=0
+#subcomp$pvalue=1
+
+#time=unique(subcomp2$time)
+#chr=unique(subcomp2$CHR)
+results=fread(sprintf('eqtl/trans/results/trans_eQTL_%s_c%s_weights_results_filtered_FIXED.txt',time1,chr),data.table=F)
+
+
+trans_cor=function(rep){
+	row1=subcomp[rep,]
+	gts=row1$gene_time_snp
+	pheno=row1$phenotype
+	env=row1$environment
+	gene=row1$gene
+	tsnp=row1$SNP
+	id=row1$ID
+	qsnp=row1$i.SNP
+	effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr,pheno,env),data.table=F)
+	effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
+	effect_size=unlist(effect_size[,c(6:21)])
+	wn=which(!is.na(effect_size))[1]
+	effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+	result=results[results$X_ID==tsnp& results$Trait==gene,]
+	betas=unlist(result[,c(6,10:24)])
+	wn=which(!is.na(betas))[1]
+	betas[-wn]=betas[-wn]+betas[wn]
+	test=cor.test(effect_size,betas,use="complete.obs")
+	r=test$estimate
+	p=test$p.value
 	
-		test=cor.test(effect_size,betas,use="complete.obs")
-		r=test$estimate
-		p=test$p.value
-		subcomp[subcomp$gene_time_snp==gts & subcomp$phenotype==pheno & subcomp$environment==env & subcomp$ID==id,]$r=r
-		subcomp[subcomp$gene_time_snp==gts & subcomp$phenotype==pheno & subcomp$environment==env & subcomp$ID==id,]$pvalue=p
-	
-	}
+	line=data.frame(time=time1,chr=chr,gts=gts,pheno=pheno,env=env,gene=gene,tsnp=tsnp,ID=id,qsnp=qsnp,r=r,pvalue=p)
+	return(line)
 }
 
-fwrite(subcomp,'QTT/QTL_trans_eQTL_interval_overlap.txt',row.names=F,quote=F,sep='\t')
+if(nrow(subcomp)!=0){
+	n_reps=1:nrow(subcomp)
+	print(system.time({
+	dresults=mclapply(n_reps,trans_cor,mc.cores=cores)
+	}))
+	d=rbindlist(dresults)
+	#saveRDS(results,sprintf('eqtl/trans/permute/chr%s_%s_%s_%.0frep_min_pvalues.rds',chr,time,factor,reps))
+	#all_props=do.call(rbind,lapply(results,function(x) x))
+	d=as.data.frame(d,stringsAsFactors=F)
+	#fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_v3.txt',time1,chr),row.names=T,quote=F,sep='\t')
+	fwrite(d,sprintf('QTT/QTL_trans_eQTL_%s_%s_interval_overlap.txt',time1,chr),row.names=T,quote=F,sep='\t')
+}else{
+	print("No Overlap")
+}
 
-max_r=subcomp %>% group_by(pheno_env_ID) %>% slice(which.max(abs(r)))
-max_r=as.data.frame(max_r,stringsAsFactors=F)
-fwrite(max_r,'QTT/distal_eQTL_candidates.txt',row.names=F,quote=F,sep='\t')
+
+fulldf=c()
+times=c("WD_0712","WD_0718","WD_0720","WD_0727")
+chroms=1:10
+for(time1 in times){
+	for(chr in chroms){
+		filename=sprintf('QTT/QTL_trans_eQTL_%s_%s_interval_overlap.txt',time1,chr)
+		if(file.exists(filename)){
+			tdf=fread(filename,data.table=F)
+			fulldf=rbind(fulldf,tdf)
+		}
+	}
+}
+fulldf=as.data.frame(fulldf,stringsAsFactors=F)
+fulldf$pheno_env_ID=paste0(fulldf$pheno,'-',fulldf$env,'-',fulldf$ID)
+fwrite(fulldf,'QTT/QTL_trans_eQTL_interval_overlap_cor.txt',row.names=F,quote=F,sep='\t')
+#fwrite(subcomp,sprintf('QTT/QTL_trans_eQTL_%s_%s_interval_overlap.txt',time1,chr),row.names=F,quote=F,sep='\t')
+
+#max_r=subcomp %>% group_by(pheno_env_ID) %>% slice(which.max(abs(r)))
+#max_r=as.data.frame(max_r,stringsAsFactors=F)
+#fwrite(max_r,'QTT/distal_eQTL_candidates.txt',row.names=F,quote=F,sep='\t')
 
 
 #trans=fread('eqtl/results/all_trans_fdr_SIs_FIXED.txt',data.table=F)

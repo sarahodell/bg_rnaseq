@@ -365,8 +365,10 @@ dev.off()
 
 
 # Correlation of plate with PC
-time="WD_0727"
+time="WD_0712"
 pcs=fread(sprintf('eqtl/normalized/%s_PCA_covariates_2.txt',time),data.table=F)
+
+
 meta=fread('metadata/samples_passed_genotype_check.txt',data.table=F)
 
 #meta=fread('metadata/BG_completed_sample_list.txt',data.table=F)
@@ -374,10 +376,58 @@ meta=meta[meta$experiment==time,]
 #meta=meta[meta$read==1,]
 meta=meta[match(pcs$V1,meta$dh_genotype),]
 
+#png(sprintf('images/exp_%s_PC_pairs.png',time))
+#print(pairs(pcs[,2:4]))
+#dev.off()
+
+png(sprintf('images/exp_%s_PC_pairs.png',time))
+print(pairs(pcs[,2:4],col=pcs$plate))
+dev.off()
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+phenotypes=phenotypes[phenotypes$Loc.Year.Treat=="EXP_STPAUL_2017_WD",]
+pcs$male_flowering_d6=phenotypes[match(pcs$V1,phenotypes$Genotype_code),]$male_flowering_d6
+
+png(sprintf('images/exp_%s_PC_pairs_DTA.png',time))
+print(pairs(pcs[,2:4],col=pcs$male_flowering_d6))
+dev.off()
+
 cor(meta$plate,pcs$PC1)
 cor(meta$plate,pcs$PC2)
 cor(meta$plate,pcs$PC3)
 
+library(xlsx)
+taborder=read.xlsx('metadata/Limagrain_transcriptome_list_GS17.xlsx',sheetIndex=2)
+
+dat="2017-07-27"
+suborder=taborder[taborder$DATE==dat & taborder$TREATMENT=="WD",]
+
+meta$pair=suborder[match(meta$final_genotype,suborder$GENOTYPE),]$BINOME
+pcs$pair=meta[match(pcs$V1,meta$dh_genotype),]$pair
+
+png(sprintf('images/exp_%s_PC_binome.png',time))
+print(pairs(pcs[,2:4],col=pcs$pair))
+dev.off()
+
+pcs$final_genotype=meta[match(pcs$V1,meta$dh_genotype),]$final_genotype
+meta$tube=suborder[match(meta$final_genotype,suborder$GENOTYPE),]$TUBE
+pcs$tube=meta[match(pcs$V1,meta$dh_genotype),]$tube
+
+pcs=merge(pcs,suborder,by.x='final_genotype',by.y='GENOTYPE')
+
+pcs$pair=factor(pcs$pair,levels=c(1,2,3,4))
+pcs$plate=as.factor(pcs$plate)
+p=ggplot(aes(x=tube,y=PC2),data=pcs) + geom_point(aes(color=pair,shape=plate)) 
+
+png(sprintf('images/%s_PC2_pair_tube.png',time))
+print(p)
+dev.off()
+
+
+p=ggplot(aes(x=tube,y=PC1),data=pcs) + geom_point(aes(color=pair,shape=plate)) 
+
+png(sprintf('images/%s_PC1_pair_tube.png',time))
+print(p)
+dev.off()
 # WD_0712
 #[1] 0.8159085
 #[1] -0.08469473

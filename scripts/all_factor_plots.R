@@ -202,6 +202,19 @@ sig=df[df$value>=threshold,]
 sig=sig[order(sig$CHR,sig$BP),]
 fwrite(sig,'eqtl/results/all_residuals_factor_trans_eqtl_fdr_hits_FIXED.txt',row.names=F,quote=F,sep='\t')
 
+
+time="WD_0720"
+factor="Factor19"
+
+time="WD_0727"
+factor="Factor12"
+
+subdf=df[df$time==time & df$factor==factor,]
+
+fwrite(subdf,sprintf('paper_figures/%s_%s_residual_factor_transeqtl_pvalues.txt',time,factor),row.names=F,quote=F,sep='\t')
+
+
+
 #png('eqtl/images/all_residuals_factor_lfdr_qqplot_FIXED.png')
 #print(qqman::qq(df$p_value_ML))
 #dev.off()

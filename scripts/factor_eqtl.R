@@ -225,13 +225,13 @@ genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F
 
 # DRE T20 Factor 17
 prop_var=fread('MegaLMM/MegaLMM_residuals_WD_0720_prop_variance_FIXED.txt',data.table=F)
-rownames(dre_prop_var)=dre_prop_var$V1
+rownames(prop_var)=prop_var$V1
 
-dre_f17=prop_var[prop_var$Factor17>=0.1,c('V1','Factor17')]
-dre_f17=merge(dre_f17,genetable,by.x="V1",by.y="Gene_ID")
+dre_f19=prop_var[prop_var$Factor19>=0.1,c('V1','Factor19')]
+dre_f19=merge(dre_f19,genetable,by.x="V1",by.y="Gene_ID")
 
-env1=as.data.table(factoreqtl[15,])
-env2=as.data.table(dre_f17)
+env1=as.data.table(factoreqtl[9,])
+env2=as.data.table(dre_f19)
 setkey(env2,CHROM,START,END)
 comp2=foverlaps(env1,env2,by.x=c("CHR","left_bound_bp","alt_right_bound_bp"),by.y=c("CHROM","START","END"))
 
@@ -254,6 +254,12 @@ dre_prop_var=dre_prop_var[ginter,]
 prop_var=fread('MegaLMM/MegaLMM_WD_0720_prop_variance_FIXED.txt',data.table=F)
 f17=prop_var[prop_var$Factor17>=0.1,c('V1','Factor17')]
 f17=merge(f17,genetable,by.x="V1",by.y="Gene_ID")
+
+env1=as.data.table(factoreqtl[9,])
+env2=as.data.table(f17)
+setkey(env2,CHROM,START,END)
+comp2=foverlaps(env1,env2,by.x=c("CHR","left_bound_bp","alt_right_bound_bp"),by.y=c("CHROM","START","END"))
+
 
 env1=as.data.table(factoreqtl[3,])
 env2=as.data.table(f17)

@@ -69,6 +69,14 @@ for(i in 1:nrow(cand)){
 }
 
 ##### rap27_1 ####3
+eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
+eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
+eqtl$gene_time_SNP = paste0(eqtl$Trait,'-',eqtl$time,'-',eqtl$X_ID)
+# Grab only the highest cis SNP
+eqtl2= eqtl %>% group_by(gene_time) %>% slice(which.max(value))
+eqtl=as.data.frame(eqtl2)
+
+
 pheno="male_flowering_d6"
 env="EXP_STPAUL_2017_WD"
 qsnp="AX-91771656"
@@ -77,6 +85,7 @@ chr=8
 
 gene=rap27_1
 # WD_0720 only
+# local-eQTL in T20
 testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
 esnp=testsnps[[which(unlist(lapply(testsnps,function(x) x$gene==gene)))]]$focal_snps
 
@@ -182,6 +191,8 @@ for(time in times){
 	print(gene %in% results$Trait)
 }
 # All of them, Which has the highest r?
+# local-eQTL? in T12, T20, & T27 - 
+
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 for(time in times){
 	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)
@@ -248,6 +259,7 @@ for(time in times){
 	print(gene %in% results$Trait)
 }
 # All of them, Which has the highest r?
+# local eQTL in all timepoints - increases in effect size over time
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 for(time in times){
 	results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time,chr),data.table=F)

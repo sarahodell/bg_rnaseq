@@ -10,32 +10,36 @@ library('lmerTest')
 times=c("WD_0712","WD_0718","WD_0720","WD_0727")
 chroms=1:10
 
-#totalrares=c()
-#for(time1 in times){
-#	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
-#	allrares=allrares[allrares$max_f!="B73_inra",]
-#	totalrares=rbind(totalrares,allrares)
-#}
-#totalrares=as.data.frame(totalrares,stringsAsFactors=F)
-#totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
-#totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
+
+# Just looking at the top 5000 highest expressed genes
+totalrares=c()
+for(time1 in times){
+	allrares=fread(sprintf('eqtl/results/rare_counts_%s_max_f.txt',time1),data.table=F)
+	allrares=allrares[allrares$max_f!="B73_inra",]
+	totalrares=rbind(totalrares,allrares)
+}
+totalrares=as.data.frame(totalrares,stringsAsFactors=F)
+totalrares$gene_time=paste0(totalrares$Gene_ID,'-',totalrares$time)
+totalrares$gene_time_founder=paste0(totalrares$Gene_ID,'-',totalrares$time,'-',totalrares$max_f)
 
 
-totalrares=fread('eqtl/results/all_rare_counts_max_f_all_exp.txt',data.table=F)
-totf=totalrares %>% group_by(gene_time_founder) %>% summarize(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),rare_count=unique(rare_count),gene_time=unique(gene_time),max_f=unique(max_f))
+#totalrares=fread('eqtl/results/all_rare_counts_max_f_all_exp.txt',data.table=F)
+#totf=totalrares %>% group_by(gene_time_founder) %>% reframe(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),rare_count=unique(rare_count),gene_time=unique(gene_time),max_f=unique(max_f))
 
-ft_df=fread('eqtl/data/FT_genelist.txt',data.table=F)
-ftgenes=ft_df$Gene_ID
-ft_rares=totalrares[totalrares$Gene_ID %in% ftgenes,]
-ft_rares=ft_rares[!is.na(ft_rares$beta_rank),]
-print(length(unique(ft_rares$Gene_ID)))
+#ft_df=fread('eqtl/data/FT_genelist.txt',data.table=F)
+#ftgenes=ft_df$Gene_ID
+#ft_rares=totalrares[totalrares$Gene_ID %in% ftgenes,]
+#ft_rares=ft_rares[!is.na(ft_rares$beta_rank),]
+#print(length(unique(ft_rares$Gene_ID)))
 # 267 genes
 ### Beta Z-scores
 totalrares=totalrares[!is.na(totalrares$max_f),]
 totalrares=totalrares[totalrares$max_f!="",]
-totf=totalrares %>% group_by(gene_time_founder) %>% summarize(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),rare_count=unique(rare_count),gene_time=unique(gene_time),max_f=unique(max_f))
+totf=totalrares %>% group_by(gene_time_founder) %>% reframe(Gene_ID=unique(Gene_ID),time=unique(time),chr=unique(chr),beta=unique(beta),beta_rank=unique(beta_rank),rare_count=unique(rare_count),gene_time=unique(gene_time),max_f=unique(max_f))
 
-beta_z=totf%>% group_by(gene_time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T))
+check=totf %>% group_by(gene_time_founder) %>% reframe(nrares=length(unique(rare_count)),nobs=length(gene_time_founder))
+
+beta_z=totf%>% group_by(gene_time) %>% mutate(beta_z=(beta-mean(beta,na.rm=T))/sd(beta,na.rm=T),abs_beta_z=abs((beta-mean(beta,na.rm=T))/sd(beta,na.rm=T)))
 
 beta_z=as.data.frame(beta_z,stringsAsFactors=F)
 beta_z=beta_z[!is.na(beta_z$beta_z),]
@@ -66,7 +70,7 @@ beta_merge$freq=alldf[match(beta_merge$snp_founder,alldf$snp_founder),]$value
 
 
 
-fwrite(beta_merge,'eqtl/results/local_eqtl_effect_size_frequency_beta_z_all_genes.txt',row.names=F,quote=F,sep='\t')
+fwrite(beta_merge,'eqtl/results/local_eqtl_effect_size_frequency_beta_z_top5k.txt',row.names=F,quote=F,sep='\t')
 
 ### For all of them, what is the gene's correlation with flowering time?
 fts=c("male_flowering_d6","female_flowering_d6")

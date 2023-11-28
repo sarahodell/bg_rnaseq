@@ -8,7 +8,7 @@ library('grid')
 
 summary=fread('QTT/glmnet_summary_stats.txt',data.table=F)
 
-summary[summary$]
+#summary[summary$]
 
 
 theme_set(theme_classic())
@@ -57,7 +57,7 @@ for(env in envs){
 		}
 		
 		prow=plot_grid(plotlist=plotlist,nrow=1,ncol=4,labels=c("T12","T18","T20","T27"))
-		png(sprintf("QTT/%s_%s_QTT_Z_score_RR_pred.png",pheno,env),width=1600,height=600)
+		png(sprintf("QTT/images/%s_%s_QTT_Z_score_RR_pred.png",pheno,env),width=1600,height=600)
 		print(prow)
 		dev.off()
 		
@@ -99,7 +99,7 @@ for(env in envs){
 		}
 		
 		prow=plot_grid(plotlist=plotlist,nrow=1,ncol=4,labels=c("T12","T18","T20","T27"))
-		png(sprintf("QTT/%s_%s_QTT_totexp_RR_pred.png",pheno,env),width=1600,height=600)
+		png(sprintf("QTT/images/%s_%s_QTT_totexp_RR_pred.png",pheno,env),width=1600,height=600)
 		print(prow)
 		dev.off()
 		

@@ -2,7 +2,8 @@
 
 args=commandArgs(trailingOnly=T)
 chr=as.character(args[[1]])
-cores=as.numeric(args[[2]])
+time1=as.character(args[[2]])
+cores=as.numeric(args[[3]])
 
 library('data.table')
 library('dplyr')
@@ -11,7 +12,7 @@ library('ggplot2')
 library('parallel')
 library('MASS')
 
-time1="WD_0712"
+
 hapsnps=fread(sprintf('datasets/hapmap/chr%s_hapmap_biogemma_rare_alleles_ref.txt',chr),data.table=F)
 names(hapsnps)=c("SNP","CHR","POS","MAJ","MIN")
 hapsnps=hapsnps[,c("SNP","CHR","POS","MAJ","MIN")]
@@ -35,21 +36,18 @@ founder[mult,]$ALT2=alt2
 founder=founder[,c("SNP","CHR","POS","REF","ALT","ALT2",founders)]
 
 overlap=merge(hapsnps,founder,by.x='POS',by.y='POS')
+
+# remove reference minor alleles 
+b73alts=unique(overlap[!is.na(overlap$B73_inra) & overlap$B73_inra!=0,]$B73_inra)
 overlap=overlap[overlap$B73_inra!=1,]
 
 # remove multi-allelic sites
 overlap=overlap[is.na(overlap$ALT2),]
 
-overlap2=overlap[overlap$MBS847==1,]
-overlap2=overlap2[!is.na(overlap2$MBS847),]
-# remove reference minor alleles 
-#b73alts=unique(overlap[!is.na(overlap$B73_inra) & overlap$B73_inra!=0,]$B73_inra)
+min_founder=readRDS(sprintf('datasets/hapmap/minor_allele_founders_c%s.rds',chr))
 
-
-#min_founder=readRDS(sprintf('datasets/hapmap/minor_allele_founders_c%s.rds',chr))
-
-#tmpdf=fread(sprintf('eqtl/results/eQTL_%s_freq_chi_data.txt',time1),data.table=F)
-#tmpdf$gene_time_snp=paste0(tmpdf$Trait,'-',tmpdf$time,'-',tmpdf$X_ID)
+tmpdf=fread(sprintf('eqtl/results/eQTL_%s_freq_chi_data.txt',time1),data.table=F)
+tmpdf$gene_time_snp=paste0(tmpdf$Trait,'-',tmpdf$time,'-',tmpdf$X_ID)
 
 #top5k=unique(tmpdf[tmpdf$rank<=5000,]$Trait)
 #top5k=unique(tmpdf[tmpdf$rank>5000,]$Trait)
@@ -58,39 +56,35 @@ overlap2=overlap2[!is.na(overlap2$MBS847),]
 #ranks=fread(,sprintf('eqtl/results/%s_top5k_exp_ranks.txt',time1),data.table=F)
 #rownames(ranks)=ranks$V1
 
-#upstream=fread('eqtl/data/upstream_gene_list.txt',data.table=F)
-#upstream=upstream[upstream$CHROM==chr,]
-#chr5k=intersect(tmpdf$Trait,upstream$Gene_ID)
+upstream=fread('eqtl/data/upstream_gene_list.txt',data.table=F)
+upstream=upstream[upstream$CHROM==chr,]
+chr5k=intersect(tmpdf$Trait,upstream$Gene_ID)
 
 #ranks=ranks[,chr5k]
 
 #bimbam=fread(sprintf('datasets/chr%s_biogemma_rare_allele_probs.txt',chr),data.table=F)
 
-#adj_chr=c(5,9)
-#testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
-#if(chr %in% adj_chr){
-#	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
-#}else{
-#	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
-#}
-#results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time1,chr),data.table=F)
-#bv=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_bv_FIXED.txt',time1,chr),data.table=F)
-#rownames(bv)=bv$V1
+adj_chr=c(5,9)
+testsnps=readRDS(sprintf('eqtl/data/gene_focal_snps_c%s.rds',chr))
+if(chr %in% adj_chr){
+	X_list=readRDS(sprintf('phenotypes/bg%s_adjusted_genoprobs.rds',chr))
+}else{
+	X_list=readRDS(sprintf('../genotypes/probabilities/geno_probs/bg%s_filtered_genotype_probs.rds',chr))
+}
+results=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_results_FIXED.txt',time1,chr),data.table=F)
+bv=fread(sprintf('eqtl/cis/results/eQTL_%s_c%s_weights_bv_FIXED.txt',time1,chr),data.table=F)
+rownames(bv)=bv$V1
 founders=c("B73_inra","A632_usa","CO255_inra","FV252_inra","OH43_inra", "A654_inra","FV2_inra","C103_inra","EP1_inra","D105_inra","W117_inra","B96","DK63","F492","ND245","VA85")
 
-founder_block=fread(sprintf('eqtl/data/founder_recomb_blocks_c%s.txt',chr),data.table=F)
 
-
-#samples=fread(sprintf('eqtl/data/%s_samples_FIXED.txt',time1),data.table=F)
-#inds=samples$id
-#rmelt=as.data.frame(expand.grid(chr5k,inds),stringsAsFactors=F)
-rmelt=as.data.frame(expand.grid(founder_block$focal_snp,founders),stringsAsFactors=F)
-
-names(rmelt)=c("SNP","founder")
-#names(rmelt)=c("Gene_ID","ID")
+samples=fread(sprintf('eqtl/data/%s_samples_FIXED.txt',time1),data.table=F)
+inds=samples$id
+rmelt=as.data.frame(expand.grid(chr5k,inds),stringsAsFactors=F)
+names(rmelt)=c("Gene_ID","ID")
 cutoff=0.75
 
 n_reps=1:nrow(rmelt)
+
 
 #n_reps=100:200
 get_rare_counts=function(rep){
@@ -139,37 +133,8 @@ get_rare_counts=function(rep){
 	return(line)
 }
 
-get_founder_rare_counts=function(rep){
-	row1=rmelt[rep,]
-	snp=as.character(row1$SNP)
-	f=as.character(row1$founder)
-	#r=ranks[id,gene]
-	rstart=founder_block[founder_block$focal_snp==snp,]$start
-	rend=founder_block[founder_block$focal_snp==snp,]$end
-	t1=overlap[overlap$POS>=rstart & overlap$POS<=rend,]
-	t1=t1[!is.na(t1$POS),]
-	t1=t1[,c('SNP.x','ALT','REF',f)]
-	if(nrow(t1)!=0){
-		rcount=sum(t1[,f],na.rm=T)
-	}else{
-		rcount=0
-	}
-	t2=overlap2[overlap2$POS>=rstart & overlap2$POS<=rend,]
-	t2=t2[!is.na(t2$POS),]
-	t2=t2[,c('SNP.x','ALT','REF',f)]
-	if(nrow(t2)!=0){
-		rcount2=sum(t2[,f],na.rm=T)
-	}else{
-		rcount2=0
-	}
-	line=data.frame(chr=chr,snp=snp,founder=f,total_rare_count=rcount,homo_rare_count=rcount2,stringsAsFactors=F)
-	rownames(line)=1
-	return(line)
-}
-
 print(system.time({
-#dresults=mclapply(n_reps,get_rare_counts,mc.cores=cores)
-dresults=mclapply(n_reps,get_founder_rare_counts,mc.cores=cores)
+dresults=mclapply(n_reps,get_rare_counts,mc.cores=cores)
 }))
 d=rbindlist(dresults)
 #saveRDS(results,sprintf('eqtl/trans/permute/chr%s_%s_%s_%.0frep_min_pvalues.rds',chr,time,factor,reps))
@@ -177,7 +142,6 @@ d=rbindlist(dresults)
 d=as.data.frame(d,stringsAsFactors=F)
 
 #fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_v3.txt',time1,chr),row.names=T,quote=F,sep='\t')
-#fwrite(d,sprintf('eqtl/results/%s_%s_5kb_homozygous_rare_counts_all_v3.txt',time1,chr),row.names=T,quote=F,sep='\t')
-fwrite(d,sprintf('eqtl/results/chr%s_5kb_homozygous_founder_block_rare_counts_all_v3.txt',chr),row.names=T,quote=F,sep='\t')
+fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_all_v3.txt',time1,chr),row.names=T,quote=F,sep='\t')
 
 #fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_lower_exp.txt',time1,chr),row.names=F,quote=F,sep='\t')

@@ -15,6 +15,6 @@ module load R
 #Rscript scripts/all_trans_weighted_plots.R
 #Rscript scripts/trans_fixed.R
 #Rscript scripts/trans_r_plot.R
-#Rscript scripts/cor_diff.R 20
+Rscript scripts/cor_diff.R 20
 
-Rscript scripts/exp_freq_by_effect.R
+#Rscript scripts/exp_freq_by_effect.R

@@ -13,9 +13,10 @@ library('DescTools')
 qtl=fread('QTL/all_adjusted_QTL_SIs.txt',data.table=F)
 distalcomp=fread('QTT/QTL_trans_eQTL_interval_overlap.txt',data.table=F)
 localcomp=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
-
+genetable=fread('eqtl/data/Zea_mays.B73_RefGen_v4.46_gene_list.txt',data.table=F)
 
 trans=fread('eqtl/results/all_trans_fdr_SIs_ld_FIXED.txt',data.table=F)
+trans=merge(trans,genetable,by.x='gene',by.y='Gene_ID')
 eqtl=fread('eqtl/results/all_cis_eQTL_weights_fdr_hits_FIXED.txt',data.table=F)
 eqtl$gene_time=paste0(eqtl$Trait,'-',eqtl$time)
 # Grab only the highest cis SNP
@@ -134,9 +135,11 @@ random_tenl=function(pei){
 
 random_tend=function(pei){
 	d2=which(qtl$pheno_env_ID==pei)
+	qtl_chr=qtl[d2,]$CHR
 	dn=distalcount[distalcount$pheno_env_ID==pei,]$n
 	dropgenes=unique(distalcomp[distalcomp$pheno_env_ID==pei,]$gene_time_snp)
 	subtrans=trans[!(trans$gene_time_snp %in% dropgenes),]
+	subtrans=subtrans[subtrans$CHROM!=qtl_chr,]
 	drawd=sample(seq(1,nrow(subtrans)),dn)
 	subeqtl=subtrans[drawd,]
 	#n=min(10,ndraws)
@@ -173,7 +176,7 @@ results=mclapply(n_reps,bootstrap,mc.cores=cores)
 }))
 all_perms=rbindlist(results)
 all_perms=as.data.frame(all_perms,stringsAsFactors=F)
-fwrite(all_perms,'QTT/top10_all_trans_eqtl_permutations.txt',row.names=F,quote=F,sep='\t')
+fwrite(all_perms,'QTT/top10_all_trans_eqtl_permutations2.txt',row.names=F,quote=F,sep='\t')
 
 
 

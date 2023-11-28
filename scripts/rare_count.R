@@ -17,11 +17,11 @@ min_founder=readRDS(sprintf('datasets/hapmap/minor_allele_founders_c%s.rds',chr)
 tmpdf=fread(sprintf('eqtl/results/eQTL_%s_freq_chi_data.txt',time1),data.table=F)
 tmpdf$gene_time_snp=paste0(tmpdf$Trait,'-',tmpdf$time,'-',tmpdf$X_ID)
 
-#top5k=unique(tmpdf[tmpdf$rank<=5000,]$Trait)
-top5k=unique(tmpdf[tmpdf$rank>5000,]$Trait)
+top5k=unique(tmpdf[tmpdf$rank<=5000,]$Trait)
+#top5k=unique(tmpdf[tmpdf$rank>5000,]$Trait)
 
-ranks=fread(sprintf('eqtl/results/%s_all_exp_ranks.txt',time1),data.table=F)
-#ranks=fread(,sprintf('eqtl/results/%s_top5k_exp_ranks.txt',time1),data.table=F)
+#ranks=fread(sprintf('eqtl/results/%s_all_exp_ranks.txt',time1),data.table=F)
+ranks=fread(,sprintf('eqtl/results/%s_top5k_exp_ranks.txt',time1),data.table=F)
 rownames(ranks)=ranks$V1
 
 upstream=fread('eqtl/data/upstream_gene_list.txt',data.table=F)
@@ -66,6 +66,6 @@ d=rbindlist(results)
 #all_props=do.call(rbind,lapply(results,function(x) x))
 d=as.data.frame(d,stringsAsFactors=F)
 
-#fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_exp.txt',time1,chr),row.names=T,quote=F,sep='\t')
+fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts.txt',time1,chr),row.names=T,quote=F,sep='\t')
 
-fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_lower_exp.txt',time1,chr),row.names=F,quote=F,sep='\t')
+#fwrite(d,sprintf('eqtl/results/%s_%s_5kb_rare_counts_lower_exp.txt',time1,chr),row.names=F,quote=F,sep='\t')

@@ -131,6 +131,8 @@ fwrite(comparison2,'QTT/QTL_cis_eQTL_interval_overlap.txt',row.names=F,quote=F,s
 comparison2=fread('QTT/QTL_cis_eQTL_interval_overlap.txt',data.table=F)
 comparison2$pheno_env_ID=paste0(comparison2$phenotype,'-',comparison2$environment,'-',comparison2$ID)
 genecount=comparison2 %>% group_by(pheno_env_ID) %>% count()
+genecount$p10=round(0.1*genecount$n)
+
 pheno_env_ids=unique(comparison2$pheno_env_ID)
 
 get_cor=function(row1,d2){
@@ -166,11 +168,12 @@ get_cor=function(row1,d2){
 random_ten=function(pei){
 	d2=which(qtl$pheno_env_ID==pei)
 	ndraws=genecount[genecount$pheno_env_ID==pei,]$n
+	p10=genecount[genecount$pheno_env_ID==pei,]$p10
 	dropgenes=unique(comparison2[comparison2$pheno_env_ID==pei,]$gene_time_SNP)
 	subcis=eqtl[!(eqtl$gene_time_snp %in% dropgenes),]
 	drawl=sample(seq(1,nrow(subcis)),ln)
 	subeqtl=subcis[drawl,]
-	n=min(10,ndraws)
+	n=max(10,p10)
 	top10=subeqtl %>% slice_max(value, n = n)
 	top10=as.data.frame(top10,stringsAsFactors=F)
 	all_r=sapply(seq(1,n),function(x) get_cor(top10[x,],d2))
@@ -189,14 +192,18 @@ for(pei in pheno_env_ids){
 names(all_perms)=c('pei','rep','perm_max_r')
 fwrite(all_perms,'QTT/top10_eqtl_permutations.txt',row.names=F,quote=F,sep='\t')
 
+comparison2$log10p=-log10(comparison2$p_value_ML)
+
 all_perms=fread('QTT/top10_eqtl_permutations.txt',data.table=F)
-n=10
 top_r=c()
 for(pei in pheno_env_ids){
+	gcount=genecount[genecount$pheno_env_ID==pei,]$n
+	p10=genecount[genecount$pheno_env_ID==pei,]$p10
+	n=max(10,p10)
 	subdf=comparison2[comparison2$pheno_env_ID==pei,]
-	subdf=subdf[order(subdf$value),]
+	subdf=subdf[order(subdf$log10p,decreasing=T),]
 	rownames(subdf)=seq(1,nrow(subdf))
-	subdf$rank=seq(nrow(subdf),1)
+	subdf$rank=seq(1,nrow(subdf))
 	max_loc=which.max(abs(subdf$r))
 	max_r=max(abs(subdf$r))
 	top10=subdf %>% slice_max(value, n = n)
@@ -206,10 +213,11 @@ for(pei in pheno_env_ids){
 	top10_r_loc=unlist(which.max(abs(top10$r)))
 	top_rank=top10[top10_r_loc,]$rank
 	top10_r=abs(top10[top10_r_loc,]$r)
-	newline=data.frame(pheno_env_ID=pei,max_r=max_r,top10_r=top10_r,max_rank=top_rank,stringsAsFactors=F)
+	newline=data.frame(pheno_env_ID=pei,max_r=max_r,top10_r=top10_r,top_rank=top_rank,max_rank=max_loc,n=gcount,stringsAsFactors=F)
 	top_r=rbind(top_r,newline)
 }
 
+top_r$perc=top_r$max_rank/top_r$n
 all_perms$max_r=top_r[match(all_perms$pei,top_r$pheno_env_ID),]$max_r
 
 

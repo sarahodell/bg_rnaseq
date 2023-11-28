@@ -16,13 +16,13 @@ module load R
 #index=( 31 32 38 )
 #index=( 39 40 )
 #loc=${index[$SLURM_ARRAY_TASK_ID]}
-time="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f1 -d,)"
+time1="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f1 -d,)"
 chr="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/eqtl_time_chrom.txt | cut -f2 -d,)"
 #factor="$(sed "${SLURM_ARRAY_TASK_ID}q;d" eqtl/trans/${time}_chrom_factor.txt | cut -f3 -d,)"
 
 #echo $loc
-echo $time
+echo $time1
 echo $chr
 
 #Rscript scripts/trans_bv.R $time $chr 22
-Rscript scripts/trans_select.R $time $chr 22
+Rscript scripts/trans_select.R $time1 $chr 22

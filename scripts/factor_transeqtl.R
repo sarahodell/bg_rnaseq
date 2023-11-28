@@ -53,14 +53,16 @@ pheno="grain_yield_15"
 qsnp="AX-91851755"
 esnp="AX-91628035"
 env="NERAC_2016_WD"
+method="600K"
 #-0.05 F-values
 # effect sizes 0.06697317
 
 
 
+method="600K"
 id="qTPH3"
 time1="WD_0727"
-factor="Factor12"
+factor1="Factor12"
 pheno="total_plant_height"
 env="ALL"
 chr2=3
@@ -68,16 +70,19 @@ qbp=181395366
 fsnp=all_founder_blocks[all_founder_blocks$chr==chr2 & all_founder_blocks$start<=qbp & all_founder_blocks$end>qbp,]$focal_snp
 esnp="PZE-103115047"
 #0.134
-# effect sizes 0.1346099
+# effect sizes  0.3823951
 
+method="Haplotype_probs"
 time1="WD_0727"
-factor="Factor12"
+factor1="Factor12"
 pheno="total_plant_height"
 env="ALL"
 chr2=3
 qbp=155180019
 fsnp=all_founder_blocks[all_founder_blocks$chr==chr2 & all_founder_blocks$start<=qbp & all_founder_blocks$end>qbp,]$focal_snp
 esnp="PZE-103115047"
+# F-value 0.134
+# effect size -0.05516509
 
 Fvalues=fread(sprintf('MegaLMM/MegaLMM_%s_residuals_all_F_means_FIXED.txt',time1),data.table=F)
 rownames(Fvalues)=Fvalues$V1
@@ -88,7 +93,7 @@ rownames(subpheno)=subpheno$Genotype_code
 inter=intersect(subpheno$Genotype_code,Fvalues$V1)
 Fvalues=Fvalues[inter,]
 subpheno=subpheno[inter,]
-cor(subpheno[,pheno],Fvalues[,factor])
+cor(subpheno[,pheno],Fvalues[,factor1])
 
 
 #### 
@@ -98,6 +103,8 @@ effect_size=unlist(effect_size[,c(6:21)])
 wn=which(!is.na(effect_size))[1]
 effect_size[-wn]=effect_size[-wn]+effect_size[wn]
 
+
+
 results=fread(sprintf('eqtl/trans/results/%s_residuals_c%s_%s_trans_results_FIXED.txt',time1,chr2,factor1),data.table=F)
 result=results[results$X_ID==esnp,]
 betas=unlist(result[,founders])
@@ -105,6 +112,9 @@ wn=which(!is.na(betas))[1]
 betas[-wn]=betas[-wn]+betas[wn]
 
 cor(betas,effect_size,use="complete.obs")
+
+df=data.frame(ebeta=betas,qbeta=effect_size,founder=founders,stringsAsFactors=F)
+fwrite(df,sprintf('paper_figures/%s_%s_%s_%s_effect_sizes.txt',time1,factor1,id,method),row.names=F,quote=F)
 
 tmpdf=data.frame(ebeta=betas,qbeta=effect_size,founder=founders,stringsAsFactors=F)
 p1=ggplot(aes(x=ebeta,y=qbeta),data=tmpdf) + geom_point(aes(color=founder)) + xlab("eQTL Effect Size") +
@@ -133,6 +143,10 @@ chr2=3
 pheno="male_flowering_d6"
 env="EXP_STPAUL_2017_WD"
 qsnp="PZE-103093413"
+method="Founder_probs"
+esnp="AX-90826809"
+time1="WD_0720"
+factor1="Factor17"
 #-0.2196711  T20 Factor 17 WE
 
 id="qHGM3_2"
@@ -156,6 +170,64 @@ effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
 effect_size=unlist(effect_size[,c(6:21)])
 wn=which(!is.na(effect_size))[1]
 effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+
+
+allres=c()
+for(chr in 1:10){
+	pmap=fread(sprintf('../genotypes/qtl2/startfiles/Biogemma_pmap_c%s.csv',chr),data.table=F)
+	results=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results_FIXED.txt',time1,chr,factor1),data.table=F)
+	results=merge(results,pmap,by.x='X_ID',by.y='marker')
+	allres=rbind(allres,results)
+}
+fwrite(allres,sprintf('paper_figures/%s_%s_factor_transeqtl_pvalues.txt',time1,factor1),row.names=F,quote=F,sep='\t')
+
+
+
+id="qGYD4"
+time1="WD_0720"
+factor1="Factor17"
+chr2=4
+qbp=174746247
+fsnp=all_founder_blocks[all_founder_blocks$chr==chr2 & all_founder_blocks$start<=qbp & all_founder_blocks$end>qbp,]$focal_snp
+pheno="grain_yield_15"
+qsnp="AX-91851755"
+esnp="AX-91628035"
+env="NERAC_2016_WD"
+esnp="AX-90899326"
+fsnp="SYN2162"
+# cor ES 0.1253768
+# F values -0.01792666
+Fvalues=fread(sprintf('MegaLMM/MegaLMM_%s_all_F_means_FIXED.txt',time1),data.table=F)
+rownames(Fvalues)=Fvalues$V1
+phenotypes=fread('phenotypes/phenotypes_all.csv',data.table=F)
+
+subpheno=phenotypes[phenotypes$Loc.Year.Treat==env,]
+rownames(subpheno)=subpheno$Genotype_code
+inter=intersect(subpheno$Genotype_code,Fvalues$V1)
+Fvalues=Fvalues[inter,]
+subpheno=subpheno[inter,]
+cor(subpheno[,pheno],Fvalues[,factor1])
+
+
+results=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results_FIXED.txt',time1,chr2,factor1),data.table=F)
+result=results[results$X_ID==esnp,]
+betas=unlist(result[,founders])
+wn=which(!is.na(betas))[1]
+betas[-wn]=betas[-wn]+betas[wn]
+
+cor(betas,effect_size,use="complete.obs")
+
+
+
+effect_sizes=fread(sprintf('QTL/adjusted/Biogemma_chr%s_%s_x_%s_unscaled_founderprobs.txt',chr2,pheno,env),data.table=F)
+effect_size=effect_sizes[effect_sizes$X_ID==qsnp,]
+effect_size=unlist(effect_size[,c(6:21)])
+wn=which(!is.na(effect_size))[1]
+effect_size[-wn]=effect_size[-wn]+effect_size[wn]
+
+df=data.frame(ebeta=betas,qbeta=effect_size,founder=founders,stringsAsFactors=F)
+fwrite(df,sprintf('paper_figures/%s_%s_%s_%s_%s_effect_sizes.txt',time1,factor1,env,id,method),row.names=F,quote=F)
+
 
 results=fread(sprintf('eqtl/trans/results/%s_c%s_%s_trans_results_FIXED.txt',time1,chr2,factor1),data.table=F)
 result=results[results$X_ID==esnp,]
