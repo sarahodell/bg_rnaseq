@@ -70,9 +70,11 @@ beta_merge$gene_founder=paste0(beta_merge$Gene_ID,'-',beta_merge$max_f)
 
 
 
-avg_z=beta_merge %>% group_by(bin) %>% summarize(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
+avg_z=beta_merge %>% group_by(bin) %>% reframe(avg_rares=mean(rare_count),sd_rares=sd(rare_count),n=length(rare_count),ngenes=length(unique(gene_founder)))
 avg_z=as.data.frame(avg_z,stringsAsFactors=F)
 nbins=max(avg_z$bin)
+
+fwrite(avg_z,'paper_figures/avg_rares_5kb_all.txt',row.names=F,quote=F,sep='\t')
 
 quadratic_high2=lm(rare_count~beta_z + I(beta_z^2),beta_merge)
 anova(quadratic_high2)
@@ -85,14 +87,18 @@ anova(quadratic_high2)
 #---
 #Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-newdata <- data.frame(beta_z=bbreaks)
+
+quadratic_high1=lm(rare_count~bin + I(bin^2),beta_merge)
+anova(quadratic_high1)
+
+newdata <- data.frame(bin=avg_z$bin)
 #newdata$avg_rares <- predict(pheno_model2, newdata = newdata)
 
-p <- predict(quadratic_high2, newdata = newdata, se.fit=TRUE,     
+p <- predict(quadratic_high1, newdata = newdata, se.fit=TRUE,     
          interval="confidence")
 newdata=cbind(newdata,p$fit)
 
-fwrite(newdata,'paper_figures/smile_predicted.txt',row.names=F,quote=F,sep='\t')
+fwrite(newdata,'paper_figures/bin_smile_predicted_all.txt',row.names=F,quote=F,sep='\t')
 #avg_z=avg_z[!is.na(bin),]
 
 fwrite(avg_z,'paper_figures/data/avg_rares_5kb_top5k.txt',row.names=F,quote=F,sep='\t')

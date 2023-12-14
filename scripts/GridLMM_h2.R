@@ -50,14 +50,18 @@ for(env in envs){
 		h2_start=null_model$results[,grepl('.ML',colnames(null_model$results),fixed=T),drop=FALSE]
 		names(h2_start) = sapply(names(h2_start),function(x) strsplit(x,'.',fixed=T)[[1]][1])
 		#h2_start
-		
-		line=data.frame(phenotype=pheno,environment=env,h2=h2_start,stringsAsFactors=F)
+		pvar=var(data$y,na.rm=T)
+		line=data.frame(phenotype=pheno,environment=env,pvar=pvar,h2=h2_start,stringsAsFactors=F)
 		h2_df=rbind(h2_df,line)
 	}
 }
 
 h2_df=as.data.frame(h2_df,stringsAsFactors=F)
-names(h2_df)=c('phenotype','environment','h2')
+names(h2_df)=c('phenotype','environment','pvar','h2')
+
+h2_df$gvar=h2_df$pvar * h2_df$h2
+
+fwrite(h2_df,'QTL/heritability_all.txt',row.names=F,quote=F)
 
 p1=ggplot(data=h2_df,aes(x=phenotype,y=h2,group=environment)) + geom_point(aes(color=environment)) + geom_line(aes(color=environment)) +
  xlab("Phenotype") +
@@ -66,4 +70,31 @@ ylab(expression("h"^2))
 png('QTL/images/h2_by_env.png',width=800,height=600)
 print(p1)
 dev.off()
+
+plist=list()
+count=1
+for(pheno in phenos){
+	subdf=h2_df[h2_df$phenotype==pheno,]
+	subdf$evar=subdf$pvar-subdf$gvar
+	submelt=reshape2::melt(subdf[,c('environment','h2','gvar','evar')],c('environment','h2'))
+	submelt$variable=factor(submelt$variable,levels=c('evar','gvar'))
+	submelt$environment=factor(submelt$environment,levels=c("BLOIS_2014_OPT","BLOIS_2017_OPT","GRANEROS_2015_OPT","NERAC_2016_WD","STPAUL_2017_WD","SZEGED_2017_OPT","EXP_STPAUL_2017_WD","ALL"))
+	p2=ggplot(data=submelt,aes(x=environment,fill=variable,y=value)) + 
+    geom_bar(position="stack", stat="identity") + xlab("Environment") + ylab("Variance") +
+     scale_fill_hue(name="Proportion Phenotypic\n Variance",breaks=c('gvar','evar'),labels=c('Genetic Var','Environment Var')) +
+     geom_text(data=subset(submelt,variable=='gvar'), aes(label=round(h2,2)),size=4,vjust=-1) + 
+  scale_x_discrete(labels=c("Blois, 2014","Blois, 2017",'Graneros, 2015','Nerac, 2016','St. Paul, 2017 #2','Szeged, 2017','St. Paul, 2017 #1','BLUPs')) +
+  theme(axis.text.x=element_text(angle=-45)) +
+  ggtitle(sprintf("%s",pheno))
+	plist[[count]]=p2
+	count=count+1
+}
+
+pdf('QTL/images/h2_prop_variance.pdf')
+for(i in 1:length(plist)){
+	print(plist[[i]])
+}
+dev.off()
+
+qtl=fread('QTL/')
 

@@ -20,6 +20,7 @@ pheno_env_ids=pot$pei
 high=c()
 low=c()
 sig=c()
+sig2=c()
 
 x1s=c()
 y1s=c()
@@ -70,6 +71,11 @@ for(i in 1:nrow(truediff)){
 	}else{
 		sig=c(sig,FALSE)
 	}
+	if(true<=quant2){
+		sig2=c(sig2,TRUE)
+	}else{
+		sig2=c(sig2,FALSE)
+	}
 	x1s=c(x1s,x1)
 	x2s=c(x2s,x2)
 	y1s=c(y1s,y1)
@@ -84,6 +90,24 @@ truediff$x1=x1s
 truediff$y1=y1s
 truediff$x2=x2s
 truediff$y2=y2s
+truediff$sig2=sig2
+
+# tkw_15-GRANEROS_2015_OPT-qTKW7_2
+# local Zm00001d020593 T12 r=0.72
+# distal Zm00001d052810 T12 r=0.9632258
+
+# harvest_grain_moisture-GRANEROS_2015_OPT-qHGM7
+#distal Zm00001d047181 T12  r=0.940932
+#local Zm00001d020687 T27 r=-0.777
+
+# tkw_15-EXP_STPAUL_2017_WD-qTKW2
+#local Zm00001d002677 r=-0.958
+#distal Zm00001d034373 r= 0.962
+
+
+# total_plant_height-ALL-qTPH1
+# local Zm00001d027904 T12 r=0.8936805
+# distal Zm00001d049254 T12 r = -0.8916778
 
 fwrite(truediff,'paper_figures/data/eQTL_z_diff_plot.txt',row.names=F,quote=F,sep='\t')
 

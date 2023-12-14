@@ -136,6 +136,13 @@ env2=as.data.table(env2)
 setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
 we_comp=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
+env1=qtl_all
+env1=as.data.table(env1)
+env2=factoreqtl
+#names(env2)=c('Trait.factor','CHR','SNP.factor','class.factor','time.factor','block_start','block_end')
+env2=as.data.table(env2)
+setkey(env2,CHR,left_bound_bp,alt_right_bound_bp)
+we_comp2=foverlaps(env1,env2,by.x=c('CHR','left_bound_bp','alt_right_bound_bp'),by.y=c('CHR','left_bound_bp','alt_right_bound_bp'),nomatch=NULL)
 
 # Are the founder effect sizes correlated? I can only do this for whole gene counts
 id="qDTA3_2"

@@ -196,9 +196,21 @@ for(time1 in times){
 all_cv=as.data.frame(all_cv,stringsAsFactors=F)
 fwrite(all_cv,sprintf('QTT/%s_%s_z_score_cross_validation_results_all.txt',pheno,env),row.names=F,quote=F,sep='\t')
 
+phenos=c("tkw_15","grain_yield_15")
+envs=c("ALL","EXP_STPAUL_2017_WD")
+
+for(env in envs){
+	for(pheno in phenos){
+		print(pheno)
+		print(env)
+		all_cv=fread(sprintf('QTT/%s_%s_z_score_cross_validation_results2.txt',pheno,env),data.table=F)
+		summary=all_cv %>% group_by(time) %>% reframe(mean_test_R2=mean(test_R2_1,na.rm=T),sd_test_R2=sd(test_R2_1,na.rm=T),mean_train_R2=mean(train_R2_1,na.rm=T),sd_train_R2=sd(train_R2_1,na.rm=T),mean_test_cor=mean(test_cor_1,na.rm=T))
+		print(summary)
+	}
+}
 
 all_cv=fread(sprintf('QTT/%s_%s_z_score_cross_validation_results_all.txt',pheno,env),data.table=F)
-summary=all_cv %>% group_by(time) %>% reframe(mean_test_R2=mean(test_R2_1,na.rm=T),mean_train_R2=mean(train_R2_1,na.rm=T),mean_test_cor=mean(test_cor_1,na.rm=T))
+summary=all_cv %>% group_by(time) %>% reframe(mean_test_R2=mean(test_R2_1,na.rm=T),sd_test_R2=sd(test_R2_1,na.rm=T),mean_train_R2=mean(train_R2_1,na.rm=T),sd_train_R2=sd(train_R2_1,na.rm=T),mean_test_cor=mean(test_cor_1,na.rm=T))
 print(summary)
 
 # tkw_15 ALL
